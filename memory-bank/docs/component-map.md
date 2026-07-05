@@ -1,0 +1,83 @@
+# Карта компонентов проекта
+
+> **Назначение.** Маршрутизатор «файл → назначение по доменам». Главная экономия токенов: агент идёт сюда **до** любого `Glob`/`Grep`/`Read` по коду и часто находит нужный файл сразу.
+
+> **Дополняется в `/reflect`.** После каждой задачи, где появились новые ключевые файлы — точечно дописывай нужный раздел. Не переписывай карту целиком.
+
+> **Формат записи.** Таблица «Файл → Назначение, 5-12 слов на запись». Не сочинения, а сухие маршруты.
+
+---
+
+<!-- TODO: заполни вручную или запусти /mb-bootstrap. Шаблон ниже — пример, удали или замени. -->
+
+## Пример: компоненты UI (`src/components/`)
+
+| Файл | Назначение |
+|------|-----------|
+| `Button.jsx` | Базовая кнопка с вариантами primary/secondary/ghost |
+| `Modal.jsx` | Модальное окно с backdrop, ESC-close, focus trap |
+
+## Пример: страницы (`src/pages/` или `src/app/`)
+
+| Файл | Назначение |
+|------|-----------|
+| `HomePage.jsx` | Лендинг с hero-секцией и CTA |
+
+---
+
+## ScopeLock packages
+
+| Файл | Назначение |
+|------|-----------|
+| `packages/core/src/schemas/contract.ts` | Approved contract: baseline, scope, nodes (type enum), risks, tests |
+| `packages/core/src/schemas/drift.ts` | Drift report, changed file, violation types |
+| `packages/core/src/schemas/repo-manifest.ts` | Repo manifest схема, projectType enum |
+| `packages/core/src/schemas/config.ts` | `.scopelock/config.json` схема, mode warn/strict |
+| `packages/core/src/storage/paths.ts` | Layout `.scopelock/` (единственный источник путей) |
+| `packages/core/src/storage/atomic.ts` | writeJsonAtomic (temp + rename) |
+| `packages/core/src/storage/contracts.ts` | save/load contract, active-pointer |
+| `packages/core/src/git/exec.ts` | runGit sync-обёртка |
+| `packages/core/src/git/repo.ts` | findRepoRoot, headSha, currentBranch, gitVersion |
+| `packages/core/src/git/status.ts` | Parser git status porcelain v2 -z |
+| `packages/core/src/git/diff.ts` | Committed changes since approved baseline |
+| `packages/core/src/drift/collect.ts` | Merge worktree and baseline changes |
+| `packages/core/src/drift/engine.ts` | Build drift report and violations |
+| `packages/core/src/rules/path-rules.ts` | Planned/forbidden/outside path classification |
+| `packages/core/src/rules/risk-rules.ts` | High-risk file pattern violations |
+| `packages/core/src/rules/test-heuristics.ts` | Required-test drift heuristic |
+| `packages/core/src/harness/registry.ts` | Agent adapters, docFile, hook support |
+| `packages/core/src/harness/claude-hooks.ts` | Claude Code ScopeLock hook entry |
+| `packages/core/src/harness/cursor-hooks.ts` | Cursor ScopeLock audit hook entry |
+| `packages/core/src/harness/hooks-merge.ts` | Idempotent install/uninstall hook configs |
+| `packages/core/src/hook/gate.ts` | Fast hook gate/audit decision engine |
+| `packages/core/src/render/prompt.ts` | Render contract into agent instructions |
+| `packages/core/src/render/agents-md.ts` | Inject marked ScopeLock doc section |
+| `packages/core/src/index.ts` | Public exports core package |
+| `packages/core/src/schema.test.ts` | Schema + storage тесты (node:test) |
+| `packages/core/src/drift.test.ts` | Drift parser/rules/integration tests |
+| `packages/core/src/prompt.test.ts` | Harness prompt and injection tests |
+| `packages/core/src/hook.test.ts` | Hook gate and config merge tests |
+| `packages/cli/src/index.ts` | Commander wiring, --json на подкомандах |
+| `packages/cli/src/run.ts` | CommandResult, CliError, exit-code контракт 0/1/2 |
+| `packages/cli/src/commands/init.ts` | init: mkdir, config, .scopelock/.gitignore, идемпотентен |
+| `packages/cli/src/commands/doctor.ts` | Проверки severity/detail/fix |
+| `packages/cli/src/commands/approve.ts` | Approve contract, stamp git baseline, activate |
+| `packages/cli/src/commands/check-drift.ts` | Collect drift, write report, return violations |
+| `packages/cli/src/commands/export-prompt.ts` | Print active contract as agent prompt |
+| `packages/cli/src/commands/inject-contract.ts` | Inject contract into AGENTS/CLAUDE doc |
+| `packages/cli/src/commands/hook.ts` | Quiet hook gate/audit CLI entrypoints |
+| `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
+| `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
+
+---
+
+## Когда дополнять карту
+
+- В задаче появился **новый ключевой файл** (компонент, хук, утилита, страница).
+- Существующий файл получил **существенное изменение поведения**, которое влияет на будущие задачи.
+- НЕ дополняй: для каждой строки кода, для тривиальных изменений, для one-shot правок.
+
+## Когда заводить новый раздел
+
+- Появился **новый домен** (новая папка в `src/`, новая область проекта).
+- Раздел не должен быть размером с роман — если разрастается, дроби на под-разделы.
