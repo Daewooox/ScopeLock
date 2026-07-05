@@ -36,3 +36,13 @@ export function scopelockPaths(repoRoot: string): ScopelockPaths {
 export const SCOPELOCK_GITIGNORE = `reports/
 active
 `;
+
+/**
+ * Build a filesystem-safe drift report filename from an ISO timestamp.
+ * ISO strings contain ":" which is illegal on Windows/NTFS, so it is
+ * replaced. The timestamp inside the report keeps its canonical ISO form.
+ */
+export function driftReportFileName(checkedAtIso: string): string {
+  const safe = checkedAtIso.replace(/[:]/g, "-");
+  return `drift-${safe}.json`;
+}

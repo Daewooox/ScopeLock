@@ -1,6 +1,7 @@
 import {
   buildDriftReport,
   collectChangedFiles,
+  driftReportFileName,
   findRepoRoot,
   getActiveContractId,
   loadContract,
@@ -85,7 +86,7 @@ export async function checkDriftCommand(options: {
     projectTypes: config.projectTypes,
     checkedAt,
   });
-  const reportPath = join(paths.reportsDir, `drift-${checkedAt}.json`);
+  const reportPath = join(paths.reportsDir, driftReportFileName(checkedAt));
   await writeJsonAtomic(reportPath, report);
 
   return {
