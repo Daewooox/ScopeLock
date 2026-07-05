@@ -466,3 +466,59 @@ LICENSE (Apache 2.0 - симметрично Traycer), CHANGELOG.
 Правильный workflow: создать новый контракт (например `phase3-review-fixes`) с planned
 scope на эти файлы + required tests (unit на Windows-имя отчёта, на nested risk-паттерны),
 approve, затем внести правки. Не отключать strict глобально ради обхода.
+
+**Статус:** сделано. Контракт `phase3-review-fixes` (approve от e028fd6), фиксы R1-R5
+внесены, +3 unit-теста, check-drift = 0 violations, коммит `1bd2512`.
+
+---
+
+## Phase 3.5 - Distribution unblocker (2026-07-05)
+
+Причина: перед live-инвокацией в реальных Claude Code / Cursor UI и перед npm publish
+всплыли три блокера. Сделано под контрактом `phase3.5-distribution` (approve от `1bd2512`).
+
+### D1 - hooks install --local (главный разблокиратор live-теста)
+Установленный хук звал `scopelock hook gate`, требуя бинарь в PATH, которого до publish нет.
+- `claudeScopeLockEntry(commandPrefix)` / `cursorScopeLockEntry(commandPrefix)` теперь
+  принимают префикс; дефолт `scopelock` (для commit в общий репозиторий).
+- `hooks install --local` прошивает абсолютную команду `${process.execPath} "<abs>/index.js"`
+  (путь в кавычках - в пути репо есть пробелы). В реале это `node "<abs>/index.js" hook gate`.
+- `isOwnEntry` теперь детектит по подстроке `hook gate`/`hook audit` (а не `scopelock hook`),
+  иначе `--local` entries не распознавались бы при uninstall.
+- Проверено live: install --local -> запуск сгенерированной команды на forbidden path -> exit 2,
+  deny-сообщение, БЕЗ глобального scopelock. Uninstall корректно чистит custom entries.
+
+### D2 - npm-ready CLI
+`packages/cli/package.json`: добавлены `description`, `license`, `files:["dist"]`.
+`bin.scopelock` уже был. После publish: `npm i -g @scopelock/cli` даёт дефолтный путь без --local.
+
+### D3 - контракты снова коммитятся (reproducible baseline)
+Root `.gitignore` игнорировал весь `.scopelock/`, из-за чего approved-контракты и config
+не версионировались - это ломает принцип "contract as shared artifact" и общий baseline.
+Исправлено: игнорируем только `.scopelock/reports/` и `.scopelock/active` (как и задумано
+в `.scopelock/.gitignore` от init). Контракты и config теперь под git.
+
+### Тесты
++1 unit (custom --local prefix: генерация, детект, идемпотентность, uninstall). Итого 31/31 pass.
+
+---
+
+## Что дальше (актуальный roadmap, checkpoint-gate ещё НЕ пройден)
+
+Порядок строгий - Phase 4 не начинать, пока не закрыт checkpoint.
+
+1. **Live invocation (пользователь, в реальных UI):**
+   - Claude Code: `scopelock hooks install --target claude --mode strict --local`, затем
+     проверить, что `PreToolUse` реально блокирует Edit/Write на forbidden path. Главный риск -
+     формат stdin-payload от Claude vs `hookInputSchema` (проверить `tool_input.file_path`).
+   - Cursor: `scopelock hooks install --target cursor --mode warn --local`, проверить, что
+     `afterFileEdit` пишет `.scopelock/reports/audit.ndjson`.
+2. **Спрос (пользователь):** 5 быстрых интервью по Stage 0 script (обязательный вопрос
+   "почему не Spec Kit / Traycer"), затем добить до 10-15 и принять go/no-go.
+3. **После go:** Phase 4+ по основному плану выше (LLM-планировщик опционален, web UI нет в v1).
+
+### Открытые вопросы (перенесены, для v1 приемлемы)
+- Global `mode` в config, не per-harness. Приемлемо (audit форсит warn, deny-harness один);
+  per-harness mode - кандидат в Phase 4.
+- Абсолютный путь в `--local` конфиге машинно-зависим - поэтому это opt-in, а в общий репо
+  коммитится дефолтный `scopelock`.

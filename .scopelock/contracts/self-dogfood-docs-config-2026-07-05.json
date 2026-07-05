@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "self-dogfood-docs-config-2026-07-05",
+  "task": "Dogfood ScopeLock docs and hook configuration changes on the ScopeLock repository",
+  "createdAt": "2026-07-05T00:00:00.000Z",
+  "baseline": {
+    "headSha": "47d2a8802b10903fe767fb3319d4adf79d24f337",
+    "branch": "main",
+    "capturedAt": "2026-07-05T20:40:47.854Z"
+  },
+  "targetAgents": [
+    "codex",
+    "claude",
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "AGENTS.md",
+      ".claude/settings.json",
+      ".cursor/hooks.json",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/plans/checkpoint-dogfood-validation.md",
+      "memory-bank/plans/scopelock-implementation-plan.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/schemas/**",
+      "packages/core/src/hook/**",
+      "packages/cli/src/commands/hook.ts",
+      "packages/cli/src/commands/hooks.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [
+    "This checkpoint should only touch docs, Memory Bank, and hook configuration files.",
+    "Runtime hook logic is already implemented and should not change during dogfood."
+  ],
+  "openQuestions": [
+    "Mode is currently global in .scopelock/config.json, not per-target.",
+    "Installed hook command uses scopelock from PATH; before npm distribution local users may need a wrapper or link."
+  ]
+}

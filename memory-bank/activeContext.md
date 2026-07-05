@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0012 — Solution Architect ревью Phase 0-3 завершено, findings R1-R5 применены. Workflow контракта дожат: заведён `phase3-review-fixes` (planned scope на 5 файлов+tests+memory-bank, forbidden schemas/core-hook), approve от HEAD, затем внесены правки. Итог: 30/30 тестов pass, typecheck чист, check-drift = 0 violations, drift-отчёт с Windows-safe именем. Активный контракт сейчас `phase3-review-fixes` (не self-dogfood-docs-config). Ранее: Задача #0011 — CHECKPOINT dogfood + Stage 0 validation (live UI invocation и внешняя validation pending).
+Задача #0013 — Phase 3.5 distribution unblocker. Под контрактом `phase3.5-distribution` (approve от 1bd2512): D1 `hooks install --local` (абсолютная команда, live-проверка exit 2 без глобального scopelock), D2 npm-ready package.json, D3 фикс root .gitignore (контракты снова коммитятся). 31/31 тестов, check-drift = 0. Коммит ревью-фиксов R1-R5: 1bd2512. Осталось перед Phase 4 (checkpoint-gate): live invocation в реальных Claude Code/Cursor UI + 5-15 интервью + go/no-go (это на пользователе). Ранее: #0012 ревью Phase 0-3, #0011 CHECKPOINT dogfood.
 
 ## Последние изменения
 - Memory Bank инициализирован

@@ -214,6 +214,28 @@ forbidden на schemas/** и core/hook/**), approve от HEAD, затем при
 check-drift под новым контрактом = 0 violations, отчёт `drift-...T20-55-27.373Z.json` без `:`.
 <!-- TASK #0012 END -->
 
+<!-- TASK #0013 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-05T21:15Z
+     Status: build
+-->
+## Задача #0013 — Phase 3.5 distribution unblocker
+
+- **Описание:** Разблокировать live-инвокацию хуков и подготовить CLI к npm, соблюдая контрактную дисциплину.
+- **Уровень сложности:** Level 2
+- **Статус:** Сделано под контрактом `phase3.5-distribution` (approve от 1bd2512). 31/31 тестов pass, check-drift = 0 violations.
+
+### Сделано
+- D1: `hooks install --local` прошивает абсолютную команду `${execPath} "<abs>/index.js"` (кавычки - пробелы в пути). commandPrefix проброшен через claude/cursor entry + merge + installHooks. `isOwnEntry` теперь по `hook gate`/`hook audit` (чтобы --local entries распознавались при uninstall). Проверено live: exit 2 на forbidden без глобального scopelock.
+- D2: `packages/cli/package.json` - description/license/files для npm.
+- D3: root `.gitignore` больше не глотает весь `.scopelock/` - контракты и config снова версионируются (reproducible baseline); игнорируются только reports/ и active.
+- +1 unit-тест на custom --local prefix.
+
+### Дальше (checkpoint-gate, до Phase 4)
+- Live invocation в реальных Claude Code / Cursor UI (пользователь).
+- 5 -> 10-15 интервью Stage 0, go/no-go.
+<!-- TASK #0013 END -->
+
 <!-- TASK #0008 BEGIN
      Owner: codex
      Started: 2026-07-05T19:50Z

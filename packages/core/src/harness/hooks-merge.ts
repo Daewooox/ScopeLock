@@ -13,7 +13,11 @@ export class HooksFileInvalidError extends Error {
 }
 
 function isOwnEntry(value: unknown): boolean {
-  return JSON.stringify(value).includes("scopelock hook");
+  // Detect entries by the ScopeLock subcommand rather than the "scopelock"
+  // binary name, so `--local` absolute-path invocations
+  // (`node "<abs>/index.js" hook gate`) are still recognised on uninstall.
+  const serialized = JSON.stringify(value);
+  return serialized.includes("hook gate") || serialized.includes("hook audit");
 }
 
 function parseExisting(raw: string | null): Record<string, unknown> {
@@ -43,7 +47,10 @@ function withoutOwnEntries(entries: unknown): unknown[] {
   return Array.isArray(entries) ? entries.filter((entry) => !isOwnEntry(entry)) : [];
 }
 
-export function mergeClaudeHooks(existing: Record<string, unknown>): Record<string, unknown> {
+export function mergeClaudeHooks(
+  existing: Record<string, unknown>,
+  commandPrefix?: string,
+): Record<string, unknown> {
   const hooks =
     typeof existing.hooks === "object" && existing.hooks !== null && !Array.isArray(existing.hooks)
       ? { ...(existing.hooks as Record<string, unknown>) }
@@ -53,7 +60,7 @@ export function mergeClaudeHooks(existing: Record<string, unknown>): Record<stri
     ...existing,
     hooks: {
       ...hooks,
-      PreToolUse: [...preToolUse, claudeScopeLockEntry()],
+      PreToolUse: [...preToolUse, claudeScopeLockEntry(commandPrefix)],
     },
   };
 }
@@ -72,11 +79,14 @@ export function removeClaudeHooks(existing: Record<string, unknown>): Record<str
   };
 }
 
-export function mergeCursorHooks(existing: Record<string, unknown>): Record<string, unknown> {
+export function mergeCursorHooks(
+  existing: Record<string, unknown>,
+  commandPrefix?: string,
+): Record<string, unknown> {
   const afterFileEdit = withoutOwnEntries(existing.afterFileEdit);
   return {
     ...existing,
-    afterFileEdit: [...afterFileEdit, cursorScopeLockEntry()],
+    afterFileEdit: [...afterFileEdit, cursorScopeLockEntry(commandPrefix)],
   };
 }
 
@@ -93,11 +103,17 @@ export function hooksConfigPath(root: string, target: AgentId): string {
   throw new HooksFileInvalidError("hooks are only supported for claude and cursor");
 }
 
-export async function installHooks(root: string, target: AgentId): Promise<string> {
+export async function installHooks(
+  root: string,
+  target: AgentId,
+  commandPrefix?: string,
+): Promise<string> {
   const path = hooksConfigPath(root, target);
   const existing = await readJsonObject(path);
   const next =
-    target === "claude" ? mergeClaudeHooks(existing) : mergeCursorHooks(existing);
+    target === "claude"
+      ? mergeClaudeHooks(existing, commandPrefix)
+      : mergeCursorHooks(existing, commandPrefix);
   await mkdir(dirname(path), { recursive: true });
   await writeJsonAtomic(path, next);
   return path;

@@ -138,6 +138,34 @@ describe("hook config merge", () => {
     assert.deepEqual(removed.afterFileEdit, [foreign]);
   });
 
+  it("recognises custom --local command prefixes on reinstall and uninstall", () => {
+    const prefix = 'node "/Users/x/My Repo/packages/cli/dist/index.js"';
+    const foreign = { matcher: "Write", hooks: [{ type: "command", command: "echo ok" }] };
+
+    const installed = mergeClaudeHooks({ hooks: { PreToolUse: [foreign] } }, prefix);
+    const entry = (installed.hooks as { PreToolUse: { hooks: { command: string }[] }[] })
+      .PreToolUse.at(-1);
+    assert.equal(entry?.hooks[0]?.command, `${prefix} hook gate`);
+    assert.equal(hasScopeLockHooks(installed, "claude"), true);
+
+    const reinstalled = mergeClaudeHooks(installed, prefix);
+    assert.deepEqual(installed, reinstalled);
+
+    const removed = removeClaudeHooks(reinstalled);
+    assert.deepEqual((removed.hooks as { PreToolUse: unknown[] }).PreToolUse, [foreign]);
+
+    const cursorInstalled = mergeCursorHooks({ afterFileEdit: [] }, prefix);
+    assert.equal(
+      (cursorInstalled.afterFileEdit as { command: string }[])[0]?.command,
+      `${prefix} hook audit`,
+    );
+    assert.equal(hasScopeLockHooks(cursorInstalled, "cursor"), true);
+    assert.deepEqual(
+      (removeCursorHooks(cursorInstalled).afterFileEdit as unknown[]),
+      [],
+    );
+  });
+
   it("writes hook config files through installHooks", async () => {
     const root = await mkdtemp(join(tmpdir(), "scopelock-hooks-install-"));
     try {

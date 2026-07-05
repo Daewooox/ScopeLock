@@ -92,10 +92,16 @@ hooks
   .command("install")
   .requiredOption("--target <id>", "hook target: claude or cursor")
   .option("--mode <mode>", "warn or strict", "warn")
+  .option(
+    "--local",
+    "write an absolute node invocation instead of the scopelock PATH binary",
+  )
   .option("--json", "print machine-readable JSON")
   .action(
-    (options: { target: string; mode: "warn" | "strict" }, command: Command) =>
-      run(() => hooksInstallCommand(options), jsonOf(command)),
+    (
+      options: { target: string; mode: "warn" | "strict"; local?: boolean },
+      command: Command,
+    ) => run(() => hooksInstallCommand(options), jsonOf(command)),
   );
 
 hooks

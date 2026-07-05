@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "self-dogfood-checkpoint-2026-07-05",
+  "task": "Dogfood ScopeLock checkpoint on the ScopeLock repository itself",
+  "createdAt": "2026-07-05T00:00:00.000Z",
+  "baseline": {
+    "headSha": "47d2a8802b10903fe767fb3319d4adf79d24f337",
+    "branch": "main",
+    "capturedAt": "2026-07-05T20:39:43.314Z"
+  },
+  "targetAgents": [
+    "codex",
+    "claude",
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "AGENTS.md",
+      ".claude/settings.json",
+      ".cursor/hooks.json",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/plans/checkpoint-dogfood-validation.md",
+      "memory-bank/plans/scopelock-implementation-plan.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/schemas/**",
+      "packages/core/src/hook/**",
+      "packages/cli/src/commands/hook.ts",
+      "packages/cli/src/commands/hooks.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "typecheck",
+      "command": "tsc -p packages/core/tsconfig.json && tsc -p packages/cli/tsconfig.json",
+      "required": true
+    },
+    {
+      "type": "unit",
+      "command": "node --test packages/core/dist/*.test.js",
+      "required": true
+    }
+  ],
+  "assumptions": [
+    "This checkpoint should only touch docs, Memory Bank, and hook configuration files.",
+    "Runtime hook logic is already implemented and should not change during dogfood."
+  ],
+  "openQuestions": [
+    "Does the installed hook command need a local wrapper before npm distribution?",
+    "Will Claude Code and Cursor invoke the same hook payload shape as our CLI smoke tests?"
+  ]
+}
