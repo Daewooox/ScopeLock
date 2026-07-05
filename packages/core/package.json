@@ -1,0 +1,28 @@
+{
+  "name": "@scopelock/core",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm run build && node --test dist/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.5",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/picomatch": "^4.0.3"
+  }
+}
