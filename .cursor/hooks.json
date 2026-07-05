@@ -1,0 +1,7 @@
+{
+  "afterFileEdit": [
+    {
+      "command": "scopelock hook audit"
+    }
+  ]
+}

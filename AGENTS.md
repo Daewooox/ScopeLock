@@ -44,3 +44,43 @@ If the user reports a **recurrence of an already-fixed bug** — it's a **round 
 ## Codex CLI users
 
 Use the adapter prompts in `memory-bank/docs/codex-*.md` — they are concise versions of the slash commands.
+
+<!-- SCOPELOCK CONTRACT BEGIN -->
+# ScopeLock Contract: self-dogfood-docs-config-2026-07-05
+
+Target: Codex CLI
+
+## Task
+Dogfood ScopeLock docs and hook configuration changes on the ScopeLock repository
+
+## Approved Scope
+- AGENTS.md
+- .claude/settings.json
+- .cursor/hooks.json
+- memory-bank/activeContext.md
+- memory-bank/tasks.md
+- memory-bank/plans/checkpoint-dogfood-validation.md
+- memory-bank/plans/scopelock-implementation-plan.md
+
+## Forbidden
+- packages/core/src/schemas/**
+- packages/core/src/hook/**
+- packages/cli/src/commands/hook.ts
+- packages/cli/src/commands/hooks.ts
+
+Do NOT modify these paths. If the task requires it, stop and ask before editing.
+
+## Required Tests
+- No explicit test requirement.
+
+## Assumptions
+- This checkpoint should only touch docs, Memory Bank, and hook configuration files.
+- Runtime hook logic is already implemented and should not change during dogfood.
+
+## Open Questions
+- Mode is currently global in .scopelock/config.json, not per-target.
+- Installed hook command uses scopelock from PATH; before npm distribution local users may need a wrapper or link.
+
+## Final Instruction
+Stay inside the approved scope, run the required tests when relevant, and stop to ask when the change appears to require forbidden or unapproved files.
+<!-- SCOPELOCK CONTRACT END -->

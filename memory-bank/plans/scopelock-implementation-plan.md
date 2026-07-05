@@ -398,7 +398,7 @@ LICENSE (Apache 2.0 - симметрично Traycer), CHANGELOG.
 | 1 Drift engine | DONE 2026-07-05 | 3-5 д |
 | 2 Harness + prompt export | DONE 2026-07-05 | 2-3 д |
 | 3 Enforcement hooks | IMPLEMENTED 2026-07-05; live dogfood pending | 2-4 д |
-| CHECKPOINT dogfood/validation | IN PROGRESS 2026-07-05; local dogfood passed, live/user validation pending | 3-5 д |
+| CHECKPOINT dogfood/validation | IN PROGRESS 2026-07-05; local + self-dogfood passed, live UI/user validation pending | 3-5 д |
 | 4 Manifest + LLM planner | | 3-5 д |
 | 5 MCP server | | 2-3 д |
 | 6 Mermaid + templates | | 2-4 д |

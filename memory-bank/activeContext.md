@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0011 — CHECKPOINT dogfood + Stage 0 validation начата. Local dogfood в temp git repo пройден; live dogfood в настоящих Claude Code/Cursor и внешняя validation pending.
+Задача #0011 — CHECKPOINT dogfood + Stage 0 validation начата. Local dogfood и self-dogfood на ScopeLock repo пройдены; live hook invocation в настоящих Claude Code/Cursor UI и внешняя validation pending.
 
 ## Последние изменения
 - Memory Bank инициализирован
@@ -17,10 +17,10 @@
 - Задача #0008: реализован Phase 1 drift engine. Core получил parser porcelain v2, diff from baseline, collectChangedFiles, path/risk/test rules и buildDriftReport. CLI получил `approve`, настоящий `check-drift`, doctor проверяет active baseline.
 - Задача #0009: реализован Phase 2. Core получил compile-time complete harness registry, prompt renderer и идемпотентный injector для marked doc section. CLI получил `export-prompt` и `inject-contract`.
 - Задача #0010: реализован Phase 3. Core получил quiet/noop-safe hook gate, audit append, Claude/Cursor hook entries и idempotent hook config merge. CLI получил `hook gate`, `hook audit`, `hooks install/uninstall`; doctor проверяет hook entries.
-- Задача #0011: checkpoint начат. Создан `plans/checkpoint-dogfood-validation.md`; local end-to-end workflow прошёл в temp git repo (strict gate exit 2, warn audit, drift exit 1).
+- Задача #0011: checkpoint начат. Создан `plans/checkpoint-dogfood-validation.md`; local end-to-end workflow прошёл в temp git repo (strict gate exit 2, warn audit, drift exit 1). Self-dogfood на ScopeLock repo прошёл от baseline `47d2a8802b10903fe767fb3319d4adf79d24f337`: doctor ok, strict gate blocks forbidden, audit writes ndjson, planned check-drift clean.
 
 ## Следующие шаги
-- CHECKPOINT: live-тесты в настоящих Claude Code/Cursor: strict block, warn audit, Cursor afterFileEdit audit.
+- CHECKPOINT: live hook invocation в настоящих Claude Code/Cursor UI: strict block, warn audit, Cursor afterFileEdit audit.
 - Провести 5 быстрых интервью по Stage 0 script, затем добить до 10-15 и принять go/no-go перед Phase 4.
 - Реализовать настоящий repo manifest builder через git.
 - Решить открытые вопросы round 2 (Codex CLI enforcement, Spec Kit interop, warn-only vs strict default).

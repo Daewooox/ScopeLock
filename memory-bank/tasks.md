@@ -275,7 +275,7 @@
 
 - **Описание:** Начать checkpoint после Phase 3: проверить полный local-first workflow без LLM, зафиксировать go/no-go критерии перед Phase 4-6 и подготовить validation script против Spec Kit / Traycer.
 - **Уровень сложности:** Level 3
-- **Статус:** BUILD частично завершён: local dogfood пройден; live dogfood в настоящих Claude Code/Cursor и внешние интервью pending.
+- **Статус:** BUILD частично завершён: local dogfood и self-dogfood на ScopeLock repo пройдены; live UI dogfood в настоящих Claude Code/Cursor и внешние интервью pending.
 
 ### Изменённые файлы
 - `memory-bank/plans/checkpoint-dogfood-validation.md`
@@ -288,4 +288,5 @@
 - Strict hook gate на forbidden path вернул exit `2`.
 - Warn hook gate написал `audit.ndjson`.
 - Manual drift + `check-drift --json` вернул exit `1`.
+- Self-dogfood ScopeLock repo: `doctor --json` ok, strict forbidden gate exit `2`, planned gate quiet exit `0`, audit wrote ndjson, `check-drift --json` exit `0` with 0 violations for planned `AGENTS.md` + hook config changes.
 <!-- TASK #0011 END -->

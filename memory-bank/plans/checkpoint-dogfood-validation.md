@@ -1,7 +1,7 @@
 # ScopeLock CHECKPOINT: dogfood + Stage 0 validation
 
-> Дата старта: 2026-07-05. Статус: local dogfood пройден; live dogfood и внешняя
-> validation pending. Этот checkpoint обязателен перед Phase 4-6.
+> Дата старта: 2026-07-05. Статус: local dogfood и self-dogfood на ScopeLock repo
+> пройдены; внешняя validation pending. Этот checkpoint обязателен перед Phase 4-6.
 
 ## Цель checkpoint
 
@@ -40,9 +40,53 @@
 - drift check: exit `1`, violations found;
 - CLI stdout для hook gate остаётся тихим.
 
+## Self-dogfood on ScopeLock repo
+
+После первого baseline commit (`47d2a8802b10903fe767fb3319d4adf79d24f337`) checkpoint
+пройден на самом ScopeLock repo.
+
+Сценарий:
+
+1. manual contract `self-dogfood-docs-config-2026-07-05`;
+2. planned scope: `AGENTS.md`, `.claude/settings.json`, `.cursor/hooks.json`,
+   checkpoint docs in `memory-bank/`;
+3. forbidden scope: runtime hook/core schemas files;
+4. `approve` от реального `HEAD`;
+5. `export-prompt --target codex`;
+6. `inject-contract --target codex`;
+7. `hooks install --target claude --mode strict`;
+8. `hooks install --target cursor --mode warn`;
+9. `doctor --json`;
+10. `hook gate` на forbidden path;
+11. `hook audit` на outside path;
+12. `check-drift --json`.
+
+Результат:
+
+- `approve` stamped baseline `47d2a8802b10903fe767fb3319d4adf79d24f337`;
+- `doctor` видит active contract, active baseline, Claude hooks и Cursor hooks;
+- strict `hook gate` на `packages/core/src/schemas/contract.ts`: exit `2`,
+  stdout `0 bytes`, stderr `ScopeLock: forbidden path changed...`;
+- planned path через `hook gate`: exit `0`, stdout/stderr пустые;
+- `hook audit` пишет `reports/audit.ndjson` и не блокирует;
+- `check-drift --json`: exit `0`, violations `0`, changed files только
+  `AGENTS.md`, `.claude/settings.json`, `.cursor/hooks.json`.
+
+Dogfood findings:
+
+- `mode` сейчас глобальный в `.scopelock/config.json`, а не per-target. Поэтому
+  `hooks install --target cursor --mode warn` меняет поведение Claude gate тоже.
+  Для v1 это приемлемо как простой global mode, но UX надо явно документировать
+  или позже разделить mode per harness.
+- Контракт с required tests для docs/config-only checkpoint дал `missing_tests`.
+  Это корректное поведение engine, но contract authoring должен подсказывать:
+  docs/config-only изменениям не нужны required tests.
+- Installed hook command использует `scopelock` из PATH. До npm distribution
+  dogfood требует `pnpm link`/local wrapper или ручной CLI invocation.
+
 ## Live dogfood checklist
 
-Нужно пройти на реальном рабочем репозитории после первого commit/baseline:
+Нужно дополнительно пройти в настоящих agent UI:
 
 - Claude Code strict: forbidden edit блокируется через PreToolUse;
 - Claude Code warn: outside edit не блокируется, но пишет `reports/audit.ndjson`;
@@ -86,6 +130,6 @@ No-go / revise:
 
 Phase 4-6 пока не начинать как "автоматический next". Сначала:
 
-1. провести live dogfood на реальном ScopeLock repo после baseline commit;
+1. проверить live hook invocation в настоящих Claude Code и Cursor UI;
 2. собрать минимум 5 быстрых интервью, затем добить до 10-15;
 3. обновить этот документ выводами и принять go/no-go.
