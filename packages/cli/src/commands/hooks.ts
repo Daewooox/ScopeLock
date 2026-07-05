@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import {
   agentIdSchema,
   enforcementModeSchema,
@@ -12,6 +13,16 @@ import {
   type EnforcementMode,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+
+/**
+ * Absolute `node "<abs>/index.js"` invocation of this very CLI. Used by
+ * `--local` so hooks run before the `scopelock` binary is on PATH. The path
+ * is quoted because the repo path may contain spaces.
+ */
+function localCommandPrefix(): string {
+  const cliEntry = fileURLToPath(new URL("../index.js", import.meta.url));
+  return `${process.execPath} "${cliEntry}"`;
+}
 
 function parseHookTarget(target: string) {
   const parsed = agentIdSchema.parse(target);
@@ -45,6 +56,7 @@ async function updateMode(root: string, mode: EnforcementMode): Promise<void> {
 export async function hooksInstallCommand(options: {
   target: string;
   mode: EnforcementMode;
+  local?: boolean;
 }): Promise<CommandResult> {
   const root = findRepoRoot(process.cwd());
   if (root === null) {
@@ -53,12 +65,15 @@ export async function hooksInstallCommand(options: {
 
   const target = parseHookTarget(options.target);
   const mode = enforcementModeSchema.parse(options.mode);
-  const path = await installHooks(root, target);
+  const commandPrefix = options.local === true ? localCommandPrefix() : undefined;
+  const path = await installHooks(root, target, commandPrefix);
   await updateMode(root, mode);
 
   return {
-    data: { target, mode, path },
-    human: `installed ${target} hooks in ${hooksConfigPath(root, target)} (${mode})`,
+    data: { target, mode, path, local: options.local === true },
+    human: `installed ${target} hooks in ${hooksConfigPath(root, target)} (${mode}${
+      options.local === true ? ", local" : ""
+    })`,
     exitCode: 0,
   };
 }

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "phase3.5-distribution",
+  "task": "Phase 3.5 distribution unblocker: make hooks invocable without a global PATH binary (hooks install --local), ready the CLI package for npm, and stop gitignoring committed ScopeLock contracts",
+  "createdAt": "2026-07-05T21:20:00.000Z",
+  "baseline": {
+    "headSha": "1bd2512f062df246854536ab06bb3d05068d1c34",
+    "branch": "main",
+    "capturedAt": "2026-07-05T21:14:25.385Z"
+  },
+  "targetAgents": [
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/harness/claude-hooks.ts",
+      "packages/core/src/harness/cursor-hooks.ts",
+      "packages/core/src/harness/hooks-merge.ts",
+      "packages/cli/src/commands/hooks.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/package.json",
+      "packages/core/src/hook.test.ts",
+      ".gitignore",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/schemas/**",
+      "packages/core/src/hook/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": "node --test packages/core/dist/*.test.js",
+      "required": true
+    }
+  ],
+  "assumptions": [
+    "Hook config generation stays in core/harness; core hook gate runtime stays untouched.",
+    "Repo path may contain spaces, so any absolute node invocation must be quoted."
+  ],
+  "openQuestions": []
+}

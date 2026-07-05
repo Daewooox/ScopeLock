@@ -1,5 +1,9 @@
-export function cursorScopeLockEntry() {
+import { DEFAULT_HOOK_COMMAND_PREFIX } from "./claude-hooks.js";
+
+export function cursorScopeLockEntry(
+  commandPrefix: string = DEFAULT_HOOK_COMMAND_PREFIX,
+) {
   return {
-    command: "scopelock hook audit",
+    command: `${commandPrefix} hook audit`,
   };
 }
