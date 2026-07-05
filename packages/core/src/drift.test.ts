@@ -9,10 +9,26 @@ import {
   changedSinceBaseline,
   classifyPath,
   collectChangedFiles,
+  driftReportFileName,
+  highRiskViolations,
   missingTestsViolation,
   parsePorcelainV2,
   type ApprovedContract,
+  type ChangedFile,
 } from "./index.js";
+
+function changed(path: string): ChangedFile {
+  return {
+    path,
+    previousPath: null,
+    status: "modified",
+    stage: "unstaged",
+    isBinary: false,
+    insertions: 0,
+    deletions: 0,
+    sizeBytes: 0,
+  };
+}
 
 function contract(overrides: Partial<ApprovedContract> = {}): ApprovedContract {
   return {
@@ -147,6 +163,34 @@ describe("rules and engine", () => {
       report.violations.map((violation) => violation.type),
       ["outside_scope", "high_risk_file", "missing_tests", "repo_state"],
     );
+  });
+});
+
+describe("review fixes R1/R2", () => {
+  it("R1: builds a Windows-safe drift report filename without colons", () => {
+    const name = driftReportFileName("2026-07-05T21:00:00.000Z");
+    assert.equal(name, "drift-2026-07-05T21-00-00.000Z.json");
+    assert.ok(!name.includes(":"));
+  });
+
+  it("R2: flags high-risk files nested below the repo root", () => {
+    const paths = highRiskViolations([
+      changed("services/api/.env.local"),
+      changed("apps/mobile/ios/App/Package.swift"),
+      changed("infra/docker/Dockerfile.prod"),
+      changed("frontend/package-lock.json"),
+    ]).map((violation) => violation.path);
+
+    assert.deepEqual(paths, [
+      "services/api/.env.local",
+      "apps/mobile/ios/App/Package.swift",
+      "infra/docker/Dockerfile.prod",
+      "frontend/package-lock.json",
+    ]);
+  });
+
+  it("R2: does not flag ordinary nested source files", () => {
+    assert.equal(highRiskViolations([changed("src/app/main.ts")]).length, 0);
   });
 });
 

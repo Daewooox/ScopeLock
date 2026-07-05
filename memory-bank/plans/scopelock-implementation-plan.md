@@ -422,3 +422,47 @@ LICENSE (Apache 2.0 - симметрично Traycer), CHANGELOG.
 | LLM галлюцинирует пути | Path guard против manifest, unknown nodes |
 | Огромные монорепо | degraded mode (порог 10k), honest repoMode в отчёте |
 | Spec Kit/Traycer закрывают нишу | Checkpoint-gate до инвестиций в фазы 4-6 |
+
+---
+
+## Review Phase 0-3 (Solution Architect audit, 2026-07-05)
+
+Проверено: чтение всего кода core+cli; вне песочницы `27/27` тестов pass, 0 fail;
+`hook gate` в strict корректно денаит forbidden (exit 2) и outside_scope (exit 2),
+пропускает in-scope (exit 0). Собрано через ELECTRON_RUN_AS_NODE.
+
+### Подтверждено корректным (не трогать)
+- porcelain v2 parser: type 1/2/u/?, rename через двойной NUL, срезы полей корректны.
+- diff.ts numstat -z: ветка rename (пустой path -> tokens[index+2]) верна.
+- collectChangedFiles: dedup (worktree побеждает), фильтр `.scopelock/`, repo-state по .git/.
+- path-rules: forbidden > planned, пустой planned = allow, rename проверяет оба пути.
+- hook gate: noop-safe, тихий, читает только config+contract, git не вызывает.
+- hooks-merge: идемпотентность, чужие entries сохраняются (isOwnEntry по "scopelock hook").
+- registry `satisfies Record<AgentId>` - compile-time полнота.
+- inject-contract идемпотентен, байты вне маркеров не меняются.
+- exit-code контракт 0/1/2 соблюдён во всех командах.
+
+### Findings (правки БЛОКИРОВАНЫ активным strict-контрактом - см. ниже)
+
+| # | Severity | Файл | Проблема | Фикс |
+|---|---|---|---|---|
+| R1 | bug (portability) | `cli/commands/check-drift.ts` | имя отчёта `drift-${ISO}.json` содержит `:` - невалидно на Windows/NTFS | санитизировать `:` -> `-` в имени файла (checkedAt в данных оставить ISO) |
+| R2 | quality (moat) | `core/rules/risk-rules.ts` | `.env*`, `Dockerfile*`, `Package.swift`, `pnpm-lock.yaml` привязаны к корню, не ловят nested | добавить `**/`-префиксы |
+| R3 | robustness | `core/hook/gate.ts` / `cli/commands/hook.ts` | `readStdin` виснет на TTY без пайпа (ручной запуск) | guard `process.stdin.isTTY` -> noop |
+| R4 | DX | `cli/commands/hooks.ts` | `hooks install` без `.scopelock/config.json` кидает сырой ENOENT | дружелюбная ошибка "run scopelock init" |
+| R5 | consistency (minor) | `core/git/diff.ts` | numstat без `-M -C` (name-status с ними) - счётчики строк для rename неточны, пути не затронуты | добавить `-M -C` в numstat |
+
+### Уже задокументировано, действий для v1 не требуется
+- Global `mode` в config (не per-harness): приемлемо, т.к. audit форсит warn и deny-harness один.
+- Installed hook command = `scopelock hook gate` требует `scopelock` в PATH: до npm publish нужен `pnpm link`/wrapper.
+
+### Рекомендация (рефактор, не срочно)
+- Вынести общий boilerplate CLI-команд (root resolution, loadConfig, exists) в `withRepoContext()`
+  helper - по мере роста числа команд это снизит дублирование.
+
+### Как применять фиксы R1-R5 (важно для дисциплины контракта)
+Активный контракт `self-dogfood-docs-config-2026-07-05` (strict) запрещает
+`packages/**` кроме docs/config. R1/R2/R5 = outside_scope, R3/R4 = forbidden.
+Правильный workflow: создать новый контракт (например `phase3-review-fixes`) с planned
+scope на эти файлы + required tests (unit на Windows-имя отчёта, на nested risk-паттерны),
+approve, затем внести правки. Не отключать strict глобально ради обхода.

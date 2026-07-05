@@ -26,7 +26,18 @@ function parseHookTarget(target: string) {
 
 async function updateMode(root: string, mode: EnforcementMode): Promise<void> {
   const paths = scopelockPaths(root);
-  const raw = await readFile(paths.configPath, "utf8");
+  let raw: string;
+  try {
+    raw = await readFile(paths.configPath, "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      throw new CliError(
+        "NOT_INITIALIZED",
+        "no .scopelock/config.json found; run `scopelock init` first",
+      );
+    }
+    throw error;
+  }
   const config = scopelockConfigSchema.parse(JSON.parse(raw));
   await writeJsonAtomic(paths.configPath, { ...config, mode });
 }

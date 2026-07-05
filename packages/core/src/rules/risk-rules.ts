@@ -4,17 +4,19 @@ import { matchesAny } from "./path-rules.js";
 export const DEFAULT_HIGH_RISK_PATTERNS = [
   ".github/workflows/**",
   "**/*.lock",
-  "pnpm-lock.yaml",
+  "**/*-lock.yaml",
+  "**/*-lock.json",
+  "**/package-lock.json",
   "**/migrations/**",
-  "Dockerfile*",
-  ".env*",
+  "**/Dockerfile*",
+  "**/.env*",
   "**/auth/**",
   "**/*.entitlements",
   "**/Info.plist",
   "**/AndroidManifest.xml",
   "**/*.gradle*",
   "**/project.pbxproj",
-  "Package.swift",
+  "**/Package.swift",
 ];
 
 export function highRiskViolations(

@@ -97,7 +97,7 @@ export async function changedSinceBaseline(
 
   const files = parseNameStatus(nameStatus.stdout);
   const numstat = await runGitAsync(
-    ["diff", "--numstat", "-z", `${baselineSha}..HEAD`],
+    ["diff", "--numstat", "-z", "-M", "-C", `${baselineSha}..HEAD`],
     cwd,
   );
   if (!numstat.ok) return files;

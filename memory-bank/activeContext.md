@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0011 — CHECKPOINT dogfood + Stage 0 validation начата. Local dogfood и self-dogfood на ScopeLock repo пройдены; live hook invocation в настоящих Claude Code/Cursor UI и внешняя validation pending.
+Задача #0012 — Solution Architect ревью Phase 0-3 завершено, findings R1-R5 применены. Workflow контракта дожат: заведён `phase3-review-fixes` (planned scope на 5 файлов+tests+memory-bank, forbidden schemas/core-hook), approve от HEAD, затем внесены правки. Итог: 30/30 тестов pass, typecheck чист, check-drift = 0 violations, drift-отчёт с Windows-safe именем. Активный контракт сейчас `phase3-review-fixes` (не self-dogfood-docs-config). Ранее: Задача #0011 — CHECKPOINT dogfood + Stage 0 validation (live UI invocation и внешняя validation pending).
 
 ## Последние изменения
 - Memory Bank инициализирован

@@ -179,6 +179,41 @@
 - `plans/scopelock-implementation-plan.md` переписан в v2: инварианты исполнителя, пофазные сигнатуры функций, алгоритмы (porcelain v2, precedence правил, merge hooks), обязательные списки тестов, DoD-чеклисты, checkpoint-gate.
 <!-- TASK #0007 END -->
 
+<!-- TASK #0012 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-05T20:55Z
+     Status: reflect
+-->
+## Задача #0012 — Solution Architect ревью Phase 0-3
+
+- **Описание:** Полное чтение кода core+cli после фаз 0-3, прогон тестов и живая проверка hook gate против активного контракта.
+- **Уровень сложности:** Level 2
+- **Статус:** REVIEW завершён; фиксы R1-R5 применены через новый контракт `phase3-review-fixes` (approve от HEAD e028fd6). 30/30 тестов pass, check-drift = 0 violations.
+
+### Проверено
+- Прочитан весь код core (git-парсеры, drift engine, rules, hook gate, harness, render) и cli.
+- Вне песочницы: 27/27 core tests pass, 0 fail, 10 suites.
+- Живой hook gate (strict): forbidden -> exit 2, outside_scope -> exit 2, in-scope -> exit 0. Продукт корректно ловит собственные out-of-scope правки.
+
+### Findings (детали в plans/scopelock-implementation-plan.md -> Review Phase 0-3)
+- R1 bug: имя drift-отчёта с `:` невалидно на Windows.
+- R2 quality: часть high-risk паттернов не ловит nested пути.
+- R3 robustness: readStdin виснет на TTY.
+- R4 DX: hooks install без config кидает сырой ENOENT.
+- R5 minor: numstat без -M -C.
+
+### Разрешение (workflow контракта дожат до конца)
+Заведён контракт `phase3-review-fixes` (planned scope на 5 файлов + tests + memory-bank,
+forbidden на schemas/** и core/hook/**), approve от HEAD, затем применены фиксы:
+- R1: `driftReportFileName()` в storage/paths.ts + использование в check-drift.ts (имя без `:`).
+- R2: high-risk паттерны переведены на `**/`-префиксы (nested `.env`, `Package.swift`, lockfiles).
+- R3: `readStdin` guard по `process.stdin.isTTY` -> "" (noop вместо зависания).
+- R4: `hooks install` без config -> CliError NOT_INITIALIZED "run scopelock init".
+- R5: numstat получил `-M -C` (консистентно с name-status).
+Тесты: +3 (R1 filename, R2 nested hit, R2 negative). Итог 30/30 pass, typecheck чист,
+check-drift под новым контрактом = 0 violations, отчёт `drift-...T20-55-27.373Z.json` без `:`.
+<!-- TASK #0012 END -->
+
 <!-- TASK #0008 BEGIN
      Owner: codex
      Started: 2026-07-05T19:50Z
