@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "schedule-m1-hardening",
+  "task": "Harden M1 release-gate: bind intersection engine to picomatch, language-derived soundness, doc fixes",
+  "createdAt": "2026-07-07T21:39:41.595Z",
+  "baseline": {
+    "headSha": "dc2f6a79bf6a91a68fa48b46cc50c5c74f588111",
+    "branch": "main",
+    "capturedAt": "2026-07-07T21:39:41.701Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule.test.ts",
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schedule/glob-intersect.ts",
+      "packages/core/src/schedule/scope-algebra.ts",
+      "packages/core/src/index.ts",
+      "memory-bank/**",
+      ".github/workflows/test.yml"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/schedule/conflict-graph.ts",
+      "packages/core/src/schedule/scheduler.ts",
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/cli/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

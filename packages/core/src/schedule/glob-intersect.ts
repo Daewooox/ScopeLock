@@ -263,15 +263,51 @@ function expandedSegmentLists(glob: string): string[][] {
   return expandBraces(normalizeGlob(glob)).map((expanded) => expanded.split("/"));
 }
 
+const matcherCache = new Map<string, (path: string) => boolean>();
+
+function matcherFor(glob: string): (path: string) => boolean {
+  let matcher = matcherCache.get(glob);
+  if (matcher === undefined) {
+    matcher = picomatch(glob, { dot: true });
+    matcherCache.set(glob, matcher);
+  }
+  return matcher;
+}
+
+/**
+ * The segment product search is an over-approximating candidate GENERATOR: it
+ * proposes concrete paths, but picomatch (the same matcher the runtime hook
+ * gate uses) is the single source of truth for whether a candidate really
+ * belongs to both globs. This removes any seam between the scheduler and the
+ * gate, and sidesteps picomatch's subtle trailing-`**` quirks (e.g.
+ * `literal/**` matches the bare parent but `wildcard/**` does not).
+ *
+ * A verdict of "disjoint" (null) is only returned when the search is exhausted
+ * with no picomatch-valid candidate. If the search is truncated by the cap, we
+ * stay conservative and report an intersection (over-approximation is safe:
+ * it costs parallelism, never correctness).
+ */
 export function intersectionWitness(a: string, b: string): string | null {
   try {
-    for (const segmentsA of expandedSegmentLists(a)) {
-      for (const segmentsB of expandedSegmentLists(b)) {
-        const witness = segmentListWitness(segmentsA, segmentsB);
-        if (witness !== null) return witness;
+    const listsA = expandedSegmentLists(a);
+    const listsB = expandedSegmentLists(b);
+    const matchA = matcherFor(a);
+    const matchB = matcherFor(b);
+    let conservative: string | null = null;
+
+    for (const segmentsA of listsA) {
+      for (const segmentsB of listsB) {
+        const { candidates, capped } = collectWitnesses(segmentsA, segmentsB);
+        for (const candidate of candidates) {
+          if (matchA(candidate) && matchB(candidate)) return candidate;
+        }
+        if (capped && conservative === null) {
+          conservative = candidates[0] ?? "x";
+        }
       }
     }
-    return null;
+
+    return conservative;
   } catch (error) {
     if (error instanceof UnsupportedGlob) return conservativeWitness(a, b);
     throw error;
@@ -291,41 +327,71 @@ function normalizeBestEffort(glob: string): string {
     .replace(/\/$/, "") || "x";
 }
 
-function segmentListWitness(a: string[], b: string[]): string | null {
-  type State = { i: number; j: number; parts: string[] };
-  const queue: State[] = [{ i: 0, j: 0, parts: [] }];
-  const seen = new Set<string>();
+/** Upper bound on candidate paths generated per glob pair before we stop and
+ * fall back to a conservative "intersect" verdict. Real globs have a handful of
+ * segments, so this is only a guard against pathological blow-up. */
+const CANDIDATE_CAP = 2000;
 
-  for (let cursor = 0; cursor < queue.length; cursor += 1) {
-    const state = queue[cursor];
+/**
+ * Enumerate concrete candidate paths for a pair of segment lists. Every push
+ * strictly increases `i + j` (globstar-skip, globstar-consume, and both-concrete
+ * all advance at least one index), so the state space is a finite DAG and the
+ * DFS always terminates without needing visited-state pruning. Pruning by
+ * `(i, j)` would drop alternative witnesses reaching the same state and could
+ * hide a valid path, so it is intentionally omitted.
+ */
+function collectWitnesses(
+  a: string[],
+  b: string[],
+): { candidates: string[]; capped: boolean } {
+  type State = { i: number; j: number; parts: string[] };
+  const candidates: string[] = [];
+  const stack: State[] = [{ i: 0, j: 0, parts: [] }];
+  let capped = false;
+  // Two overlapping `**` can span arbitrarily many shared segments; bound the
+  // extra depth we explore so both trailing globstars can descend far enough to
+  // satisfy picomatch's `wildcard/**` rule without looping forever.
+  const maxDepth = a.length + b.length + 2;
+
+  while (stack.length > 0) {
+    if (candidates.length >= CANDIDATE_CAP) {
+      capped = true;
+      break;
+    }
+    const state = stack.pop();
     if (state === undefined) continue;
-    const key = `${state.i}:${state.j}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
 
     if (state.i === a.length && state.j === b.length) {
-      return state.parts.length > 0 ? state.parts.join("/") : "x";
+      candidates.push(state.parts.length > 0 ? state.parts.join("/") : "x");
+      continue;
     }
 
     const segA = a[state.i];
     const segB = b[state.j];
+    const bothGlobstar = isGlobstar(segA) && isGlobstar(segB);
+
+    // Both sides globstar: they can jointly absorb an arbitrary shared segment.
+    // Depth-bounded so the DFS still terminates.
+    if (bothGlobstar && state.parts.length < maxDepth) {
+      stack.push({ i: state.i, j: state.j, parts: [...state.parts, "z"] });
+    }
 
     if (isGlobstar(segA)) {
-      queue.push({ i: state.i + 1, j: state.j, parts: state.parts });
+      stack.push({ i: state.i + 1, j: state.j, parts: state.parts });
       if (segB !== undefined && !isGlobstar(segB)) {
         const example = exampleForSegment(segB);
         if (example !== null) {
-          queue.push({ i: state.i, j: state.j + 1, parts: [...state.parts, example] });
+          stack.push({ i: state.i, j: state.j + 1, parts: [...state.parts, example] });
         }
       }
     }
 
     if (isGlobstar(segB)) {
-      queue.push({ i: state.i, j: state.j + 1, parts: state.parts });
+      stack.push({ i: state.i, j: state.j + 1, parts: state.parts });
       if (segA !== undefined && !isGlobstar(segA)) {
         const example = exampleForSegment(segA);
         if (example !== null) {
-          queue.push({ i: state.i + 1, j: state.j, parts: [...state.parts, example] });
+          stack.push({ i: state.i + 1, j: state.j, parts: [...state.parts, example] });
         }
       }
     }
@@ -333,12 +399,12 @@ function segmentListWitness(a: string[], b: string[]): string | null {
     if (segA !== undefined && segB !== undefined && !isGlobstar(segA) && !isGlobstar(segB)) {
       const segment = segmentIntersectionWitness(segA, segB);
       if (segment !== null) {
-        queue.push({ i: state.i + 1, j: state.j + 1, parts: [...state.parts, segment] });
+        stack.push({ i: state.i + 1, j: state.j + 1, parts: [...state.parts, segment] });
       }
     }
   }
 
-  return null;
+  return { candidates, capped };
 }
 
 export function globsIntersect(a: string, b: string): boolean {
