@@ -4,13 +4,47 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  DEFAULT_DEGRADED_FILE_THRESHOLD,
   approvedContractSchema,
   driftReportSchema,
+  formatZodError,
   repoManifestSchema,
   scopelockConfigSchema,
   scopelockPaths,
   writeJsonAtomic,
 } from "./index.js";
+
+describe("review follow-ups A4/A5", () => {
+  it("A5: config defaults degradedFileThreshold and accepts overrides", () => {
+    assert.equal(
+      scopelockConfigSchema.parse({ schemaVersion: 1 }).degradedFileThreshold,
+      DEFAULT_DEGRADED_FILE_THRESHOLD,
+    );
+    assert.equal(
+      scopelockConfigSchema.parse({ schemaVersion: 1, degradedFileThreshold: 50 })
+        .degradedFileThreshold,
+      50,
+    );
+    assert.throws(() =>
+      scopelockConfigSchema.parse({ schemaVersion: 1, degradedFileThreshold: -1 }),
+    );
+  });
+
+  it("A4: formatZodError compacts issues and ignores non-zod errors", () => {
+    const result = approvedContractSchema.safeParse({
+      schemaVersion: 1,
+      id: "",
+      task: "x",
+      createdAt: "2026-07-05T00:00:00.000Z",
+      scope: { plannedPathPatterns: [], forbiddenPathPatterns: [] },
+    });
+    assert.equal(result.success, false);
+    const message = formatZodError(result.error);
+    assert.ok(message !== null && message.includes("id:"));
+    assert.ok(!message.includes("\n"));
+    assert.equal(formatZodError(new Error("plain")), null);
+  });
+});
 
 describe("ScopeLock schemas", () => {
   it("parses the minimum approved contract with null baseline", () => {

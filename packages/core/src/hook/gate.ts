@@ -95,6 +95,27 @@ async function appendAudit(
   );
 }
 
+/**
+ * Best-effort record of a gate failure. The gate must never crash the agent,
+ * so it degrades to noop on error - but silent degradation hides a disabled
+ * guardrail. We log the failure so it is observable without ever throwing.
+ */
+async function appendHookError(
+  paths: ReturnType<typeof scopelockPaths>,
+  event: { ts: string; path: string | null; error: string },
+): Promise<void> {
+  try {
+    await mkdir(paths.reportsDir, { recursive: true });
+    await appendFile(
+      resolve(paths.reportsDir, "hook-errors.ndjson"),
+      `${JSON.stringify(event)}\n`,
+      "utf8",
+    );
+  } catch {
+    // Nothing else we can safely do; never block the agent.
+  }
+}
+
 export async function evaluateHookGate(input: {
   cwd: string;
   rawInput: string;
@@ -142,7 +163,12 @@ export async function evaluateHookGate(input: {
       reason: verdict,
     });
     return { decision: "warn", reason: verdict, path, message };
-  } catch {
+  } catch (error) {
+    await appendHookError(paths, {
+      ts: input.now ?? new Date().toISOString(),
+      path: rawPath,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { decision: "noop", reason: "gate-error", path: rawPath, message: null };
   }
 }

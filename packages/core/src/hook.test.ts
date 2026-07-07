@@ -109,6 +109,33 @@ describe("hook gate", () => {
       await rm(strict.root, { recursive: true, force: true });
     }
   });
+
+  it("A1: records a hook-errors line and noops when the active contract is corrupt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "scopelock-hook-"));
+    const paths = scopelockPaths(root);
+    try {
+      await writeJsonAtomic(
+        paths.configPath,
+        scopelockConfigSchema.parse({ schemaVersion: CONFIG_SCHEMA_VERSION, mode: "strict" }),
+      );
+      // Corrupt contract file: not schema-valid -> loadContract throws.
+      await writeJsonAtomic(join(paths.contractsDir, "broken.json"), { nope: true });
+      await setActiveContractId(paths, "broken");
+
+      const result = await evaluateHookGate({
+        cwd: root,
+        rawInput: JSON.stringify({ tool_input: { file_path: "src/x.ts" } }),
+        now: "2026-07-05T00:00:00.000Z",
+      });
+
+      assert.equal(result.decision, "noop");
+      assert.equal(result.reason, "gate-error");
+      const log = await readFile(join(paths.reportsDir, "hook-errors.ndjson"), "utf8");
+      assert.match(log, /"error"/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("hook config merge", () => {
