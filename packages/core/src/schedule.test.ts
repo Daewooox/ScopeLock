@@ -276,4 +276,19 @@ describe("scope algebra conflict graph and scheduler", () => {
       }),
     );
   });
+
+  it("rejects a plan with duplicate task ids", () => {
+    assert.throws(
+      () =>
+        schedulePlanSchema.parse({
+          schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,
+          planId: "dup",
+          tasks: [
+            { id: "t1", contract: "a.json" },
+            { id: "t1", contract: "b.json" },
+          ],
+        }),
+      /duplicate task id: t1/,
+    );
+  });
 });

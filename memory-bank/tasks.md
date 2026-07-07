@@ -710,3 +710,46 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - M4: прогнать creative-мини-эксперимент (H1-H5) на реальном мульти-агентном сценарии, зафиксировать go/no-go перед M5.
 - M5 (read-write F2, layered scheduling + cycle detection) НЕ начинать до готового M4 reflection report (см. handoff-инструкцию: "Не начинать M4/M5 до готового и оттестированного plan-parallel").
 <!-- TASK #0026 END -->
+
+<!-- TASK #0027 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-08T00:00Z
+     Status: done
+-->
+## Задача #0027 — M3 review fixes: убрать мёртвый флаг, уникальность task.id
+
+- **Описание:** Независимое ревью коммитов #0025/#0026 (`58ccb3b`, `9dbdefe`) нашло 4 находки. Закрыты обязательная F-M3-1 и желательная F-M3-2, а также опциональные F-M3-3/F-M3-4 (оказались быстрыми).
+- **Уровень сложности:** Level 1-2.
+- **Статус:** DONE под контрактом `schedule-m3-review-fixes` (approve от `9dbdefe`). Core 46/46 (+1), CLI 9/9 (+2), `check-drift` = 0 violations.
+
+### F-M3-1 (Major, обязательно) — мёртвый `--include-read-hazards`
+Причина: `loadTaskScope` никогда не заполняет `TaskScope.read` (в `approvedContractSchema` нет read-паттернов), значит `buildConflictGraph({ readHazards: true })` всегда работал по пустому read-множеству - флаг молча ничего не делал и исказил бы M4-эксперимент.
+- `packages/cli/src/commands/plan-parallel.ts`: убран параметр `options.includeReadHazards`; `buildConflictGraph(scopes)` вызывается без опций; добавлен комментарий-инвариант, что CLI-флаг появится вместе с M5/`readPathPatterns`.
+- `packages/cli/src/index.ts`: убран `.option("--include-read-hazards", ...)` у команды `plan-parallel`.
+- `README.md`: убран `[--include-read-hazards]` из строки команды в таблице.
+- `readHazards` в core (`buildConflictGraph`) не тронут - это будущий M5-хук, само API осталось.
+
+### F-M3-2 (Minor, желательно) — уникальность `task.id` в схеме
+- `packages/core/src/schedule/plan.ts`: `schedulePlanSchema` получил `.superRefine`, который добавляет issue `duplicate task id: <id>` при повторе id в `tasks[]` (вместо невнятного runtime-throw из `buildConflictGraph`).
+- Тест на уровне схемы в `schedule.test.ts` ("rejects a plan with duplicate task ids") + CLI-тест в `cli.test.ts` ("exits 2 with INVALID_INPUT (not UNEXPECTED) on duplicate task ids") - подтверждает, что `ZodError` форматируется общим `run()` в `INVALID_INPUT`, а не падает как `UNEXPECTED`.
+
+### F-M3-3 (Low, опционально) — различение ENOENT от прочих fs-ошибок
+- `readJsonFile` в `plan-parallel.ts`: `ENOENT` -> `notFoundCode` (`PLAN_NOT_FOUND`/`CONTRACT_NOT_FOUND`), любая другая fs-ошибка (проверено вручную на `EISDIR`) -> новый код `FILE_READ_ERROR` с реальным сообщением ОС вместо вводящего в заблуждение "file not found".
+
+### F-M3-4 (Low, опционально) — путь `task.contract` резолвится относительно cwd
+- `README.md`: добавлена строка после таблицы команд, поясняющая, что `task.contract` резолвится относительно текущей директории (как у `approve <file>`), а не относительно расположения `plan.json`.
+
+### Дополнительно
+- `cli.test.ts`: тест "rejects an unknown --include-read-hazards flag" - подтверждает, что commander теперь отклоняет флаг как неизвестную опцию (exit != 0, stderr содержит "unknown option").
+- `component-map.md`: уточнение про `plan-parallel.ts` - write-write only, read-write F2 CLI-поверхность придёт с M5.
+
+### Проверки
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` -> 46/46 pass (было 45, +1 тест на дубли id).
+- `node --test packages/cli/dist/*.test.js` -> 9/9 pass (было 7, +2: дубли id, unknown flag).
+- Ручной smoke: обычный сценарий (3 контракта) по-прежнему даёт `wave 1: [t1, t2]`, `wave 2: [t3]`, конфликт с witness `src/ui/button.ts`; `--include-read-hazards` теперь даёт "unknown option" от commander; директория вместо файла плана даёт `FILE_READ_ERROR` (не `PLAN_NOT_FOUND`).
+- `node packages/cli/dist/index.js check-drift --json` под контрактом `schedule-m3-review-fixes` -> 0 violations.
+
+### Следующий шаг
+- M4: мини-эксперимент H1-H5 (отдельная задача, документ `plans/orchestration-m4-experiment.md`). M5 не начинать раньше готового M4 go/no-go.
+<!-- TASK #0027 END -->

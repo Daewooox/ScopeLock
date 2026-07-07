@@ -73,7 +73,7 @@
 | `packages/cli/src/commands/inject-contract.ts` | Inject contract into AGENTS/CLAUDE doc |
 | `packages/cli/src/commands/hook.ts` | Quiet hook gate/audit CLI entrypoints |
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
-| `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts |
+| `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts (write-write only; read-write F2 CLI surface arrives with M5's `readPathPatterns`) |
 | `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
 
 ---

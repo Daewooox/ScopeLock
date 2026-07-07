@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "schedule-m3-review-fixes",
+  "task": "M3 review fixes: remove dead --include-read-hazards flag, enforce unique task ids in plan schema",
+  "createdAt": "2026-07-07T22:16:15.103Z",
+  "baseline": {
+    "headSha": "9dbdefe6ad1c9b567b6febc40505b911b8a01492",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:16:15.180Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/**",
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schedule.test.ts",
+      "README.md",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/core/src/schedule/glob-intersect.ts",
+      "packages/core/src/schedule/scope-algebra.ts",
+      "packages/core/src/schedule/conflict-graph.ts",
+      "packages/core/src/schedule/scheduler.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
