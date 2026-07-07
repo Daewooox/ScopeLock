@@ -477,3 +477,35 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Финальный/авторитетный план = `plans/scopelock-implementation-plan.md` → раздел «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ» (ссылается на `plans/orchestration-implementation-plan.md` для деталей M1-M5).
 - Следующая исполнимая задача проекта: #0018→ M1-spike `globsIntersect` (см. orchestration-impl §2, §5, §8).
 <!-- TASK #0018 END -->
+
+<!-- TASK #0019 BEGIN
+     Owner: codex
+     Started: 2026-07-07T20:40Z
+     Status: build
+-->
+## Задача #0019 — M1-spike: glob intersection для scope-algebra scheduler
+
+- **Описание:** Реализовать первый кодовый шаг оркестрации из `plans/orchestration-implementation-plan.md`: sound/conservative `globsIntersect`, `globSetsIntersect` и `intersectionWitness` для проверки пересечения write-scope glob-ов перед построением conflict graph.
+- **Уровень сложности:** Level 2
+- **Статус:** BUILD завершён под контрактом `schedule-m1-glob-intersect` (approve от `ea92289`). Core 38/38 pass, `check-drift` = 0 violations.
+
+### Сделано
+- Добавлен `packages/core/src/schedule/glob-intersect.ts`:
+  - `intersectionWitness(a,b): string | null` через segment-aware product search;
+  - `globsIntersect(a,b): boolean`;
+  - `globSetsIntersect(as,bs): boolean`;
+  - conservative fallback: unsupported glob-конструкции считаются конфликтом, а не disjoint.
+- Matcher-wrapper `globToRegExp` использует `picomatch.makeRe(..., { dot: true })`, чтобы scheduler и runtime path-rules не расходились в семантике matching.
+- Нормализация схлопывает соседние `**/**` в один `**`; brace alternatives ограничены, brace ranges/extglob/negation fallback-ятся как unsupported.
+- Public export добавлен через `packages/core/src/index.ts`.
+
+### Проверки
+- Known-pairs: `*.ts` vs `*.tsx`, `src/**`, `**/*.ts`, `a/*/b`, `src/ui/**` vs `src/api/**`, braces, unsupported fallback.
+- Matcher consistency: 10 000 random supported glob/path cases против `picomatch`.
+- Property soundness: 10 000 random glob pairs; если `globsIntersect=false`, corpus-поиск через `picomatch` не находит общего path.
+- `pnpm --filter @scopelock/core test` → 38/38 pass.
+- `node packages/cli/dist/index.js check-drift --json` → 0 violations по контракту `schedule-m1-glob-intersect`.
+
+### Следующий шаг
+- M2: build conflict graph / schedule schemas поверх `globSetsIntersect`; не начинать M3+ до зелёных M2 unit-тестов.
+<!-- TASK #0019 END -->

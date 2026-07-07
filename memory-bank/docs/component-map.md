@@ -52,11 +52,13 @@
 | `packages/core/src/hook/gate.ts` | Fast hook gate/audit decision engine |
 | `packages/core/src/render/prompt.ts` | Render contract into agent instructions |
 | `packages/core/src/render/agents-md.ts` | Inject marked ScopeLock doc section |
+| `packages/core/src/schedule/glob-intersect.ts` | Glob intersection witness for scheduler disjointness |
 | `packages/core/src/index.ts` | Public exports core package |
 | `packages/core/src/schema.test.ts` | Schema + storage тесты (node:test) |
 | `packages/core/src/drift.test.ts` | Drift parser/rules/integration tests |
 | `packages/core/src/prompt.test.ts` | Harness prompt and injection tests |
 | `packages/core/src/hook.test.ts` | Hook gate and config merge tests |
+| `packages/core/src/schedule.test.ts` | Glob intersection property/consistency tests |
 | `packages/cli/src/index.ts` | Commander wiring, --json на подкомандах |
 | `packages/cli/src/run.ts` | CommandResult, CliError, exit-code контракт 0/1/2 |
 | `packages/cli/src/commands/init.ts` | init: mkdir, config, .scopelock/.gitignore, идемпотентен |
