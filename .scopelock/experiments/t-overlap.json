@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "t-overlap",
+  "task": "M4 experiment: broad CLI src touch (intentional overlap with t-cli-cmds)",
+  "createdAt": "2026-07-07T22:29:04.397Z",
+  "baseline": null,
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/**"
+    ],
+    "forbiddenPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

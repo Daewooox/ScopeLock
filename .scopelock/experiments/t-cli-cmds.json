@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "t-cli-cmds",
+  "task": "M4 experiment: CLI command additions",
+  "createdAt": "2026-07-07T22:29:04.290Z",
+  "baseline": null,
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/**"
+    ],
+    "forbiddenPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

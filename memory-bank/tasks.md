@@ -755,31 +755,37 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 <!-- TASK #0027 END -->
 
 <!-- TASK #0028 BEGIN
-     Owner: pending
+     Owner: cursor-agent
      Started: 2026-07-08
-     Status: pending
+     Status: done
 -->
 ## Задача #0028 — M4: мини-эксперимент scope-algebra (H1-H5, go/no-go)
 
 - **Описание:** Проверить на реальном мульти-задачном сценарии, что `plan-parallel` даёт корректное и полезное параллельное расписание, и зафиксировать go/no-go по гипотезам H1-H5 из `plans/orchestration-scope-algebra.md` §5. Это gate перед M5 (read-write F2).
 - **Уровень сложности:** Level 2 (эксперимент + отчёт; продуктовой логики не добавляем).
-- **Статус:** PENDING.
+- **Статус:** DONE под контрактом `orchestration-m4-experiment` (approve от `b626736`; planned `memory-bank/**` + `.scopelock/experiments/**`, forbidden `packages/**` - продуктовый код не менялся). `check-drift` = 0 (артефакты под `.scopelock/**` в принципе исключены из drift-подсчёта - `isScopelockArtifact` в `drift/collect.ts` фильтрует весь `.scopelock/**`, включая `experiments/` и новый файл контракта).
 
-### Гипотезы (из scope-algebra.md §5)
-- H1 Safety: write-коллизий внутри одной волны — ровно 0.
-- H2 Enforcement: отказов `hook gate` во время волны — ~0 (если scope заданы верно).
-- H3 Speedup: план по волнам быстрее последовательного на волнах из ≥2 задач.
-- H4 Soundness (**kill criterion**): ни один файл не пишется двумя задачами в одной волне. Одно нарушение = подход опровергнут.
-- H5 Determinism: повторный прогон планировщика на том же плане — байт-идентичное расписание.
+### Гипотезы (из scope-algebra.md §5) - результаты
+- H1 Safety: write-коллизий внутри одной волны — ровно 0. **GO.**
+- H2 Enforcement: не тестировался живьём (опционально по протоколу); сигналов против нет. **не тестировался.**
+- H3 Speedup: 4 последовательных таска → 2 волны (одна из 3 задач); рассуждение даёт ~2x на этом сценарии (без реального замера времени). **GO (качественно).**
+- H4 Soundness (**kill criterion**): единственная намеренно пересекающаяся пара (`t-cli-cmds` ⊂ `t-overlap`) никогда не оказалась в одной волне. Criterion не сработал. **GO.**
+- H5 Determinism: два независимых прогона `--json` дали byte-for-byte идентичный вывод (`diff` без разницы). **GO.**
+- **Итог: GO** — можно переходить к M5.
 
-### Скоуп/контракт
-- Контракт `orchestration-m4-experiment`: planned `memory-bank/**`, `.scopelock/**` (тестовые контракты и plan.json эксперимента); forbidden `packages/**` (продуктовый код НЕ трогаем — только запускаем существующий CLI).
-- Артефакты эксперимента (plan.json + тестовые контракты) складывать во временную директорию вне репо или в `.scopelock/experiments/` (не мусорить в корне, иначе check-drift зашумит).
+### Сценарий и результат
+4 draft-контракта на реальных путях репозитория (`scopelock contract new`, сохранены в `.scopelock/experiments/*.json`): `t-core-schedule` (`packages/core/src/schedule/**`), `t-cli-cmds` (`packages/cli/src/commands/**`), `t-docs` (`memory-bank/**` + `README.md`), `t-overlap` (`packages/cli/src/**` — намеренно надмножество `t-cli-cmds`). `.scopelock/experiments/plan.json` по `schedulePlanSchema`, пути к контрактам — относительно cwd.
 
-### DoD
-- 3-5 реальных задач с частично пересекающимися write-scope; на каждую approved-контракт.
-- Прогон `scopelock plan-parallel plan.json --json` — зафиксированы: число волн, конфликты + witness, детерминизм (повторный прогон = тот же вывод, H5).
-- H1/H4 проверены по составу волн (никакой общий write-glob внутри волны); H3 — рассуждение/оценка speedup; H2 — комментарий про enforcement.
-- Отчёт `memory-bank/plans/orchestration-m4-experiment.md` c go/no-go по каждой H и общим выводом.
-- Обновить `tasks.md` (#0028 → done) и `activeContext.md`. Коммит. Push только по явной просьбе.
+`plan-parallel .scopelock/experiments/plan.json` → `wave 1: [t-cli-cmds, t-core-schedule, t-docs]`, `wave 2: [t-overlap]`, один конфликт `t-cli-cmds x t-overlap [write-write]: packages/cli/src/commands`. Witness независимо перепроверен напрямую через `picomatch` (вручную, вне CLI) — матчится обоими glob-ами, как того требует M1-инвариант (witness должен матчиться обоими glob под тем же matcher-ом, что и runtime hook gate).
+
+### Основной документ
+- `memory-bank/plans/orchestration-m4-experiment.md` (полный отчёт: сценарий, сырой вывод, таблица H1-H5, вердикт)
+
+### Проверки
+- `pnpm -r build` чист; core 46/46 + cli 9/9 не менялись (продуктовый код не трогали, только запускали существующий CLI).
+- `node packages/cli/dist/index.js plan-parallel .scopelock/experiments/plan.json --json` прогнан дважды, `diff` подтвердил идентичность (H5).
+- `node packages/cli/dist/index.js check-drift --json` под `orchestration-m4-experiment` → 0 violations.
+
+### Следующий шаг
+- M5: `readPathPatterns` в contract-схему, F2 layered scheduling (Kahn topological + write-write coloring внутри слоя), cycle detection, возврат `--include-read-hazards` в CLI (флаг был намеренно убран в M3 review fixes до появления реальных read-паттернов). Условие начала M5 (готовый M4 с зафиксированным go) выполнено.
 <!-- TASK #0028 END -->

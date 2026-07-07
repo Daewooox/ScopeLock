@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "orchestration-m4-experiment",
+  "task": "M4: scope-algebra mini-experiment - build scenario, run plan-parallel, evaluate H1-H5",
+  "createdAt": "2026-07-07T22:28:42.834Z",
+  "baseline": {
+    "headSha": "b6267365a17a60dab2c3126b0f2acbd5060855b8",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:28:42.912Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**",
+      ".scopelock/experiments/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
