@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "schedule-m2-conflict-graph",
+  "task": "M2: scope algebra conflict graph F1 scheduler and plan schema",
+  "createdAt": "2026-07-07T20:57:21.925Z",
+  "baseline": {
+    "headSha": "ea922890b4b5bd91c77dc43e56e88f5e28299cd6",
+    "branch": "main",
+    "capturedAt": "2026-07-07T20:57:22.020Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/**",
+      "packages/core/src/schedule.test.ts",
+      "packages/core/src/index.ts",
+      "memory-bank/docs/component-map.md",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/cli/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
