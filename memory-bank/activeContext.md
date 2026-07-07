@@ -29,7 +29,7 @@
 - Задача #0027: ревью-фиксы под контрактом `schedule-m3-review-fixes`. Убран мёртвый `--include-read-hazards` (F-M3-1); `schedulePlanSchema` теперь отвергает дубли `task.id` через `.superRefine` (F-M3-2); `readJsonFile` различает ENOENT/прочие fs-ошибки (F-M3-3); README поясняет резолвинг путей относительно cwd (F-M3-4). Core 46/46, CLI 9/9, `check-drift` = 0.
 
 ## Следующие шаги
-- M4: прогнать creative-мини-эксперимент (H1-H5, `orchestration-scope-algebra.md` §5.1) на реальном мульти-агентном сценарии с `plan-parallel`; зафиксировать go/no-go перед M5.
+- M4 (задача #0028): прогнать creative-мини-эксперимент (H1-H5, `orchestration-scope-algebra.md` §5) на реальном мульти-агентном сценарии с `plan-parallel`; отчёт `plans/orchestration-m4-experiment.md`; зафиксировать go/no-go перед M5. Kill criterion = H4 (два агента пишут один файл в одной волне).
 - M5 (read-hazard edges, F2 layered scheduling, cycle detection) не начинать до готового M4 reflection report.
 - CHECKPOINT/validation: провести 5 быстрых интервью по Stage 0 script, затем добить до 10-15 и принять go/no-go перед полноценной Phase 4.
 - Позже: реализовать настоящий repo manifest builder через git.
