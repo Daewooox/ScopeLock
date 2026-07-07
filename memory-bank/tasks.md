@@ -430,3 +430,29 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Дисциплина контракта
 - Выполнено под docs-only контрактом `creative-orchestration-scope-algebra-2026-07-07` (approve от cfb3b85), forbidden на `packages/**`, `.github/**`, README/LICENSE. check-drift = 0 нарушений scope.
 <!-- TASK #0016 END -->
+
+<!-- TASK #0017 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-07T20:45Z
+     Status: plan
+-->
+## Задача #0017 — PLAN: реализация scope-algebra scheduler (Идея A)
+
+- **Описание:** Implementation-ready план Идеи A, исполнимый младшим агентом. SA-анализ вариантов disjointness-движка (L1), выбран гибрид, расписаны milestones M1-M5, сигнатуры, алгоритмы (glob→regex→NFA product-emptiness, префиксный fast-path, char-предикаты, F1 coloring / F2 послойное), стратегия тестирования (property soundness + matcher-consistency как release-gate).
+- **Уровень сложности:** Level 3 (план; реализация за checkpoint-gate).
+- **Статус:** PLAN завершён; документ записан. Код НЕ начат (docs-only фаза).
+
+### Основной документ
+- `memory-bank/plans/orchestration-implementation-plan.md`
+
+### Зафиксированные решения
+- Движок disjointness = ГИБРИД B+A: NFA product-emptiness backbone + директорный prefix fast-path + консервативный fallback (неопределённость = конфликт).
+- Forbidden в write-write тесте игнорируем: `W ⊆ union(planned)` ⇒ complement не нужен (доказательство в §2.1).
+- Ядро = один примитив `globsIntersect(a,b)`; всё остальное - тонкая детерминированная надстройка.
+- Планировщик: F1 (coloring, только write-write) сначала, F2 (смешанный граф, послойный + детект циклов) за `--include-read-hazards`.
+- Release-gate: наш regex ≡ picomatch на фаззе (иначе гарантия дырявая на шве планировщик/gate).
+- Порядок: M1-spike (`globsIntersect` + property/consistency) первым; M2+ не начинать пока M1 soundness-gate не зелёный.
+
+### Дисциплина контракта
+- Docs-only контракт `plan-orchestration-impl-2026-07-07` (approve от 49dcade), forbidden на `packages/**`, `.github/**`, README/LICENSE.
+<!-- TASK #0017 END -->

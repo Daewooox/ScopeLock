@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "plan-orchestration-impl-2026-07-07",
+  "task": "Write the implementation plan for Idea A (scope-algebra scheduler): hybrid glob disjointness engine, milestones M1-M5, signatures, algorithms, test strategy. Docs only.",
+  "createdAt": "2026-07-07T20:45:00.000Z",
+  "baseline": {
+    "headSha": "49dcade73903a29ca6e4fd3ee046180412eada70",
+    "branch": "main",
+    "capturedAt": "2026-07-07T20:33:28.630Z"
+  },
+  "targetAgents": [
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**",
+      "README.md",
+      "LICENSE"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [
+    "Design/plan document only; no runtime code in this task."
+  ],
+  "openQuestions": []
+}
