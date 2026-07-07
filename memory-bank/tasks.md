@@ -405,3 +405,28 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - P5 per-harness mode (шаг 3 «если go»).
 - Интервью Stage 0 (перенесены до готовности v0.1 к демонстрации).
 <!-- TASK #0015 END -->
+
+<!-- TASK #0016 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-07T20:30Z
+     Status: creative
+-->
+## Задача #0016 — CREATIVE: scope-algebra для parallel-safe оркестрации (Идея A)
+
+- **Описание:** Формализовать Идею A - вывод доказуемо parallel-safe расписания для нескольких агентов из glob-scope контрактов (formal-language disjointness → conflict graph → graph coloring → волны), с runtime hook gate как backstop. Плюс объяснение идей B/C и как их миксовать.
+- **Уровень сложности:** Level 3 (design/creative; реализация отдельно, за checkpoint-gate).
+- **Статус:** CREATIVE завершён; документ записан. Реализация НЕ начата (docs-only фаза).
+
+### Основной документ
+- `memory-bank/plans/orchestration-scope-algebra.md`
+
+### Ключевые решения
+- Scope контракта = формальный язык над путями; «можно ли параллельно?» = disjointness write-языков (детерминированно, без LLM).
+- Инвариант корректности: процедура disjointness КОНСЕРВАТИВНА - при неопределённости всегда «конфликт» (ложный disjoint = data race, недопустим).
+- Расписание = graph coloring конфликт-графа; внутри волны write-scope попарно не пересекаются ⇒ коллизии невозможны by construction. Hook gate - runtime backstop.
+- Мини-эксперимент `plan-parallel` с falsifiable-гипотезами (H1-H5, kill-criterion H4).
+- B (temporal monitor) = слой порядка/зависимостей, растёт вместе с A; C (information-theoretic surprise) = приоритизация drift для человека, обобщение текущего `high_risk_file`. Идеи стекаются: A предотвращает коллизии, B - плохие последовательности, C - фокусирует ревью. Строить A сейчас, B/C - позже.
+
+### Дисциплина контракта
+- Выполнено под docs-only контрактом `creative-orchestration-scope-algebra-2026-07-07` (approve от cfb3b85), forbidden на `packages/**`, `.github/**`, README/LICENSE. check-drift = 0 нарушений scope.
+<!-- TASK #0016 END -->
