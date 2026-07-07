@@ -32,6 +32,7 @@ function contract(): ApprovedContract {
     scope: {
       plannedPathPatterns: ["src/planned/**"],
       forbiddenPathPatterns: ["src/auth/**"],
+      readPathPatterns: [],
     },
     nodes: [],
     risks: [],

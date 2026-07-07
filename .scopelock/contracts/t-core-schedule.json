@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "t-core-schedule",
+  "task": "M4 experiment: core schedule engine changes",
+  "createdAt": "2026-07-07T22:29:04.234Z",
+  "baseline": {
+    "headSha": "871c0e19f59110efa98855f58389e683b8fb09af",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:50:29.554Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/**"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

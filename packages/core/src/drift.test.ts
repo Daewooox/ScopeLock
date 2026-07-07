@@ -41,6 +41,7 @@ function contract(overrides: Partial<ApprovedContract> = {}): ApprovedContract {
     scope: {
       plannedPathPatterns: ["src/**"],
       forbiddenPathPatterns: ["src/auth/**"],
+      readPathPatterns: [],
     },
     nodes: [],
     risks: [],
@@ -98,7 +99,7 @@ describe("rules and engine", () => {
 
   it("does not flag outside scope when planned patterns are empty", () => {
     const c = contract({
-      scope: { plannedPathPatterns: [], forbiddenPathPatterns: [] },
+      scope: { plannedPathPatterns: [], forbiddenPathPatterns: [], readPathPatterns: [] },
     });
     const file = {
       path: "anywhere/file.ts",

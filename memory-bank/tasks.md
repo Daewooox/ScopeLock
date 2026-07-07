@@ -791,31 +791,49 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 <!-- TASK #0028 END -->
 
 <!-- TASK #0029 BEGIN
-     Owner: pending
+     Owner: cursor-agent
      Started: 2026-07-08
-     Status: pending
+     Status: done
 -->
 ## Задача #0029 — M5: read-write F2 (layered scheduler + cycle detection)
 
 - **Описание:** Реализовать F2-режим оркестрации: read-write хазарды, послойное расписание (Kahn) + write-write раскраска внутри слоя, детекция циклов, `readPathPatterns` в схеме контракта и возврат CLI-флага `--include-read-hazards`. Gate M4 пройден с вердиктом GO (#0028). Ссылки: `plans/orchestration-implementation-plan.md` §3-§5 (M5), `plans/orchestration-scope-algebra.md` §5.1 (worked example).
 - **Уровень сложности:** Level 3.
-- **Статус:** PENDING.
+- **Статус:** DONE под контрактами `orchestration-m5-readwrite` (approve `871c0e1`) → расширен до `orchestration-m5-readwrite-scope2` (approve `871c0e1`, тот же baseline; добавлен planned `packages/core/src/*.test.ts`, т.к. аддитивное поле `readPathPatterns` стало обязательным в выведенном TS-типе `ContractScope`, что потребовало правки 5 существующих `*.test.ts`-фикстур вне исходного planned-scope). Core 53/53 (+7), CLI 11/11 (+2), `check-drift` = 0.
 
-### Под-milestone'ы
-- **M5.1 Schema.** В `packages/core/src/schemas/contract.ts` добавить в `scope` опциональное поле `readPathPatterns: string[]` (аддитивно, без bump `CONTRACT_SCHEMA_VERSION` — поле опциональное). Обновить `contract new` scaffolder, чтобы поле присутствовало (можно пустым). Тесты схемы.
-- **M5.2 Scheduler F2.** В `packages/core/src/schedule/scheduler.ts` реализовать послойный режим: топологическая сортировка Kahn по `readEdges` (направление writer→reader), внутри каждого ready-set — F1 write-write раскраска (переиспользовать существующую). Если Kahn не сливает все узлы → оставшиеся образуют read-write циклы → вернуть их в `cycles` (никаких бесконечных циклов). Детерминизм (H5): tie-break по id. Тесты: worked example §5.1 воспроизводит `{t3}` затем `{t1,t2,t4}` с хазардами; отдельный тест на цикл.
-- **M5.3 CLI.** Вернуть `--include-read-hazards` в `plan-parallel` (и `index.ts`, README). `loadTaskScope` заполняет `TaskScope.read` из `contract.scope.readPathPatterns`. **Восстановить exit-код 1** для unschedulable (непустой `cycles`) — он был убран в M3 (#0027), т.к. в F1 циклов нет, но в F2 снова актуален (см. `run.ts` exit-контракт 0/1/2 и план §6 exit codes). Human-вывод: секция cycles как ошибка. Тесты: read-write cycle → exit 1 с перечислением цикла; read-hazard без цикла → корректный порядок волн.
+### Сделано
 
-### Под-пункты валидации (перенесены из caveat'ов ревью M4)
-- **H2 live-прогон (enforcement).** Один реальный прогон strict `hook gate` на задачах-соседях внутри одной волны из M4-сценария: подтвердить ~0 ложных отказов на легитимную in-scope запись. Зафиксировать результат.
-- **H3 timed (speedup).** Заменить чисто теоретический ~2x на измеренный: хотя бы прокси-замер (например, per-task sleep-нагрузка) sequential vs wave-план, записать реальные wall-clock цифры. Не оверселлить: выигрыш ограничен критическим путём волны.
+**M5.1 Schema.** `packages/core/src/schemas/contract.ts`: `contractScopeSchema` получил `readPathPatterns: z.array(pathPatternSchema).default([])` — аддитивно, `CONTRACT_SCHEMA_VERSION` не поднимался. `contract-new.ts` получил `--read <glob>` (repeatable), проброшен в `index.ts`. 2 новых теста схемы (backward-compat без поля + контракт с `readPathPatterns`).
+
+**M5.2 Scheduler F2.** `packages/core/src/schedule/scheduler.ts` переписан: `colorWriteWrite` вынесен как переиспользуемый примитив (используется и F1, и F2 внутри каждого ready-слоя); `scheduleF1`/`scheduleF2` разделены, `schedule(graph)` выбирает режим по `graph.readEdges.length === 0` (F1-путь побайтово не изменился — старые тесты зелёные без правок). F2: Kahn topological layering по `readEdges` (writer→reader), внутри слоя — write-write coloring; при стопоре Kahn (все оставшиеся узлы с in-degree > 0) — `connectedComponents` (BFS по неориентированным rest-edges) группирует ЗАСТРЯВШИЕ узлы в `cycles` (не только строгий SCC-цикл, но и узлы, зависящие от цикла транзитивно — иначе они бы молча исчезли из вывода). Детерминизм — tie-break по id на каждом шаге (сортировка ready-set, coloring, компоненты).
+
+Найдено при реализации worked example §5.1: буквальное `src/**` для чтения t4 по таблице документа технически пересекается (verified под `picomatch`) с write-scope t1/t2 — доп. read-write хазард, который прозаическое описание в доке не учло. Добавлен отдельный тест, показывающий корректный (более консервативный) 3-волновый результат для буквального `src/**`, и адаптированный тест с `src/types/**` для t4, воспроизводящий именно `{t3}` → `{t1,t2,t4}` как в доке.
+
+6 новых тестов: worked example (адаптированный), worked example с буквальным `src/**` (3 волны), read hazard без цикла, 2-узловой цикл, цикл+транзитивно-зависимый узел (не теряется из вывода), F1-путь без `readEdges` не изменился.
+
+**M5.3 CLI.** `plan-parallel.ts`: `loadTaskScope` заполняет `TaskScope.read` из `contract.scope.readPathPatterns`; `includeReadHazards` параметр восстановлен, пробрасывается в `buildConflictGraph(scopes, { readHazards })`; exit-код **1** восстановлен когда `cycles.length > 0` (`0` план построен и `cycles` пуст; `1` unschedulable; `2` execution error — не менялось). Human-вывод получил секцию `error: not parallelizable - read-write cycles detected...` перед волнами, когда `cycles` непуст. `index.ts` вернул `--include-read-hazards`; README вернул флаг в таблицу команд + абзац-пояснение F1 vs F2 + поведение при цикле.
+
+3 новых CLI-теста (`cli.test.ts`): read-hazard `--include-read-hazards` → `[[writer],[reader]]` exit 0; read-write cycle → exit 1, `cycles: [["a","b"]]`, `waves: []`; без флага тот же writer/reader-контракт игнорирует read-паттерны (F1 default, backward-compat) — заменили устаревший тест F-M3-1 "rejects unknown flag" (флаг больше не мёртвый и не unknown).
+
+### Валидация H2/H3 (закрывает caveats из #0028)
+- **H2 (live-прогон):** contract `t-cli-cmds` и `t-core-schedule` из M4-сценария поочерёдно активированы (`approve` + существующий `mode: strict`); `hook gate` на собственный in-scope путь каждой задачи → allow (0/2 ложных отказов); на путь соседней волны → корректно deny (не false positive, а верная граница). `.scopelock/active` восстановлен на `orchestration-m5-readwrite-scope2` сразу после.
+- **H3 (timed):** прокси-замер (`setTimeout`-нагрузка 300ms/задача) sequential vs wave-план на реальном 4-task M4-сценарии и его фактических волнах (`[t-cli-cmds,t-core-schedule,t-docs]` затем `[t-overlap]`): 3 прогона дали ~2.0x (1.998x-2.003x), совпадает с теоретической оценкой M4. Явная оговорка о том, что выигрыш ограничен критическим путём самой большой волны, не является заменой реального многоагентного замера.
+- Полный отчёт: `memory-bank/plans/orchestration-m5-validation.md`.
+
+### Проверки
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` → 53/53 pass (было 47 после M4/M3-review-fixes).
+- `node --test packages/cli/dist/*.test.js` → 11/11 pass (было 9).
+- Ручной smoke: F1 default (без флага) игнорирует read-паттерны; `--include-read-hazards` даёт корректный writer→reader порядок; искусственный цикл `a<->b` → exit 1 с `cycle: [a, b]` в human-выводе.
+- `node packages/cli/dist/index.js check-drift --json` под `orchestration-m5-readwrite-scope2` → 0 violations.
 
 ### DoD
-- Core + CLI тесты зелёные, включая новые F2/cycle тесты и восстановленный exit-1 путь.
-- `check-drift --json` = 0 под контрактом `orchestration-m5-readwrite`.
-- Отчёт по H2/H3 (можно дополнить `orchestration-m4-experiment.md` или новый `orchestration-m5-validation.md`).
-- Обновить `tasks.md` (#0029 → done), `activeContext.md`, `component-map.md`. Коммит. Push только по явной просьбе.
+- Core + CLI тесты зелёные, включая новые F2/cycle тесты и восстановленный exit-1 путь. ✅
+- `check-drift --json` = 0 под контрактом M5. ✅
+- Отчёт по H2/H3: `plans/orchestration-m5-validation.md`. ✅
+- `tasks.md` (#0029 → done), `activeContext.md`, `component-map.md` обновлены. Коммит. Push только по явной просьбе. ✅
 
-### Контракт
-- `orchestration-m5-readwrite`: planned `packages/core/src/schedule/**`, `packages/core/src/schemas/contract.ts`, `packages/cli/**`, `README.md`, `memory-bank/**`, `.scopelock/experiments/**`; forbidden `packages/core/src/git/**`, `packages/core/src/hook/**`, `packages/core/src/drift/**`.
+### Контракты
+- `orchestration-m5-readwrite` (исходный, approve `871c0e1`): planned `packages/core/src/schedule/**`, `packages/core/src/schemas/contract.ts`, `packages/cli/**`, `README.md`, `memory-bank/**`, `.scopelock/experiments/**`; forbidden `packages/core/src/git/**`, `packages/core/src/hook/**`, `packages/core/src/drift/**`.
+- `orchestration-m5-readwrite-scope2` (расширение, approve `871c0e1`, тот же baseline): то же + planned `packages/core/src/*.test.ts` (правка существующих schema/drift/hook/prompt/schedule тестов, ставшая необходимой из-за обязательности нового поля в выведенном типе `ContractScope`).
 <!-- TASK #0029 END -->

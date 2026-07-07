@@ -115,6 +115,7 @@ describe("plan-parallel", () => {
     file: string,
     id: string,
     planned: string[],
+    read: string[] = [],
   ): Promise<void> {
     const res = runCli(dir, [
       "contract",
@@ -124,6 +125,7 @@ describe("plan-parallel", () => {
       "--id",
       id,
       ...planned.flatMap((glob) => ["--planned", glob]),
+      ...read.flatMap((glob) => ["--read", glob]),
       "--out",
       file,
     ]);
@@ -244,21 +246,99 @@ describe("plan-parallel", () => {
     }
   });
 
-  it("rejects an unknown --include-read-hazards flag (removed dead surface, F-M3-1)", async () => {
+  it("F2: --include-read-hazards orders a writer before a reader of the same path", async () => {
     const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
     try {
-      await writeContract(dir, join(dir, "t1.json"), "t1", ["src/ui/**"]);
+      await writeContract(dir, join(dir, "writer.json"), "writer", ["src/shared.ts"]);
+      await writeContract(
+        dir,
+        join(dir, "reader.json"),
+        "reader",
+        ["src/consumer.ts"],
+        ["src/shared.ts"],
+      );
       await writeFile(
         join(dir, "plan.json"),
         JSON.stringify({
           schemaVersion: 1,
-          planId: "flag-demo",
-          tasks: [{ id: "t1", contract: "t1.json" }],
+          planId: "read-hazard-demo",
+          tasks: [
+            { id: "writer", contract: "writer.json" },
+            { id: "reader", contract: "reader.json" },
+          ],
         }),
       );
-      const res = runCli(dir, ["plan-parallel", "plan.json", "--include-read-hazards"]);
-      assert.notEqual(res.status, 0);
-      assert.match(res.stderr, /unknown option/i);
+
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json", "--include-read-hazards"]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.waves, [["writer"], ["reader"]]);
+      assert.deepEqual(body.data.cycles, []);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("F2: a read-write cycle exits 1 and lists the cycle", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["src/a.ts"], ["src/b.ts"]);
+      await writeContract(dir, join(dir, "b.json"), "b", ["src/b.ts"], ["src/a.ts"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "cycle-demo",
+          tasks: [
+            { id: "a", contract: "a.json" },
+            { id: "b", contract: "b.json" },
+          ],
+        }),
+      );
+
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json", "--include-read-hazards"]);
+      assert.equal(res.status, 1);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "violations");
+      assert.deepEqual(body.data.cycles, [["a", "b"]]);
+      assert.deepEqual(body.data.waves, []);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("F1 default: without --include-read-hazards, readPathPatterns are ignored", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      // Same writer/reader pair as the F2 test above, but the flag is
+      // omitted: read hazards must not affect the schedule (backward
+      // compatibility with F1-only plans).
+      await writeContract(dir, join(dir, "writer.json"), "writer", ["src/shared.ts"]);
+      await writeContract(
+        dir,
+        join(dir, "reader.json"),
+        "reader",
+        ["src/consumer.ts"],
+        ["src/shared.ts"],
+      );
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "no-flag-demo",
+          tasks: [
+            { id: "writer", contract: "writer.json" },
+            { id: "reader", contract: "reader.json" },
+          ],
+        }),
+      );
+
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json"]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.deepEqual(body.data.waves, [["reader", "writer"]]);
+      assert.deepEqual(body.data.cycles, []);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

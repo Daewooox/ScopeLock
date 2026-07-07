@@ -29,7 +29,7 @@
 
 | Файл | Назначение |
 |------|-----------|
-| `packages/core/src/schemas/contract.ts` | Approved contract: baseline, scope, nodes (type enum), risks, tests |
+| `packages/core/src/schemas/contract.ts` | Approved contract: baseline, scope (incl. `readPathPatterns`), nodes (type enum), risks, tests |
 | `packages/core/src/schemas/drift.ts` | Drift report, changed file, violation types |
 | `packages/core/src/schemas/repo-manifest.ts` | Repo manifest схема, projectType enum |
 | `packages/core/src/schemas/config.ts` | `.scopelock/config.json` схема, mode warn/strict |
@@ -55,7 +55,7 @@
 | `packages/core/src/schedule/glob-intersect.ts` | Glob intersection witness for scheduler disjointness |
 | `packages/core/src/schedule/scope-algebra.ts` | Task scopes and conflict witness API |
 | `packages/core/src/schedule/conflict-graph.ts` | Deterministic write/read conflict graph builder |
-| `packages/core/src/schedule/scheduler.ts` | F1 write-write greedy coloring scheduler |
+| `packages/core/src/schedule/scheduler.ts` | F1 write-write coloring; F2 Kahn layered scheduling + cycle detection when readEdges present |
 | `packages/core/src/schedule/plan.ts` | Zod schema for plan-parallel input |
 | `packages/core/src/index.ts` | Public exports core package |
 | `packages/core/src/schema.test.ts` | Schema + storage тесты (node:test) |
@@ -73,7 +73,8 @@
 | `packages/cli/src/commands/inject-contract.ts` | Inject contract into AGENTS/CLAUDE doc |
 | `packages/cli/src/commands/hook.ts` | Quiet hook gate/audit CLI entrypoints |
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
-| `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts (write-write only; read-write F2 CLI surface arrives with M5's `readPathPatterns`) |
+| `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
+| `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
 | `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
 
 ---

@@ -62,6 +62,25 @@ describe("ScopeLock schemas", () => {
     assert.equal(parsed.baseline, null);
     assert.deepEqual(parsed.nodes, []);
     assert.deepEqual(parsed.targetAgents, []);
+    // Backward compatibility (M5): older contracts with no readPathPatterns
+    // at all still parse, defaulting to no declared reads.
+    assert.deepEqual(parsed.scope.readPathPatterns, []);
+  });
+
+  it("parses a contract that declares readPathPatterns (M5)", () => {
+    const parsed = approvedContractSchema.parse({
+      schemaVersion: 1,
+      id: "contract-read",
+      task: "Reads shared types",
+      createdAt: "2026-07-05T00:00:00.000Z",
+      scope: {
+        plannedPathPatterns: ["src/api/**"],
+        forbiddenPathPatterns: [],
+        readPathPatterns: ["src/types/**"],
+      },
+    });
+
+    assert.deepEqual(parsed.scope.readPathPatterns, ["src/types/**"]);
   });
 
   it("parses an approved contract with baseline stamped", () => {

@@ -26,6 +26,7 @@ export async function contractNewCommand(options: {
   id?: string;
   planned?: string[];
   forbidden?: string[];
+  read?: string[];
   agent?: string[];
   test?: string[];
   out?: string;
@@ -47,6 +48,7 @@ export async function contractNewCommand(options: {
     scope: {
       plannedPathPatterns: options.planned ?? [],
       forbiddenPathPatterns: options.forbidden ?? [],
+      readPathPatterns: options.read ?? [],
     },
     tests: (options.test ?? []).map((type) => ({ type, command: null, required: true })),
   });

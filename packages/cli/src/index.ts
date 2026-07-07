@@ -91,6 +91,7 @@ contract
   .option("--id <id>", "contract id (default: slug of task + date)")
   .option("--planned <glob>", "planned path glob (repeatable)", collect, [])
   .option("--forbidden <glob>", "forbidden path glob (repeatable)", collect, [])
+  .option("--read <glob>", "read-only path glob, advisory (repeatable)", collect, [])
   .option("--agent <id>", "target agent: claude, codex, cursor (repeatable)", collect, [])
   .option("--test <type>", "required test type, e.g. unit (repeatable)", collect, [])
   .option("--out <path>", "write to a file instead of stdout")
@@ -102,6 +103,7 @@ contract
         id?: string;
         planned: string[];
         forbidden: string[];
+        read: string[];
         agent: string[];
         test: string[];
         out?: string;
@@ -114,9 +116,13 @@ program
   .command("plan-parallel")
   .description("derive a parallel-safe schedule (waves) from a plan of task contracts")
   .argument("<plan>", "path to a plan-parallel JSON file")
+  .option(
+    "--include-read-hazards",
+    "also order writer-before-reader using each contract's readPathPatterns (F2)",
+  )
   .option("--json", "print machine-readable JSON")
-  .action((plan: string, _options: unknown, command: Command) =>
-    run(() => planParallelCommand(plan), jsonOf(command)),
+  .action((plan: string, options: { includeReadHazards?: boolean }, command: Command) =>
+    run(() => planParallelCommand(plan, options), jsonOf(command)),
   );
 
 const hook = program.command("hook").description("internal hook entrypoints");

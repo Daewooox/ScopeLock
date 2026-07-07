@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "orchestration-m5-readwrite-scope2",
+  "task": "M5 scope fix: readPathPatterns is additive but required in the ContractScope output type, so all core *.test.ts fixtures needed updating",
+  "createdAt": "2026-07-07T22:49:29.063Z",
+  "baseline": {
+    "headSha": "871c0e19f59110efa98855f58389e683b8fb09af",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:49:29.139Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/**",
+      "packages/core/src/schemas/contract.ts",
+      "packages/core/src/*.test.ts",
+      "packages/cli/**",
+      "README.md",
+      "memory-bank/**",
+      ".scopelock/experiments/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/hook.ts",
+      "packages/core/src/drift/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

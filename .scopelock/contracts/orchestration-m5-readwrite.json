@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "orchestration-m5-readwrite",
+  "task": "M5: read-write F2 - layered scheduler, cycle detection, readPathPatterns schema, --include-read-hazards CLI flag",
+  "createdAt": "2026-07-07T22:41:39.642Z",
+  "baseline": {
+    "headSha": "871c0e19f59110efa98855f58389e683b8fb09af",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:41:39.718Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/**",
+      "packages/core/src/schemas/contract.ts",
+      "packages/cli/**",
+      "README.md",
+      "memory-bank/**",
+      ".scopelock/experiments/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
