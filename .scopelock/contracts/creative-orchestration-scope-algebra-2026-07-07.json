@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "creative-orchestration-scope-algebra-2026-07-07",
+  "task": "Creative phase: formalize Idea A (scope-algebra for provably parallel-safe multi-agent orchestration) + plan-parallel mini-experiment. Docs only.",
+  "createdAt": "2026-07-07T20:30:00.000Z",
+  "baseline": {
+    "headSha": "cfb3b85db674901f02edbf52c00e0d7f359fa6a4",
+    "branch": "main",
+    "capturedAt": "2026-07-07T20:18:30.887Z"
+  },
+  "targetAgents": [
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**",
+      "README.md",
+      "LICENSE"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [
+    "This is a design/creative document only; no runtime code changes.",
+    "Ideas B and C are explained but not implemented."
+  ],
+  "openQuestions": []
+}
