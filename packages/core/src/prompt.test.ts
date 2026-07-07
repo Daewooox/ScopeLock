@@ -18,6 +18,7 @@ const contract: ApprovedContract = {
   scope: {
     plannedPathPatterns: ["src/checkout/**"],
     forbiddenPathPatterns: ["src/auth/**"],
+    readPathPatterns: [],
   },
   nodes: [],
   risks: [],

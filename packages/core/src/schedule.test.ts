@@ -252,6 +252,123 @@ describe("scope algebra conflict graph and scheduler", () => {
     });
   });
 
+  it("F2: reproduces the checkout worked example ({t3} then {t1,t2,t4})", () => {
+    // orchestration-scope-algebra.md §5.1: t3 writes the shared types file
+    // that t1/t2/t4 read, and none of t1/t2/t4 write-conflict with each
+    // other or with t3 - so t3 must go first, then the rest in one wave.
+    //
+    // Note: the doc's table lists t4's read as the literal `src/**`, but
+    // under our (conservative, picomatch-verified) glob intersection that
+    // also overlaps t1's `src/ui/checkout/**` and t2's `src/api/checkout/**`
+    // writes - a real hazard the doc's prose didn't account for. We use
+    // `src/types/**` here (matching t1/t2's own reads) to isolate the
+    // scenario the example is actually illustrating: a shared-types hazard
+    // from t3 alone. See F2 test below for the broader-read case, which
+    // correctly produces a 3-wave schedule instead.
+    const graph = buildConflictGraph(
+      [
+        { id: "t1", planned: ["src/ui/checkout/**"], forbidden: [], read: ["src/types/**"] },
+        { id: "t2", planned: ["src/api/checkout/**"], forbidden: [], read: ["src/types/**"] },
+        { id: "t3", planned: ["src/types/checkout.ts"], forbidden: [] },
+        { id: "t4", planned: ["test/checkout/**"], forbidden: [], read: ["src/types/**"] },
+      ],
+      { readHazards: true },
+    );
+
+    assert.deepEqual(graph.writeEdges, []);
+    assert.equal(graph.readEdges.length, 3);
+    assert.deepEqual(schedule(graph), {
+      waves: [["t3"], ["t1", "t2", "t4"]],
+      cycles: [],
+    });
+  });
+
+  it("F2: a broader read scope correctly finds more hazards than the doc's prose anticipated", () => {
+    // Same scenario, but t4 reads the literal `src/**` from the doc's table.
+    // That also overlaps t1's and t2's writes (verified above), so a sound
+    // scheduler must NOT bundle t4 into the same wave as t1/t2 - it has to
+    // wait for both. This is the correct, conservative behavior; the doc's
+    // informal "{t1,t2,t4} in one wave" undersells the real hazard surface.
+    const graph = buildConflictGraph(
+      [
+        { id: "t1", planned: ["src/ui/checkout/**"], forbidden: [], read: ["src/types/**"] },
+        { id: "t2", planned: ["src/api/checkout/**"], forbidden: [], read: ["src/types/**"] },
+        { id: "t3", planned: ["src/types/checkout.ts"], forbidden: [] },
+        { id: "t4", planned: ["test/checkout/**"], forbidden: [], read: ["src/**"] },
+      ],
+      { readHazards: true },
+    );
+
+    assert.deepEqual(schedule(graph), {
+      waves: [["t3"], ["t1", "t2"], ["t4"]],
+      cycles: [],
+    });
+  });
+
+  it("F2: a read hazard without a cycle still yields a deterministic writer-first order", () => {
+    const graph = buildConflictGraph(
+      [
+        { id: "writer", planned: ["src/shared.ts"], forbidden: [] },
+        { id: "reader", planned: ["src/consumer.ts"], forbidden: [], read: ["src/shared.ts"] },
+      ],
+      { readHazards: true },
+    );
+
+    assert.deepEqual(graph.readEdges, [["writer", "reader"]]);
+    assert.deepEqual(schedule(graph), {
+      waves: [["writer"], ["reader"]],
+      cycles: [],
+    });
+  });
+
+  it("F2: a read-write cycle is reported in cycles and the scheduler terminates", () => {
+    // a writes what b reads, and b writes what a reads: neither can go first.
+    const graph = buildConflictGraph(
+      [
+        { id: "a", planned: ["src/a.ts"], forbidden: [], read: ["src/b.ts"] },
+        { id: "b", planned: ["src/b.ts"], forbidden: [], read: ["src/a.ts"] },
+      ],
+      { readHazards: true },
+    );
+
+    assert.equal(graph.readEdges.length, 2);
+    const result = schedule(graph);
+    assert.deepEqual(result.waves, []);
+    assert.deepEqual(result.cycles, [["a", "b"]]);
+  });
+
+  it("F2: schedules the resolvable nodes and reports only the stuck ones as a cycle", () => {
+    // a<->b is a true cycle; c merely reads what b writes, so c is stuck too
+    // (b never finishes) but is not itself part of the cycle. d is fully
+    // independent and must still be scheduled normally.
+    const graph = buildConflictGraph(
+      [
+        { id: "a", planned: ["src/a.ts"], forbidden: [], read: ["src/b.ts"] },
+        { id: "b", planned: ["src/b.ts"], forbidden: [], read: ["src/a.ts"] },
+        { id: "c", planned: ["src/c.ts"], forbidden: [], read: ["src/b.ts"] },
+        { id: "d", planned: ["src/d.ts"], forbidden: [] },
+      ],
+      { readHazards: true },
+    );
+
+    const result = schedule(graph);
+    assert.deepEqual(result.waves, [["d"]]);
+    assert.deepEqual(result.cycles, [["a", "b", "c"]]);
+  });
+
+  it("F2: without --include-read-hazards (no readEdges), behavior is identical to F1", () => {
+    const graph = buildConflictGraph([
+      { id: "t1", planned: ["src/ui/**"], forbidden: [], read: ["src/types/**"] },
+      { id: "t2", planned: ["src/types/checkout.ts"], forbidden: [] },
+    ]);
+
+    assert.deepEqual(graph.readEdges, []);
+    assert.deepEqual(schedule(graph), {
+      waves: [["t1", "t2"]],
+      cycles: [],
+    });
+  });
+
   it("validates the plan-parallel input schema shape", () => {
     assert.equal(SCHEDULE_PLAN_SCHEMA_VERSION, 1);
 
