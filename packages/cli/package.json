@@ -13,9 +13,18 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Daewooox/ScopeLock.git",
+    "directory": "packages/cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node -e \"console.log('no cli tests yet')\"",
+    "prepublishOnly": "tsc -p tsconfig.json",
+    "test": "node --test dist/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

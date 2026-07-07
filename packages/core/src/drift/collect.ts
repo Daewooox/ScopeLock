@@ -1,6 +1,7 @@
 import { access } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import type { ChangedFile, RepoMode, RepoState } from "../schemas/drift.js";
+import { DEFAULT_DEGRADED_FILE_THRESHOLD } from "../schemas/config.js";
 import { changedSinceBaseline } from "../git/diff.js";
 import { runGitAsync } from "../git/exec.js";
 import { parsePorcelainV2 } from "../git/status.js";
@@ -46,7 +47,10 @@ function isScopelockArtifact(path: string): boolean {
 export async function collectChangedFiles(
   cwd: string,
   baselineSha: string | null,
+  options: { degradedThreshold?: number } = {},
 ): Promise<{ files: ChangedFile[]; repoState: RepoState; repoMode: RepoMode }> {
+  const degradedThreshold =
+    options.degradedThreshold ?? DEFAULT_DEGRADED_FILE_THRESHOLD;
   const status = await runGitAsync(
     ["status", "--porcelain=v2", "-z", "--renames", "--untracked-files=all"],
     cwd,
@@ -70,6 +74,6 @@ export async function collectChangedFiles(
   return {
     files,
     repoState: await repoState(cwd),
-    repoMode: files.length > 10_000 ? "degraded" : "normal",
+    repoMode: files.length > degradedThreshold ? "degraded" : "normal",
   };
 }

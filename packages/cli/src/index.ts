@@ -8,10 +8,15 @@ import { approveCommand } from "./commands/approve.js";
 import { exportPromptCommand } from "./commands/export-prompt.js";
 import { injectContractCommand } from "./commands/inject-contract.js";
 import { hookGateCommand } from "./commands/hook.js";
+import { contractNewCommand } from "./commands/contract-new.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
 } from "./commands/hooks.js";
+
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
 
 const program = new Command();
 
@@ -72,6 +77,36 @@ program
   .option("--json", "print machine-readable JSON")
   .action((options: { target?: string }, command: Command) =>
     run(() => injectContractCommand(options), jsonOf(command)),
+  );
+
+const contract = program
+  .command("contract")
+  .description("author and inspect ScopeLock contracts");
+
+contract
+  .command("new")
+  .description("scaffold a schema-valid draft contract (deterministic, no LLM)")
+  .requiredOption("--task <text>", "one-line description of the task")
+  .option("--id <id>", "contract id (default: slug of task + date)")
+  .option("--planned <glob>", "planned path glob (repeatable)", collect, [])
+  .option("--forbidden <glob>", "forbidden path glob (repeatable)", collect, [])
+  .option("--agent <id>", "target agent: claude, codex, cursor (repeatable)", collect, [])
+  .option("--test <type>", "required test type, e.g. unit (repeatable)", collect, [])
+  .option("--out <path>", "write to a file instead of stdout")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      options: {
+        task: string;
+        id?: string;
+        planned: string[];
+        forbidden: string[];
+        agent: string[];
+        test: string[];
+        out?: string;
+      },
+      command: Command,
+    ) => run(() => contractNewCommand(options), jsonOf(command)),
   );
 
 const hook = program.command("hook").description("internal hook entrypoints");

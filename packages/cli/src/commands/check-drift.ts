@@ -76,7 +76,9 @@ export async function checkDriftCommand(options: {
     );
   }
 
-  const collected = await collectChangedFiles(root, baselineSha);
+  const collected = await collectChangedFiles(root, baselineSha, {
+    degradedThreshold: config.degradedFileThreshold,
+  });
   const checkedAt = new Date().toISOString();
   const report = buildDriftReport({
     contract,

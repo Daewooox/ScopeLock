@@ -21,3 +21,4 @@ export * from "./harness/hooks-merge.js";
 export * from "./hook/gate.js";
 export * from "./render/prompt.js";
 export * from "./render/agents-md.js";
+export * from "./format.js";

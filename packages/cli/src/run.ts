@@ -12,6 +12,8 @@ export type CommandResult = {
   exitCode: ExitCode;
 };
 
+import { formatZodError } from "@scopelock/core";
+
 export class CliError extends Error {
   readonly code: string;
 
@@ -42,8 +44,15 @@ export async function run(
     }
     process.exitCode = result.exitCode;
   } catch (error) {
-    const code = error instanceof CliError ? error.code : "UNEXPECTED";
-    const message = error instanceof Error ? error.message : String(error);
+    const zodMessage = formatZodError(error);
+    const code =
+      error instanceof CliError
+        ? error.code
+        : zodMessage !== null
+          ? "INVALID_INPUT"
+          : "UNEXPECTED";
+    const message =
+      zodMessage ?? (error instanceof Error ? error.message : String(error));
     if (opts.json) {
       process.stdout.write(
         `${JSON.stringify({ status: "error", error: { code, message } })}\n`,

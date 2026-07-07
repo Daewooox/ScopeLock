@@ -372,3 +372,36 @@ check-drift под новым контрактом = 0 violations, отчёт `d
 ### Вывод
 Runtime enforcement подтверждён в обоих реальных UI, не только в CLI-эмуляции. Остаётся перед Phase 4: 5→10-15 интервью Stage 0 + go/no-go (см. #0011, #0013).
 <!-- TASK #0014 END -->
+
+<!-- TASK #0015 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-07T20:10Z
+     Status: build
+-->
+## Задача #0015 — Trialable v0.1 (шаги из SA-ревью)
+
+- **Описание:** Довести проект до состояния «можно дать пощупать»: onboarding-доки, детерминированный скаффолдер контрактов, наблюдаемость ошибок хука, компактные ошибки, конфигурируемый порог, npm-подготовка, кросс-ОС CI и integration-тесты. Интервью со внешними бета-дев-пользователями сознательно отложены (продукт ещё сырой).
+- **Уровень сложности:** Level 2
+- **Статус:** BUILD завершён под контрактом `trialable-v0.1-2026-07-07` (approve от d583fff). core 34/34 + cli 3/3 pass, typecheck чист, check-drift = только ожидаемый `high_risk_file` на CI (нет нарушений scope).
+
+### Сделано
+- P1/P4: `README.md` (60-секундный quickstart, таблица команд, exit-коды, `--local`, layout `.scopelock/`) + `LICENSE` (MIT).
+- P2: `scopelock contract new` - детерминированный скаффолдер (без LLM). Пайпится в stdout или `--out <file>`, вывод валидируется `approvedContractSchema`. Повторяемые `--planned/--forbidden/--agent/--test`.
+- A1: hook gate при внутренней ошибке пишет `.scopelock/reports/hook-errors.ndjson` (best-effort, никогда не роняет агента) вместо тихого noop.
+- A4: `formatZodError()` в core - однострочные path-ориентированные ошибки; `run.ts` отдаёт `INVALID_INPUT` вместо JSON-простыни.
+- A5: `degradedFileThreshold` в config (default 10000), проброшен в `collectChangedFiles`.
+- P3: npm-подготовка обоих пакетов (`files`, `repository`, `publishConfig.access=public`, `prepublishOnly`). Публикация требует npm-логина пользователя (порядок: core → cli).
+- A2: CI-матрица ubuntu/windows/macos × Node 22/24.
+- A3: CLI integration-тесты (`packages/cli/src/cli.test.ts`): init→contract new→approve→check-drift, exit-коды 0/1/2, no-git.
+
+### Изменённые файлы
+- `README.md`, `LICENSE`
+- `packages/core/src/{format.ts,index.ts}`, `schemas/config.ts`, `drift/collect.ts`, `hook/gate.ts`, `schema.test.ts`, `hook.test.ts`
+- `packages/cli/src/{index.ts,run.ts}`, `commands/{contract-new.ts,check-drift.ts}`, `cli.test.ts`
+- `packages/core/package.json`, `packages/cli/package.json`
+- `.github/workflows/test.yml`
+
+### Осознанно отложено
+- P5 per-harness mode (шаг 3 «если go»).
+- Интервью Stage 0 (перенесены до готовности v0.1 к демонстрации).
+<!-- TASK #0015 END -->
