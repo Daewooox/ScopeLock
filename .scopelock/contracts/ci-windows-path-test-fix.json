@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "ci-windows-path-test-fix",
+  "task": "Fix Windows CI path separator assertion in storage layout test",
+  "createdAt": "2026-07-07T21:08:55.678Z",
+  "baseline": {
+    "headSha": "e653bcf68bb73129940197b00ecd3dafce646ce9",
+    "branch": "main",
+    "capturedAt": "2026-07-07T21:08:55.770Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schema.test.ts",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/storage/**",
+      "packages/core/src/schedule/**",
+      "packages/cli/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

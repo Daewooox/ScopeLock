@@ -138,9 +138,9 @@ describe("ScopeLock schemas", () => {
 describe("storage", () => {
   it("computes the .scopelock layout from a repo root", () => {
     const paths = scopelockPaths("/repo");
-    assert.equal(paths.configPath, "/repo/.scopelock/config.json");
-    assert.equal(paths.contractsDir, "/repo/.scopelock/contracts");
-    assert.equal(paths.activePath, "/repo/.scopelock/active");
+    assert.equal(paths.configPath, join("/repo", ".scopelock", "config.json"));
+    assert.equal(paths.contractsDir, join("/repo", ".scopelock", "contracts"));
+    assert.equal(paths.activePath, join("/repo", ".scopelock", "active"));
   });
 
   it("writes JSON atomically and creates parent dirs", async () => {
