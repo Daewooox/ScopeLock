@@ -108,3 +108,113 @@ describe("cli end-to-end", () => {
     }
   });
 });
+
+describe("plan-parallel", () => {
+  async function writeContract(
+    dir: string,
+    file: string,
+    id: string,
+    planned: string[],
+  ): Promise<void> {
+    const res = runCli(dir, [
+      "contract",
+      "new",
+      "--task",
+      id,
+      "--id",
+      id,
+      ...planned.flatMap((glob) => ["--planned", glob]),
+      "--out",
+      file,
+    ]);
+    assert.equal(res.status, 0, res.stderr);
+  }
+
+  it("schedules disjoint contracts into a single wave with no conflicts", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      await writeContract(dir, join(dir, "t1.json"), "t1", ["src/ui/**"]);
+      await writeContract(dir, join(dir, "t2.json"), "t2", ["src/api/**"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "disjoint-demo",
+          tasks: [
+            { id: "t1", contract: "t1.json" },
+            { id: "t2", contract: "t2.json" },
+          ],
+        }),
+      );
+
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json"]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.waves, [["t1", "t2"]]);
+      assert.deepEqual(body.data.conflicts, []);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("serializes overlapping contracts into two waves with a witness", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      await writeContract(dir, join(dir, "t1.json"), "t1", ["src/shared/**"]);
+      await writeContract(dir, join(dir, "t2.json"), "t2", ["src/shared/utils.ts"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "overlap-demo",
+          tasks: [
+            { id: "t1", contract: "t1.json" },
+            { id: "t2", contract: "t2.json" },
+          ],
+        }),
+      );
+
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json"]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.waves, [["t1"], ["t2"]]);
+      assert.equal(body.data.conflicts.length, 1);
+      assert.equal(body.data.conflicts[0].kind, "write-write");
+      assert.equal(body.data.conflicts[0].witness, "src/shared/utils.ts");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 2 with a compact error on a missing plan file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      const res = runCli(dir, ["--json", "plan-parallel", "missing-plan.json"]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "PLAN_NOT_FOUND");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 2 with a compact error on an invalid plan.json shape", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({ schemaVersion: 1, planId: "empty", tasks: [] }),
+      );
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json"]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "INVALID_INPUT");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

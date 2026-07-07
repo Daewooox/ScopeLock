@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "schedule-m3-plan-parallel",
+  "task": "M3: plan-parallel CLI command deriving parallel-safe waves from task contracts",
+  "createdAt": "2026-07-07T22:09:24.893Z",
+  "baseline": {
+    "headSha": "58ccb3b133d4e44d9dd9d1a53ce45ab46cc86a62",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:09:24.969Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/**",
+      "README.md",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
