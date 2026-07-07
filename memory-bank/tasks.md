@@ -837,3 +837,53 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - `orchestration-m5-readwrite` (исходный, approve `871c0e1`): planned `packages/core/src/schedule/**`, `packages/core/src/schemas/contract.ts`, `packages/cli/**`, `README.md`, `memory-bank/**`, `.scopelock/experiments/**`; forbidden `packages/core/src/git/**`, `packages/core/src/hook/**`, `packages/core/src/drift/**`.
 - `orchestration-m5-readwrite-scope2` (расширение, approve `871c0e1`, тот же baseline): то же + planned `packages/core/src/*.test.ts` (правка существующих schema/drift/hook/prompt/schedule тестов, ставшая необходимой из-за обязательности нового поля в выведенном типе `ContractScope`).
 <!-- TASK #0029 END -->
+
+<!-- TASK #0030 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-08
+     Status: done
+-->
+## Задача #0030 — Интеграция parallel-workflow: guide + воспроизводимый пример
+
+- **Описание:** Движок scope-algebra (M1-M5) готов и провалидирован (#0019-#0029). Эта задача не трогает движок - она связывает существующие команды (`contract new` → `approve` → `plan-parallel` → `export-prompt`/`inject-contract` → `check-drift`) в один задокументированный сквозной сценарий «большая задача → N параллельных агентов», плюс мелкий polish по итогам ревью M5.
+- **Уровень сложности:** Level 2 (docs/UX).
+- **Статус:** DONE под контрактом `workflow-parallel-docs-v2` (расширение `workflow-parallel-docs`, approve `1d343ec`; forbidden весь `packages/core/**` и весь `packages/cli/src/commands/**`/`index.ts` кроме явно перечисленного `plan-parallel.ts` + `cli.test.ts` под polish). Core 53/53 (не менялся), CLI 11/11 (behavior/JSON не менялись, только human-текст), `check-drift` = 0.
+
+### Сделано
+
+**Живой сквозной прогон (реальные команды, реальный вывод — ничего не выдумано):**
+- 4 реалистичных контракта на реальных путях репо: `t1-core` (`packages/core/src/schedule/**`), `t2-cli` (`packages/cli/src/commands/**`), `t3-docs` (`memory-bank/**` + `README.md`), `t4-tests` (`packages/core/src/schedule.test.ts`, **read** `packages/core/src/schedule/**` — намеренный read-write хазард с `t1-core`).
+- `contract new --read <glob>` (M5.1 CLI-опция) использована вживую для `t4-tests`.
+- Каждый контракт approved (`--no-activate` для трёх, чтобы не сбивать активный контракт задачи).
+- `plan-parallel` прогнан и в F1 (default: все 4 в одной волне, write-write disjoint), и в F2 (`--include-read-hazards`: `wave 1: [t1-core, t2-cli, t3-docs]` → `wave 2: [t4-tests]`, конфликт `t1-core x t4-tests [read-write]: packages/core/src/schedule`). Witness независимо перепроверен напрямую через `picomatch` (matches оба glob).
+- `export-prompt --target codex` и `inject-contract --target codex` прогнаны вживую для `t1-core` (второе — в изолированном scratch-repo, чтобы не трогать `AGENTS.md` этого репозитория). Обнаружен и честно задокументирован реальный UX-момент: обе команды работают только с ЕДИНСТВЕННЫМ активным контрактом (`getActiveContractId`), явного `--contract <id>` флага нет — чтобы сгенерировать промпт для конкретной задачи волны, нужно сначала сделать её контракт активным.
+- Cycle/exit-1 сценарий (`t5-cycle-a`/`t5-cycle-b`, взаимный read-write) прогнан вживую: exit `1`, human-вывод и `--json` зафиксированы.
+- `check-drift` сценарий (clean → in-scope edit остаётся clean → out-of-scope edit → violations, exit 1) прогнан в отдельном scratch-repo (git init + `scopelock init` + `contract new` + `approve` + реальные правки файлов), чтобы не создавать файлы внутри реального `packages/core/src/schedule/` этого репозитория.
+- `.scopelock/active` каждый раз восстанавливался на `workflow-parallel-docs-v2` сразу после ручных манипуляций (та же дисциплина, что в H2-тесте M5).
+
+**Guide:** `docs/parallel-workflow.md` (новый) — мотивация, пошаговая цепочка с реальными командами/выводом, разбор вывода `plan-parallel` (wave/conflict/witness/`--include-read-hazards`/`cycles`), exit-коды 0/1/2 и что делать при 1, врезка Safety invariant (H1/H4 из M4 + witness verified под тем же `picomatch`, что и runtime hook gate), явный раздel "What this doesn't cover yet" (H3 real-agent timing, `scopelock run`-оркестратор — не в этой итерации). README.md получил короткую врезку-ссылку на guide после таблицы команд.
+
+**Пример-артефакт:** `examples/parallel/` — 4 draft-контракта (`baseline: null`, без approve) + `plan.json` (пути относительно этой директории) + короткий README с ожидаемым выводом. Одна команда для воспроизведения: `scopelock plan-parallel plan.json --include-read-hazards` из `examples/parallel/`. Проверено вживую — вывод совпадает с зафиксированным в guide.
+
+**Опциональный polish (сделан, оба пункта из ревью M5):**
+- `plan-parallel.ts` human-вывод: «read-write cycles detected» → «unschedulable (read-write deadlock)»; построчная метка `cycle:` → `stuck group:` (группа может содержать узлы, лишь транзитивно зависящие от цикла, не только сам цикл — см. инвариант из #0029). **JSON-ключ `cycles` не переименован** — только человекочитаемый текст, проверено `--json`-прогоном до/после.
+- Удалены просочившиеся из H2-теста M5 контракты `.scopelock/contracts/t-cli-cmds.json` и `.scopelock/contracts/t-core-schedule.json` (approved-копии с реальным baseline, оставшиеся после ad hoc активации в #0029); оригинальные draft-версии в `.scopelock/experiments/` не тронуты.
+
+### Проверки
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` → 53/53 (core не менялся).
+- `node --test packages/cli/dist/*.test.js` → 11/11 (без новых тестов - polish не менял поведение/JSON, только human-текст; существующие тесты проверяют JSON, не текст).
+- `node packages/cli/dist/index.js check-drift --json` под `workflow-parallel-docs-v2` → 0 violations.
+- Ручной прогон одной командой из `examples/parallel/` воспроизвёл вывод, зафиксированный в guide, побайтово.
+
+### DoD
+- Guide написан, все команды в нём реально прогнаны, вывод настоящий. ✅
+- Пример-артефакт воспроизводится одной командой. ✅
+- Polish сделан: core/cli тесты зелёные, human-вывод обновлён, JSON-схема не изменилась. ✅
+- `check-drift --json` = 0 под `workflow-parallel-docs-v2`. ✅
+- `tasks.md` (#0030 → done), `activeContext.md`, `component-map.md` обновлены. Коммит. Push только по явной просьбе. ✅
+
+### Контракты
+- `workflow-parallel-docs` (исходный, approve `1d343ec`): planned `README.md`, `memory-bank/**`, `docs/**`, `examples/**`, `.scopelock/experiments/**`; forbidden `packages/core/**`, `packages/cli/src/commands/**`, `packages/cli/src/index.ts`.
+- `workflow-parallel-docs-v2` (расширение, approve `1d343ec`, тот же baseline): то же + planned `packages/cli/src/commands/plan-parallel.ts`, `packages/cli/src/cli.test.ts` (для опционального polish); остальные `packages/cli/src/commands/*.ts` и `index.ts` остаются forbidden явным списком.
+<!-- TASK #0030 END -->

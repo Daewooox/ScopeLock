@@ -76,6 +76,8 @@
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
 | `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
+| `docs/parallel-workflow.md` | Guide: running N agents in parallel via plan-parallel (real commands/output) |
+| `examples/parallel/` | Reproducible 4-task plan-parallel example (draft contracts, one-command repro) |
 
 ---
 

@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "id": "t-cli-cmds",
-  "task": "M4 experiment: CLI command additions",
-  "createdAt": "2026-07-07T22:29:04.290Z",
+  "id": "t1-core",
+  "task": "Parallel-workflow example: core scheduler tweaks",
+  "createdAt": "2026-07-07T23:06:02.879Z",
   "baseline": {
-    "headSha": "871c0e19f59110efa98855f58389e683b8fb09af",
+    "headSha": "1d343ec2dd6b1fb9ad326431b204317d5bf407dc",
     "branch": "main",
-    "capturedAt": "2026-07-07T22:50:21.967Z"
+    "capturedAt": "2026-07-07T23:06:09.146Z"
   },
   "targetAgents": [],
   "scope": {
     "plannedPathPatterns": [
-      "packages/cli/src/commands/**"
+      "packages/core/src/schedule/**"
     ],
     "forbiddenPathPatterns": [],
     "readPathPatterns": []

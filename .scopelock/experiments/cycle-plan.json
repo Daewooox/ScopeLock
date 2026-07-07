@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "planId": "cycle-example",
+  "tasks": [
+    { "id": "t5-cycle-a", "contract": ".scopelock/contracts/t5-cycle-a.json" },
+    { "id": "t5-cycle-b", "contract": ".scopelock/contracts/t5-cycle-b.json" }
+  ]
+}

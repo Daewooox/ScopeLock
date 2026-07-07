@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "id": "t-core-schedule",
-  "task": "M4 experiment: core schedule engine changes",
-  "createdAt": "2026-07-07T22:29:04.234Z",
+  "id": "t2-cli",
+  "task": "Parallel-workflow example: CLI command tweaks",
+  "createdAt": "2026-07-07T23:06:02.934Z",
   "baseline": {
-    "headSha": "871c0e19f59110efa98855f58389e683b8fb09af",
+    "headSha": "1d343ec2dd6b1fb9ad326431b204317d5bf407dc",
     "branch": "main",
-    "capturedAt": "2026-07-07T22:50:29.554Z"
+    "capturedAt": "2026-07-07T23:06:09.220Z"
   },
   "targetAgents": [],
   "scope": {
     "plannedPathPatterns": [
-      "packages/core/src/schedule/**"
+      "packages/cli/src/commands/**"
     ],
     "forbiddenPathPatterns": [],
     "readPathPatterns": []

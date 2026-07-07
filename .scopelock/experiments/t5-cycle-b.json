@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "t5-cycle-b",
+  "task": "Parallel-workflow example: cycle demo task B",
+  "createdAt": "2026-07-07T23:07:29.876Z",
+  "baseline": null,
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "src/b.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": [
+      "src/a.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

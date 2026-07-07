@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "t5-cycle-b",
+  "task": "Parallel-workflow example: cycle demo task B",
+  "createdAt": "2026-07-07T23:07:29.876Z",
+  "baseline": {
+    "headSha": "1d343ec2dd6b1fb9ad326431b204317d5bf407dc",
+    "branch": "main",
+    "capturedAt": "2026-07-07T23:07:30.025Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "src/b.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": [
+      "src/a.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
