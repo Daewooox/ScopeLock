@@ -76,9 +76,13 @@ scopelock check-drift                          # exit 0 clean, 1 = violations
 | `scopelock hooks install --target <id> [--mode warn\|strict] [--local]` | Install editor hooks. |
 | `scopelock hooks uninstall --target <id>` | Remove ScopeLock's hook entries only. |
 | `scopelock check-drift [--base <sha>]` | Compare actual repo changes to the contract. |
-| `scopelock plan-parallel <plan.json> [--include-read-hazards]` | Derive a parallel-safe schedule (waves) from a set of task contracts. |
+| `scopelock plan-parallel <plan.json>` | Derive a parallel-safe schedule (waves) from a set of task contracts. |
 
 `--json` is available on every command for machine-readable output.
+
+Each `task.contract` path inside `plan.json` resolves relative to the
+current working directory (the same convention as `approve <file>`), not
+relative to the `plan.json` file's own location.
 
 ### `--local`
 

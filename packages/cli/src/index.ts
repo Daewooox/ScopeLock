@@ -114,10 +114,9 @@ program
   .command("plan-parallel")
   .description("derive a parallel-safe schedule (waves) from a plan of task contracts")
   .argument("<plan>", "path to a plan-parallel JSON file")
-  .option("--include-read-hazards", "also serialize writer-before-reader read scopes")
   .option("--json", "print machine-readable JSON")
-  .action((plan: string, options: { includeReadHazards?: boolean }, command: Command) =>
-    run(() => planParallelCommand(plan, options), jsonOf(command)),
+  .action((plan: string, _options: unknown, command: Command) =>
+    run(() => planParallelCommand(plan), jsonOf(command)),
   );
 
 const hook = program.command("hook").description("internal hook entrypoints");

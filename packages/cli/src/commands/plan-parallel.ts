@@ -13,8 +13,12 @@ async function readJsonFile(path: string, notFoundCode: string): Promise<unknown
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
-  } catch {
-    throw new CliError(notFoundCode, `file not found: ${path}`);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      throw new CliError(notFoundCode, `file not found: ${path}`);
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError("FILE_READ_ERROR", `cannot read ${path}: ${message}`);
   }
   try {
     return JSON.parse(raw);
@@ -49,10 +53,7 @@ function humanReport(planId: string, waves: string[][], conflicts: ScopeConflict
   return lines.join("\n");
 }
 
-export async function planParallelCommand(
-  planPath: string,
-  options: { includeReadHazards?: boolean } = {},
-): Promise<CommandResult> {
+export async function planParallelCommand(planPath: string): Promise<CommandResult> {
   const planRaw = await readJsonFile(planPath, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
 
@@ -61,7 +62,11 @@ export async function planParallelCommand(
     scopes.push(await loadTaskScope(task));
   }
 
-  const graph = buildConflictGraph(scopes, { readHazards: options.includeReadHazards === true });
+  // read-write hazards are a no-op today: loadTaskScope never populates
+  // TaskScope.read because approvedContractSchema has no read-pattern field
+  // yet. The CLI flag for --include-read-hazards is intentionally not
+  // exposed until M5 adds readPathPatterns to the contract schema.
+  const graph = buildConflictGraph(scopes);
   const { waves } = schedule(graph);
 
   return {

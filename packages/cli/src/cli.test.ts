@@ -217,4 +217,50 @@ describe("plan-parallel", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("exits 2 with INVALID_INPUT (not UNEXPECTED) on duplicate task ids", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      await writeContract(dir, join(dir, "t1.json"), "t1", ["src/ui/**"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "dup-demo",
+          tasks: [
+            { id: "t1", contract: "t1.json" },
+            { id: "t1", contract: "t1.json" },
+          ],
+        }),
+      );
+      const res = runCli(dir, ["--json", "plan-parallel", "plan.json"]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "INVALID_INPUT");
+      assert.match(body.error.message, /duplicate task id: t1/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unknown --include-read-hazards flag (removed dead surface, F-M3-1)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-plan-"));
+    try {
+      await writeContract(dir, join(dir, "t1.json"), "t1", ["src/ui/**"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "flag-demo",
+          tasks: [{ id: "t1", contract: "t1.json" }],
+        }),
+      );
+      const res = runCli(dir, ["plan-parallel", "plan.json", "--include-read-hazards"]);
+      assert.notEqual(res.status, 0);
+      assert.match(res.stderr, /unknown option/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
