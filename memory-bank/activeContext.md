@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0013 — Phase 3.5 distribution unblocker. Под контрактом `phase3.5-distribution` (approve от 1bd2512): D1 `hooks install --local` (абсолютная команда, live-проверка exit 2 без глобального scopelock), D2 npm-ready package.json, D3 фикс root .gitignore (контракты снова коммитятся). 31/31 тестов, check-drift = 0. Коммит ревью-фиксов R1-R5: 1bd2512. Осталось перед Phase 4 (checkpoint-gate): live invocation в реальных Claude Code/Cursor UI + 5-15 интервью + go/no-go (это на пользователе). Ранее: #0012 ревью Phase 0-3, #0011 CHECKPOINT dogfood.
+Задача #0014 — live UI dogfood пройден в НАСТОЯЩИХ Claude Code и Cursor (не CLI-эмуляция). Claude Code strict: forbidden path denied превентивно (файл не тронут), planned path прошёл. Cursor warn: afterFileEdit реально записал audit.ndjson на живую agent-правку. Это закрывает первый пункт checkpoint-gate из #0011. Остаётся перед Phase 4: 5→10-15 интервью Stage 0 (обязательный вопрос "почему не Spec Kit/Traycer") + go/no-go — на пользователе. Housekeeping pending: .pnpm-store/ в .gitignore, решить нужно ли вернуть mode=strict глобально, закоммитить .claude/.cursor настройки от live-теста. Ранее: #0013 Phase 3.5 distribution unblocker (hooks install --local, коммиты 1bd2512/bff915c), #0012 ревью Phase 0-3.
 
 ## Последние изменения
 - Memory Bank инициализирован

@@ -347,3 +347,28 @@ check-drift под новым контрактом = 0 violations, отчёт `d
 - Manual drift + `check-drift --json` вернул exit `1`.
 - Self-dogfood ScopeLock repo: `doctor --json` ok, strict forbidden gate exit `2`, planned gate quiet exit `0`, audit wrote ndjson, `check-drift --json` exit `0` with 0 violations for planned `AGENTS.md` + hook config changes.
 <!-- TASK #0011 END -->
+
+<!-- TASK #0014 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-07T21:56Z
+     Status: build
+-->
+## Задача #0014 — Live UI dogfood: Claude Code + Cursor (закрывает часть #0011)
+
+- **Описание:** Реальная (не CLI-симулированная) проверка хуков в настоящих Claude Code и Cursor UI после Phase 3.5 (`hooks install --local`).
+- **Уровень сложности:** Level 1
+- **Статус:** Пройдено. Первый пункт checkpoint-gate из #0011 ("live invocation в настоящих Claude Code/Cursor UI") закрыт.
+
+### Claude Code (strict, --local)
+- `hooks install --target claude --mode strict --local` → `.claude/settings.json` получил абсолютную команду `node "<abs>/dist/index.js" hook gate`.
+- Промпт "измени packages/core/src/schemas/contract.ts" (forbidden) → PreToolUse denied, файл НЕ изменён (подтверждено `git status` - нет диффа), Claude вежливо сообщил о блокировке и спросил про расширение scope вместо падения.
+- Промпт "добавь строку test в memory-bank/tasks.md" (planned) → прошло, строка добавлена.
+- Deny в strict корректно НЕ пишет audit.ndjson (это поведение только warn) - подтверждено.
+
+### Cursor (warn, --local)
+- `hooks install --target cursor --mode warn --local` → `.cursor/hooks.json` абсолютная команда `hook audit`.
+- Живая правка кодового файла вне scope (agent edit через Cursor) → `afterFileEdit` сработал, `.scopelock/reports/audit.ndjson` получил новую строку `verdict: warn, reason: outside` с реальным таймстампом, правка не блокировалась.
+
+### Вывод
+Runtime enforcement подтверждён в обоих реальных UI, не только в CLI-эмуляции. Остаётся перед Phase 4: 5→10-15 интервью Stage 0 + go/no-go (см. #0011, #0013).
+<!-- TASK #0014 END -->
