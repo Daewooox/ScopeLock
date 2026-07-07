@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "ci-actions-node24-warnings",
+  "task": "Remove GitHub Actions Node 20 deprecation warnings",
+  "createdAt": "2026-07-07T21:21:07.438Z",
+  "baseline": {
+    "headSha": "fecf94a6044c39143f385a17c19756cf72003164",
+    "branch": "main",
+    "capturedAt": "2026-07-07T21:21:07.525Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".github/workflows/test.yml",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md",
+      "LICENSE"
+    ]
+  },
+  "nodes": [],
+  "risks": [
+    {
+      "level": "medium",
+      "reason": "GitHub Actions workflow versions and runner labels changed.",
+      "mitigation": "Local pnpm test passed; remote GitHub Actions run must confirm annotations are gone."
+    }
+  ],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
