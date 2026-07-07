@@ -577,3 +577,23 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - `pnpm test` → core 42/42 + cli 3/3 pass.
 - `node packages/cli/dist/index.js check-drift --json` → 0 violations по контракту `ci-windows-path-test-fix`.
 <!-- TASK #0021 END -->
+
+<!-- TASK #0022 BEGIN
+     Owner: codex
+     Started: 2026-07-07T21:21Z
+     Status: build
+-->
+## Задача #0022 — CI cleanup: убрать GitHub Actions Node 20 warnings
+
+- **Описание:** После зелёного CI GitHub Actions показывал annotations: `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4` target Node.js 20, а также notices о будущей миграции `macos-latest`.
+- **Уровень сложности:** Level 1
+- **Статус:** BUILD завершён под контрактом `ci-actions-node24-warnings`. Локально `pnpm test` pass; `check-drift` ожидаемо оставляет `high_risk_file` на `.github/workflows/test.yml` как intentional workflow review stop.
+
+### Сделано
+- `.github/workflows/test.yml`: `actions/checkout@v7`, `actions/setup-node@v6`, `pnpm/action-setup@v6`.
+- Matrix macOS pin: `macos-latest` → `macos-15`, чтобы убрать notice о миграции latest label.
+
+### Проверки
+- `pnpm test` → core 42/42 + cli 3/3 pass.
+- `node packages/cli/dist/index.js check-drift --json` → только ожидаемый `high_risk_file` на `.github/workflows/test.yml`.
+<!-- TASK #0022 END -->
