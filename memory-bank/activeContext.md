@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0024 — M1 prod fix ЗАВЕРШЕНА. `intersectionWitness` переписан: product-search стал генератором кандидатов, а истиной пересечения служит `picomatch` (тот же матчер, что в runtime hook gate). Устранён over-approx (`*.ts`×`test-*/**` теперь корректно disjoint) и найденный F2 false-disjoint (`**`×`[ab]/test-*/**`) через depth-bounded «оба globstar поглощают filler». F1 (10k) и F2 (10k) зелёные, Core 45/45, CLI 3/3, `check-drift` = 0 под контрактом `schedule-m1-hardening`. Следующий шаг: доделать оставшиеся hardening findings F3/F5/F6/F7/F8 (доки/константы), затем M3 `plan-parallel`. Ранее: #0023 hardening release-gate (F1/F2 тесты); #0020 M2 scope-algebra scheduler; #0021 Windows CI path fix; #0022 CI actions cleanup; #0019 M1 `globsIntersect`.
+Задача #0025 — Group A M1 polish ЗАВЕРШЕНА под контрактом `schedule-m1-polish` (approve от `e355902`). `SCHEDULE_PLAN_SCHEMA_VERSION` константа в `plan.ts` (стиль как у остальных schema-version констант); инвариант-комментарии в `scheduler.ts` (cycles всегда [] в F1, зарезервировано под F2), `scope-algebra.ts` (write-write приоритетнее read-write) и `conflict-graph.ts` (детерминизм сортировки nodes, единственный проход по парам). Публичные экспорты schedule-модуля уже были полными через `export *`. Core 45/45, CLI 3/3, `check-drift` = 0. Следующий шаг: M3 `plan-parallel` CLI (Group B, контракт `schedule-m3-plan-parallel`, planned scope `packages/cli/**`). Ранее: #0024 M1 prod fix (witness bound to picomatch); #0023 hardening release-gate (F1/F2 тесты); #0020 M2 scope-algebra scheduler; #0021 Windows CI path fix; #0022 CI actions cleanup; #0019 M1 `globsIntersect`.
 
 ## Последние изменения
 - Memory Bank инициализирован
@@ -24,10 +24,10 @@
 - Задача #0022: убраны GitHub Actions Node 20 warnings через обновление official actions до Node24-compatible major versions; `macos-latest` запинен на `macos-15`.
 - Задача #0023: hardening M1 release-gate выявил баг witness: `*.ts` vs `test-*/**` даёт witness, который не матчится вторым glob под `picomatch`. Стоп-условие выполнено, production logic не менялась.
 - Задача #0024: prod fix выполнен — `intersectionWitness` теперь генерирует кандидатов и валидирует их `picomatch`; disjoint возвращается только при исчерпании поиска, иначе консервативный intersect. F1/F2 по 10k зелёные, добавлены regression-тесты trailing-`**`.
+- Задача #0025: Group A polish под контрактом `schedule-m1-polish`. `SCHEDULE_PLAN_SCHEMA_VERSION` константа + инвариант-комментарии в scheduler/scope-algebra/conflict-graph. Core 45/45, CLI 3/3, `check-drift` = 0.
 
 ## Следующие шаги
-- Доделать оставшиеся hardening findings F3/F5/F6/F7/F8 (доки/константы, комментарии-инварианты).
-- После этого продолжить M3 `plan-parallel`.
+- M3 `plan-parallel` CLI (Group B): контракт `schedule-m3-plan-parallel`, planned scope `packages/cli/**` + `cli.test.ts`, forbidden `packages/core/**` кроме импортов. Спецификация в `plans/orchestration-implementation-plan.md` §5.
 - CHECKPOINT/validation: провести 5 быстрых интервью по Stage 0 script, затем добить до 10-15 и принять go/no-go перед полноценной Phase 4.
 - Позже: реализовать настоящий repo manifest builder через git.
 - Решить открытые вопросы round 2 (Codex CLI enforcement, Spec Kit interop, warn-only vs strict default).

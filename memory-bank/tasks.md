@@ -650,3 +650,32 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Regression-тесты `trailing globstar semantics match picomatch (#0024)`: `*.ts`×`test-*/**`→disjoint, `a/**`×`a`→intersect, `test-*/**`×`test-x/y.ts`→intersect.
 - `node --test packages/core/dist/*.test.js` = 45/45, CLI = 3/3, `check-drift` = 0.
 <!-- TASK #0024 END -->
+
+<!-- TASK #0025 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-08T00:00Z
+     Status: done
+-->
+## Задача #0025 — Group A: M1 hardening polish (F3/F5/F6/F7/F8 хвост)
+
+- **Описание:** Закрыть оставшиеся мелкие hardening-находки из плана `orchestration-implementation-plan.md` после #0024: schema-version константа для `plan.ts`, инвариант-комментарии в `scheduler.ts`/`scope-algebra.ts`/`conflict-graph.ts`, проверка полноты публичных экспортов schedule-модуля.
+- **Уровень сложности:** Level 1.
+- **Статус:** DONE под контрактом `schedule-m1-polish` (approve от `e355902`). Core 45/45, CLI 3/3, `check-drift` = 0 violations.
+
+### Сделано
+- `packages/core/src/schedule/plan.ts`: добавлена `export const SCHEDULE_PLAN_SCHEMA_VERSION = 1` (стиль как у `CONTRACT_SCHEMA_VERSION`/`DRIFT_REPORT_SCHEMA_VERSION`/`REPO_MANIFEST_SCHEMA_VERSION`/`CONFIG_SCHEMA_VERSION`); `schedulePlanSchema` использует константу вместо инлайн `z.literal(1)`. Экспортируется через уже существующий `export *` в `index.ts`.
+- `packages/core/src/schedule/scheduler.ts`: комментарий-инвариант над `cycles: []` - F1 красит только неориентированный write-write граф (циклов там нет по определению), поле зарезервировано под F2 (mixed read-write graph).
+- `packages/core/src/schedule/scope-algebra.ts`: комментарий в `scopesConflict` - write-write конфликт всегда приоритетнее read-write, даже если пара имеет оба хазарда.
+- `packages/core/src/schedule/conflict-graph.ts`: два комментария-инварианта в `buildConflictGraph` - (1) `nodes` сортируются, а не берутся в порядке вставки, для детерминизма графа/расписания; (2) перебор `left < right` по отсортированным узлам гарантирует, что каждая неориентированная пара посещается ровно один раз в фиксированном порядке.
+- Публичные экспорты schedule-модуля подтверждены полными (`index.ts` уже содержал `export *` для всех пяти файлов `schedule/*.ts`, включая новую константу) - изменений в `index.ts` не потребовалось.
+- `packages/core/src/schedule.test.ts`: тест `validates the plan-parallel input schema shape` дополнен проверкой `SCHEDULE_PLAN_SCHEMA_VERSION === 1` и использует константу вместо литерала `1` в обоих `schedulePlanSchema.parse` кейсах.
+
+### Проверки
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` -> 45/45 pass.
+- `node --test packages/cli/dist/*.test.js` -> 3/3 pass.
+- `node packages/cli/dist/index.js check-drift --json` под контрактом `schedule-m1-polish` -> 0 violations.
+
+### Следующий шаг
+- M3: `plan-parallel` CLI команда (см. #0020 "Следующий шаг" и `orchestration-implementation-plan.md` §5).
+<!-- TASK #0025 END -->

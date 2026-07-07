@@ -38,6 +38,8 @@ export function schedule(graph: ConflictGraph): Schedule {
 
   return {
     waves: waves.map((wave) => wave.sort()),
+    // F1 only colors the undirected write-write graph, which has no notion of a
+    // cycle; always [] until F2 (mixed read-write graph) lands.
     cycles: [],
   };
 }

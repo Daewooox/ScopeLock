@@ -7,6 +7,7 @@ import {
   globsIntersect,
   intersectionWitness,
   schedule,
+  SCHEDULE_PLAN_SCHEMA_VERSION,
   schedulePlanSchema,
   scopesConflict,
   type TaskScope,
@@ -252,14 +253,16 @@ describe("scope algebra conflict graph and scheduler", () => {
   });
 
   it("validates the plan-parallel input schema shape", () => {
+    assert.equal(SCHEDULE_PLAN_SCHEMA_VERSION, 1);
+
     assert.deepEqual(
       schedulePlanSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,
         planId: "demo",
         tasks: [{ id: "t1", contract: ".scopelock/contracts/t1.json" }],
       }),
       {
-        schemaVersion: 1,
+        schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,
         planId: "demo",
         tasks: [{ id: "t1", contract: ".scopelock/contracts/t1.json" }],
       },
@@ -267,7 +270,7 @@ describe("scope algebra conflict graph and scheduler", () => {
 
     assert.throws(() =>
       schedulePlanSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,
         planId: "empty",
         tasks: [],
       }),
