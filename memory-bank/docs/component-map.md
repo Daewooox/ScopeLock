@@ -53,6 +53,10 @@
 | `packages/core/src/render/prompt.ts` | Render contract into agent instructions |
 | `packages/core/src/render/agents-md.ts` | Inject marked ScopeLock doc section |
 | `packages/core/src/schedule/glob-intersect.ts` | Glob intersection witness for scheduler disjointness |
+| `packages/core/src/schedule/scope-algebra.ts` | Task scopes and conflict witness API |
+| `packages/core/src/schedule/conflict-graph.ts` | Deterministic write/read conflict graph builder |
+| `packages/core/src/schedule/scheduler.ts` | F1 write-write greedy coloring scheduler |
+| `packages/core/src/schedule/plan.ts` | Zod schema for plan-parallel input |
 | `packages/core/src/index.ts` | Public exports core package |
 | `packages/core/src/schema.test.ts` | Schema + storage тесты (node:test) |
 | `packages/core/src/drift.test.ts` | Drift parser/rules/integration tests |

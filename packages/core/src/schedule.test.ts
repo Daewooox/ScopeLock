@@ -2,10 +2,15 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import picomatch from "picomatch";
 import {
+  buildConflictGraph,
   globSetsIntersect,
   globToRegExp,
   globsIntersect,
   intersectionWitness,
+  schedule,
+  schedulePlanSchema,
+  scopesConflict,
+  type TaskScope,
 } from "./index.js";
 
 function mulberry32(seed: number): () => number {
@@ -99,5 +104,98 @@ describe("glob intersection property soundness", () => {
       const counterexample = corpus.find((path) => matchA(path) && matchB(path));
       assert.equal(counterexample, undefined, `${a} and ${b} both match ${counterexample}`);
     }
+  });
+});
+
+describe("scope algebra conflict graph and scheduler", () => {
+  const uiTask: TaskScope = {
+    id: "ui",
+    planned: ["packages/app/src/ui/**"],
+    forbidden: [],
+  };
+  const apiTask: TaskScope = {
+    id: "api",
+    planned: ["packages/app/src/api/**"],
+    forbidden: [],
+  };
+  const sharedTask: TaskScope = {
+    id: "shared",
+    planned: ["packages/app/src/ui/button.ts"],
+    forbidden: [],
+  };
+
+  it("detects disjoint scopes and write-write conflicts with witnesses", () => {
+    assert.equal(scopesConflict(uiTask, apiTask), null);
+    assert.deepEqual(scopesConflict(uiTask, sharedTask), {
+      a: "ui",
+      b: "shared",
+      kind: "write-write",
+      witness: "packages/app/src/ui/button.ts",
+    });
+  });
+
+  it("adds read-write hazards in the writer-to-reader direction when requested", () => {
+    const writer: TaskScope = {
+      id: "domain",
+      planned: ["packages/app/src/domain/**"],
+      forbidden: [],
+    };
+    const reader: TaskScope = {
+      id: "ui",
+      planned: ["packages/app/src/ui/**"],
+      forbidden: [],
+      read: ["packages/app/src/domain/models.ts"],
+    };
+
+    assert.deepEqual(scopesConflict(writer, reader), {
+      a: "domain",
+      b: "ui",
+      kind: "read-write",
+      witness: "packages/app/src/domain/models.ts",
+    });
+
+    const graph = buildConflictGraph([reader, writer], { readHazards: true });
+    assert.deepEqual(graph.readEdges, [["domain", "ui"]]);
+    assert.deepEqual(graph.writeEdges, []);
+  });
+
+  it("builds a deterministic write graph and F1 coloring schedule", () => {
+    const graph = buildConflictGraph([
+      { id: "t3", planned: ["src/domain/**"], forbidden: [] },
+      { id: "t1", planned: ["src/ui/**"], forbidden: [] },
+      { id: "t2", planned: ["src/api/**"], forbidden: [] },
+      { id: "t4", planned: ["src/ui/button.ts"], forbidden: [] },
+    ]);
+
+    assert.deepEqual(graph.nodes, ["t1", "t2", "t3", "t4"]);
+    assert.deepEqual(graph.writeEdges, [["t1", "t4"]]);
+    assert.equal(graph.conflicts[0]?.witness, "src/ui/button.ts");
+    assert.deepEqual(schedule(graph), {
+      waves: [["t1", "t2", "t3"], ["t4"]],
+      cycles: [],
+    });
+  });
+
+  it("validates the plan-parallel input schema shape", () => {
+    assert.deepEqual(
+      schedulePlanSchema.parse({
+        schemaVersion: 1,
+        planId: "demo",
+        tasks: [{ id: "t1", contract: ".scopelock/contracts/t1.json" }],
+      }),
+      {
+        schemaVersion: 1,
+        planId: "demo",
+        tasks: [{ id: "t1", contract: ".scopelock/contracts/t1.json" }],
+      },
+    );
+
+    assert.throws(() =>
+      schedulePlanSchema.parse({
+        schemaVersion: 1,
+        planId: "empty",
+        tasks: [],
+      }),
+    );
   });
 });

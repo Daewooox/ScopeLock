@@ -23,3 +23,7 @@ export * from "./render/prompt.js";
 export * from "./render/agents-md.js";
 export * from "./format.js";
 export * from "./schedule/glob-intersect.js";
+export * from "./schedule/scope-algebra.js";
+export * from "./schedule/conflict-graph.js";
+export * from "./schedule/scheduler.js";
+export * from "./schedule/plan.js";

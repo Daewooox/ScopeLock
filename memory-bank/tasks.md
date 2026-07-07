@@ -509,3 +509,47 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Следующий шаг
 - M2: build conflict graph / schedule schemas поверх `globSetsIntersect`; не начинать M3+ до зелёных M2 unit-тестов.
 <!-- TASK #0019 END -->
+
+<!-- TASK #0020 BEGIN
+     Owner: codex
+     Started: 2026-07-07T20:57Z
+     Status: build
+-->
+## Задача #0020 — M2: scope-algebra conflict graph + F1 scheduler
+
+- **Описание:** Реализовать M2 из `plans/orchestration-implementation-plan.md`: scope conflict API, deterministic conflict graph, F1 write-write coloring scheduler и Zod-схему входного `plan-parallel` файла.
+- **Уровень сложности:** Level 2
+- **Статус:** BUILD завершён под контрактом `schedule-m2-conflict-graph` (approve от `ea92289`). Core 42/42 + CLI 3/3 pass, `check-drift` = 0 violations.
+
+### Сделано
+- `packages/core/src/schedule/scope-algebra.ts`:
+  - `TaskScope`, `ScopeConflict`;
+  - `firstIntersectionWitness(as,bs)`;
+  - `scopesConflict(a,b)` с приоритетом write-write, затем read-write direction.
+- `packages/core/src/schedule/conflict-graph.ts`:
+  - `ConflictGraph`;
+  - `buildConflictGraph(scopes, { readHazards? })`;
+  - deterministic node order, duplicate id guard, writeEdges/readEdges/conflicts.
+- `packages/core/src/schedule/scheduler.ts`:
+  - F1 greedy Welsh-Powell coloring по writeEdges;
+  - deterministic tie-break by node id;
+  - `cycles: []` до M5.
+- `packages/core/src/schedule/plan.ts`:
+  - `schedulePlanSchema` с `schemaVersion: 1`, `planId`, `tasks[]`;
+  - типы `SchedulePlan`, `SchedulePlanTask`.
+- Public exports добавлены через `packages/core/src/index.ts`.
+
+### Проверки
+- Unit: disjoint scopes → `null`.
+- Unit: overlapping planned scopes → `write-write` + concrete witness.
+- Unit: read hazard writer→reader direction при `readHazards`.
+- Unit: deterministic graph nodes/edges/conflicts.
+- Unit: F1 schedule serializes only conflicting write tasks.
+- Unit: `schedulePlanSchema` accepts valid shape and rejects empty tasks.
+- `node --test packages/core/dist/schedule.test.js` → 8/8 pass.
+- `pnpm test` → core 42/42 + cli 3/3 pass.
+- `node packages/cli/dist/index.js check-drift --json` → 0 violations по контракту `schedule-m2-conflict-graph`.
+
+### Следующий шаг
+- M3: `plan-parallel` CLI command: load plan JSON, load referenced contracts, derive `TaskScope`, build graph, schedule, print matrix/waves/witnesses; exit codes 0/1/2.
+<!-- TASK #0020 END -->
