@@ -456,3 +456,24 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Дисциплина контракта
 - Docs-only контракт `plan-orchestration-impl-2026-07-07` (approve от 49dcade), forbidden на `packages/**`, `.github/**`, README/LICENSE.
 <!-- TASK #0017 END -->
+
+<!-- TASK #0018 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-07T21:00Z
+     Status: build
+-->
+## Задача #0018 — Синхронизация планов под делегирование
+
+- **Описание:** Проверить и обновить продуктовый план и техплан так, чтобы рутину можно было отдать младшему разработчику/агенту: актуальный статус, зафиксированное решение (отложить интервью, moat = оркестрация) и один явный делегируемый следующий шаг (M1-spike) с DoD.
+- **Уровень сложности:** Level 2 (docs).
+- **Статус:** BUILD завершён под контрактом `refresh-plans-delegatable-2026-07-07` (approve от c1ba100). check-drift = 0 нарушений scope.
+
+### Изменённые файлы
+- `memory-bank/plans/scopelock-implementation-plan.md` (таблица статусов актуализирована; новый раздел «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ» с пошаговым делегируемым M1 + DoD).
+- `memory-bank/plans/strategy-review-round2-market-corrections.md` (addendum 2026-07-07: статус MVP, решение отложить интервью, оркестрация как 4-й слой moat, обновлённая последовательность, elevator-ответ).
+- `memory-bank/tasks.md`, `memory-bank/activeContext.md`.
+
+### Итог
+- Финальный/авторитетный план = `plans/scopelock-implementation-plan.md` → раздел «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ» (ссылается на `plans/orchestration-implementation-plan.md` для деталей M1-M5).
+- Следующая исполнимая задача проекта: #0018→ M1-spike `globsIntersect` (см. orchestration-impl §2, §5, §8).
+<!-- TASK #0018 END -->

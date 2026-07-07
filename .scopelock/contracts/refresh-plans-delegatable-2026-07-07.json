@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "refresh-plans-delegatable-2026-07-07",
+  "task": "Refresh product plan and technical implementation plan so routine work is delegatable to a junior dev/agent; make the immediate next step explicit. Docs only.",
+  "createdAt": "2026-07-07T21:00:00.000Z",
+  "baseline": {
+    "headSha": "c1ba100229d01b94ae9151069908839a4a2b1ed0",
+    "branch": "main",
+    "capturedAt": "2026-07-07T20:37:43.785Z"
+  },
+  "targetAgents": [
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**",
+      "README.md",
+      "LICENSE"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [
+    "Docs-only refresh; no runtime code."
+  ],
+  "openQuestions": []
+}
