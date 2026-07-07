@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0025 — Group A M1 polish ЗАВЕРШЕНА под контрактом `schedule-m1-polish` (approve от `e355902`). `SCHEDULE_PLAN_SCHEMA_VERSION` константа в `plan.ts` (стиль как у остальных schema-version констант); инвариант-комментарии в `scheduler.ts` (cycles всегда [] в F1, зарезервировано под F2), `scope-algebra.ts` (write-write приоритетнее read-write) и `conflict-graph.ts` (детерминизм сортировки nodes, единственный проход по парам). Публичные экспорты schedule-модуля уже были полными через `export *`. Core 45/45, CLI 3/3, `check-drift` = 0. Следующий шаг: M3 `plan-parallel` CLI (Group B, контракт `schedule-m3-plan-parallel`, planned scope `packages/cli/**`). Ранее: #0024 M1 prod fix (witness bound to picomatch); #0023 hardening release-gate (F1/F2 тесты); #0020 M2 scope-algebra scheduler; #0021 Windows CI path fix; #0022 CI actions cleanup; #0019 M1 `globsIntersect`.
+Задача #0026 — Group B M3 `plan-parallel` CLI ЗАВЕРШЕНА под контрактом `schedule-m3-plan-parallel` (approve от `58ccb3b`, forbidden `packages/core/**`). Новая команда `scopelock plan-parallel <plan.json> [--include-read-hazards]`: валидирует `schedulePlanSchema`, читает файл контракта каждой задачи (путь относительно cwd, как у `approve`), строит `TaskScope[]` из `contract.scope`, вызывает `buildConflictGraph`+`schedule` (только импорты `@scopelock/core`, core код не тронут). Человекочитаемые волны + `conflicts:` с witness; `--json` -> `{ planId, waves, conflicts }`. Exit-контракт упрощён до 0 (план построен, даже если есть конфликты/несколько волн) / 2 (файл/контракт не найден, невалидный JSON/схема) - ветка `1`/cycles недостижима, т.к. F1 `cycles` всегда `[]`. Core 45/45 (не менялся), CLI 7/7 (3 старых + 4 новых теста), `check-drift` = 0. Следующий шаг: M4 (мини-эксперимент H1-H5, go/no-go) - M5 (F2 read-write) не начинать раньше. Ранее: #0025 Group A M1 polish (schema-version const + инвариант-комментарии); #0024 M1 prod fix (witness bound to picomatch); #0023 hardening release-gate; #0020 M2 scope-algebra scheduler; #0021 Windows CI path fix; #0022 CI actions cleanup; #0019 M1 `globsIntersect`.
 
 ## Последние изменения
 - Memory Bank инициализирован
@@ -25,9 +25,11 @@
 - Задача #0023: hardening M1 release-gate выявил баг witness: `*.ts` vs `test-*/**` даёт witness, который не матчится вторым glob под `picomatch`. Стоп-условие выполнено, production logic не менялась.
 - Задача #0024: prod fix выполнен — `intersectionWitness` теперь генерирует кандидатов и валидирует их `picomatch`; disjoint возвращается только при исчерпании поиска, иначе консервативный intersect. F1/F2 по 10k зелёные, добавлены regression-тесты trailing-`**`.
 - Задача #0025: Group A polish под контрактом `schedule-m1-polish`. `SCHEDULE_PLAN_SCHEMA_VERSION` константа + инвариант-комментарии в scheduler/scope-algebra/conflict-graph. Core 45/45, CLI 3/3, `check-drift` = 0.
+- Задача #0026: Group B `plan-parallel` CLI под контрактом `schedule-m3-plan-parallel`. Новый `packages/cli/src/commands/plan-parallel.ts` + CLI wiring + 4 новых теста в `cli.test.ts` + строка в README. Core не менялся (только импорты). Core 45/45, CLI 7/7, `check-drift` = 0.
 
 ## Следующие шаги
-- M3 `plan-parallel` CLI (Group B): контракт `schedule-m3-plan-parallel`, planned scope `packages/cli/**` + `cli.test.ts`, forbidden `packages/core/**` кроме импортов. Спецификация в `plans/orchestration-implementation-plan.md` §5.
+- M4: прогнать creative-мини-эксперимент (H1-H5, `orchestration-scope-algebra.md` §5.1) на реальном мульти-агентном сценарии с `plan-parallel`; зафиксировать go/no-go перед M5.
+- M5 (read-hazard edges, F2 layered scheduling, cycle detection) не начинать до готового M4 reflection report.
 - CHECKPOINT/validation: провести 5 быстрых интервью по Stage 0 script, затем добить до 10-15 и принять go/no-go перед полноценной Phase 4.
 - Позже: реализовать настоящий repo manifest builder через git.
 - Решить открытые вопросы round 2 (Codex CLI enforcement, Spec Kit interop, warn-only vs strict default).

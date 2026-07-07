@@ -679,3 +679,34 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Следующий шаг
 - M3: `plan-parallel` CLI команда (см. #0020 "Следующий шаг" и `orchestration-implementation-plan.md` §5).
 <!-- TASK #0025 END -->
+
+<!-- TASK #0026 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-08T00:00Z
+     Status: done
+-->
+## Задача #0026 — Group B: M3 plan-parallel CLI
+
+- **Описание:** Реализовать M3 из `plans/orchestration-implementation-plan.md` §5: CLI-команда `scopelock plan-parallel <plan.json>`, которая по набору контрактов задач строит доказуемо parallel-safe расписание (волны) и печатает конфликты с witness.
+- **Уровень сложности:** Level 2.
+- **Статус:** DONE под контрактом `schedule-m3-plan-parallel` (approve от `58ccb3b`, forbidden `packages/core/**`). Core 45/45, CLI 7/7 pass, `check-drift` = 0 violations.
+
+### Сделано
+- `packages/cli/src/commands/plan-parallel.ts` (новый): читает `plan.json`, валидирует `schedulePlanSchema`; для каждой задачи читает файл контракта (путь из `task.contract`, разрешается относительно cwd - тот же конвеншн, что у `approve <file>`) и валидирует `approvedContractSchema`; строит `TaskScope[]` (`planned`/`forbidden` из `contract.scope`); `buildConflictGraph` + `schedule` из `@scopelock/core` (core не менялся - только импорт существующих публичных экспортов). Человекочитаемый вывод: `wave N: [...]` построчно + секция `conflicts:` с `a x b [kind]: witness`. `--json` отдаёт `{ planId, waves, conflicts }` (conflicts включают witness для explainability). `--include-read-hazards` пробрасывается в `buildConflictGraph({ readHazards })`.
+- Ошибки: отсутствующий `plan.json` -> `PLAN_NOT_FOUND`; невалидный JSON в plan/contract файле -> `INVALID_JSON`; отсутствующий файл контракта -> `CONTRACT_NOT_FOUND`; невалидная схема (plan или contract) -> `ZodError` перехватывается общим `run()` в `run.ts` и форматируется `formatZodError` в `INVALID_INPUT`. Все ошибки -> exit `2` (существующий `run()` всегда возвращает 2 в catch-ветке). Успешный план (даже с конфликтами/несколькими волнами) -> exit `0`, т.к. F1 `cycles` всегда `[]` (см. #0025 инвариант) - `1`/`unschedulable` ветка из исходного design-дока в M3 не достижима и не реализована.
+- `packages/cli/src/index.ts`: команда `plan-parallel <plan> [--include-read-hazards] [--json]` подключена по образцу остальных команд (`run()` + `jsonOf(command)`).
+- `packages/cli/src/cli.test.ts`: новый `describe("plan-parallel")` - 4 теста: disjoint-контракты -> одна волна, `conflicts: []`; пересекающиеся контракты (общий write-glob) -> две волны + один conflict с `witness: "src/shared/utils.ts"`; отсутствующий plan-файл -> exit 2 `PLAN_NOT_FOUND`; пустой `tasks: []` (невалидная схема) -> exit 2 `INVALID_INPUT`. Тесты не требуют git-репозитория (`plan-parallel` git-free, в отличие от остальных команд).
+- `README.md`: строка про `scopelock plan-parallel <plan.json> [--include-read-hazards]` в таблице команд.
+
+### Проверки
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` -> 45/45 pass (core не менялся).
+- `node --test packages/cli/dist/*.test.js` -> 7/7 pass (3 старых + 4 новых plan-parallel).
+- Ручной smoke: 3 контракта (`src/ui/**`, `src/api/**`, `src/ui/button.ts`) -> `wave 1: [t1, t2]`, `wave 2: [t3]`, конфликт `t1 x t3 [write-write]: src/ui/button.ts` и в human-, и в `--json`-выводе.
+- Ручной smoke ошибок: отсутствующий plan -> `PLAN_NOT_FOUND`/exit 2; пустой `tasks` -> `INVALID_INPUT`/exit 2; отсутствующий файл контракта -> `CONTRACT_NOT_FOUND`/exit 2.
+- `node packages/cli/dist/index.js check-drift --json` под контрактом `schedule-m3-plan-parallel` -> 0 violations.
+
+### Следующий шаг
+- M4: прогнать creative-мини-эксперимент (H1-H5) на реальном мульти-агентном сценарии, зафиксировать go/no-go перед M5.
+- M5 (read-write F2, layered scheduling + cycle detection) НЕ начинать до готового M4 reflection report (см. handoff-инструкцию: "Не начинать M4/M5 до готового и оттестированного plan-parallel").
+<!-- TASK #0026 END -->
