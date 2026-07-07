@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "workflow-parallel-docs-fix",
+  "task": "Fix parallel-workflow defects: re-stamp baseline (broken by history rewrite) and fix examples/parallel/plan.json cwd resolution",
+  "createdAt": "2026-07-07T23:31:27.082Z",
+  "baseline": {
+    "headSha": "7c0bb0928691e9d45fc0f00c877cf32aa323ec20",
+    "branch": "main",
+    "capturedAt": "2026-07-07T23:31:27.161Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "memory-bank/**",
+      "docs/**",
+      "examples/**",
+      ".scopelock/experiments/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/cli/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

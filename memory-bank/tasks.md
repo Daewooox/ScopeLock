@@ -886,4 +886,33 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Контракты
 - `workflow-parallel-docs` (исходный, approve `1d343ec`): planned `README.md`, `memory-bank/**`, `docs/**`, `examples/**`, `.scopelock/experiments/**`; forbidden `packages/core/**`, `packages/cli/src/commands/**`, `packages/cli/src/index.ts`.
 - `workflow-parallel-docs-v2` (расширение, approve `1d343ec`, тот же baseline): то же + planned `packages/cli/src/commands/plan-parallel.ts`, `packages/cli/src/cli.test.ts` (для опционального polish); остальные `packages/cli/src/commands/*.ts` и `index.ts` остаются forbidden явным списком.
+
+### Follow-up — два дефекта после rewrite истории (закрыто в этой же задаче)
+
+**Контекст:** сразу после #0030 по просьбе пользователя история была переписана (`git filter-branch`, удаление `Co-Authored-By: Claude` из коммитов) и запушена force. Commit SHA у всех коммитов от `e355902` до `HEAD` изменились. Contract baseline в ScopeLock пиннится по commit SHA — переписывание истории сделало часть baseline'ов невалидными.
+
+**Дефект 1 (High) — `check-drift` был сломан.** Активный контракт `workflow-parallel-docs-v2` держал `baseline.headSha = 1d343ec...` (старый M5-коммит, не переживший rewrite) → `check-drift` падал `status:error UNEXPECTED` с сырым `fatal: Invalid revision range 1d343ec...HEAD` вместо понятной ошибки. Исправлено: новый контракт `workflow-parallel-docs-fix` (тот же scope, approve от живого `HEAD` = `7c0bb09`/`bc2038f` на момент фикса, далее ещё раз переписан вместе с force-push до текущего `HEAD`) стал активным — baseline снова валиден, `check-drift --json` → `status:ok`, `violations: []`.
+
+Аудит остальных контрактов в `.scopelock/contracts/` на предмет протухших после rewrite baseline (по договорённости — только неактивные, чинить не стал, это ожидаемо и не блокирует работу): baseline устарел (указывает на переписанный SHA) у `orchestration-m4-experiment.json`, `orchestration-m5-readwrite.json`, `orchestration-m5-readwrite-scope2.json`, `schedule-m3-plan-parallel.json`, `schedule-m3-review-fixes.json`, `t1-core.json`, `t2-cli.json`, `t3-docs.json`, `t4-tests.json`, `t5-cycle-a.json`, `t5-cycle-b.json`, `workflow-parallel-docs.json`, `workflow-parallel-docs-v2.json`. Все прочие (созданные до переписанного диапазона) не затронуты.
+
+**Дефект 2 (Medium) — пример не воспроизводился из корня репозитория.** `examples/parallel/plan.json` ссылался на контракты как `t1-core.json` (относительно cwd) — рабочий вариант только из `examples/parallel/`, а не документированная в README «из корня» команда, которая падала `CONTRACT_NOT_FOUND`. Исправлено (вариант a): пути в `plan.json` переписаны на `examples/parallel/t1-core.json` и т.д. (относительно корня репо); `examples/parallel/README.md` теперь документирует ТОЛЬКО вариант «из корня репозитория» (вариант «из этой директории» убран целиком, а не просто помечен как альтернатива — с новыми путями он реально ломается, оставлять падающую команду в доках нельзя). Живой прогон из корня подтвердил вывод побайтово совпадает с задокументированным в README и в `docs/parallel-workflow.md`.
+
+**Ревалидация `docs/parallel-workflow.md`:** все команды Steps 1-5 и 3b заново прогнаны в чистом scratch-репо именно из той cwd, что указана в тексте рядом с каждой командой (`contract new`/`approve`/`plan-parallel` F1 и F2/cycle-сценарий/`export-prompt`/`check-drift` clean-in-scope-out-of-scope) — вывод по структуре и формату совпал с задокументированным. Сам guide не ссылается на пути `examples/parallel/` внутри команд (только гиперссылка на папку), так что дефект 2 его не затрагивал.
+
+**Продуктовая находка (в бэклог, НЕ реализована в этой итерации):** baseline-пиннинг по commit SHA ломается при rewrite истории, а наружу течёт сырая `git fatal ...` как `UNEXPECTED` вместо понятной ошибки. Нужна отдельная задача по `check-drift`/drift-движку: при отсутствии baseline-коммита в репозитории — явное сообщение вида `baseline commit <sha> not found (history rewritten?), re-run approve` вместо raw git error. Код `check-drift`/`drift` в этой итерации не трогал.
+
+### Проверки (follow-up)
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` → 53/53 (не менялся).
+- `node --test packages/cli/dist/*.test.js` → 11/11 (не менялся, JSON-схема та же).
+- `node packages/cli/dist/index.js check-drift --json` под `workflow-parallel-docs-fix` → `status:ok`, `violations: []`.
+- `node packages/cli/dist/index.js plan-parallel examples/parallel/plan.json --include-read-hazards` из корня репо → вывод побайтово совпадает с README/guide.
+- Полная ревалидация Steps 1-5 + 3b гайда в scratch-репо — поведение совпадает с задокументированным.
+
+### DoD (follow-up)
+- `check-drift --json` снова `status:ok`, `violations: []` под активным контрактом. ✅
+- `plan-parallel examples/parallel/plan.json --include-read-hazards` из корня отрабатывает и даёт документированный вывод. ✅
+- `docs/parallel-workflow.md` и `examples/parallel/README.md` согласованы, падающих команд нет. ✅
+- Тесты core/cli зелёные, JSON-схема не менялась. ✅
+- `tasks.md`/`activeContext.md` обновлены с пометкой про rewrite-эффект на baseline. ✅ Коммит. Push только по явной просьбе.
 <!-- TASK #0030 END -->
