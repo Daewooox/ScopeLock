@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "housekeeping-live-dogfood-2026-07-07",
+  "task": "Housekeeping after live Claude Code / Cursor dogfood: ignore local pnpm store, record findings in memory bank",
+  "createdAt": "2026-07-07T19:05:00.000Z",
+  "baseline": {
+    "headSha": "bff915cc3de7bfe4a71af41740a72b87bb1b54fc",
+    "branch": "main",
+    "capturedAt": "2026-07-07T19:15:14.408Z"
+  },
+  "targetAgents": [
+    "cursor"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".gitignore",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [
+    "Only ignore-file and memory-bank docs change; no runtime code touched."
+  ],
+  "openQuestions": []
+}
