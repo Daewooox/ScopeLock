@@ -8,14 +8,20 @@ no `scopelock init`, no git baseline, no approval step needed.
 
 ## Reproduce in one command
 
-From this directory:
+Run from the **repo root** (`plan.json`'s `task.contract` entries are paths
+relative to the current working directory, same as `approve <file>` - they
+are written as `examples/parallel/*.json` here, so this only resolves from
+the root, not from inside this directory):
 
 ```bash
-scopelock plan-parallel plan.json --include-read-hazards
+scopelock plan-parallel examples/parallel/plan.json --include-read-hazards
 ```
 
-(Not installed globally? From the repo root:
-`node packages/cli/dist/index.js plan-parallel examples/parallel/plan.json --include-read-hazards`.)
+Not installed globally? From the repo root:
+
+```bash
+node packages/cli/dist/index.js plan-parallel examples/parallel/plan.json --include-read-hazards
+```
 
 Expected output:
 

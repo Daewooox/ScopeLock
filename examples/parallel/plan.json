@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "planId": "parallel-workflow-example",
   "tasks": [
-    { "id": "t1-core", "contract": "t1-core.json" },
-    { "id": "t2-cli", "contract": "t2-cli.json" },
-    { "id": "t3-docs", "contract": "t3-docs.json" },
-    { "id": "t4-tests", "contract": "t4-tests.json" }
+    { "id": "t1-core", "contract": "examples/parallel/t1-core.json" },
+    { "id": "t2-cli", "contract": "examples/parallel/t2-cli.json" },
+    { "id": "t3-docs", "contract": "examples/parallel/t3-docs.json" },
+    { "id": "t4-tests", "contract": "examples/parallel/t4-tests.json" }
   ]
 }
