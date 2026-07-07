@@ -553,3 +553,27 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Следующий шаг
 - M3: `plan-parallel` CLI command: load plan JSON, load referenced contracts, derive `TaskScope`, build graph, schedule, print matrix/waves/witnesses; exit codes 0/1/2.
 <!-- TASK #0020 END -->
+
+<!-- TASK #0021 BEGIN
+     Owner: codex
+     Started: 2026-07-07T21:09Z
+     Status: build
+-->
+## Задача #0021 — CI fix: Windows path separator в storage layout test
+
+- **Описание:** Исправить падение GitHub Actions на `windows-latest` Node 22/24: storage layout test ожидал POSIX-строки `/repo/.scopelock/...`, а `node:path.join` на Windows корректно возвращает `\\repo\\.scopelock\\...`.
+- **Уровень сложности:** Level 1
+- **Статус:** BUILD завершён под контрактом `ci-windows-path-test-fix`. Локально `pnpm test` → core 42/42 + cli 3/3 pass, `check-drift` = 0 violations.
+
+### Root cause
+- Runtime-код `scopelockPaths()` корректно использует `node:path.join`.
+- Некроссплатформенной была проверка в `packages/core/src/schema.test.ts`: hardcoded POSIX expected path.
+
+### Сделано
+- Expected значения в storage layout test переведены на `join("/repo", ".scopelock", ...)`.
+- Production-код не менялся.
+
+### Проверки
+- `pnpm test` → core 42/42 + cli 3/3 pass.
+- `node packages/cli/dist/index.js check-drift --json` → 0 violations по контракту `ci-windows-path-test-fix`.
+<!-- TASK #0021 END -->
