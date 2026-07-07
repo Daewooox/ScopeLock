@@ -789,3 +789,33 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 ### Следующий шаг
 - M5: `readPathPatterns` в contract-схему, F2 layered scheduling (Kahn topological + write-write coloring внутри слоя), cycle detection, возврат `--include-read-hazards` в CLI (флаг был намеренно убран в M3 review fixes до появления реальных read-паттернов). Условие начала M5 (готовый M4 с зафиксированным go) выполнено.
 <!-- TASK #0028 END -->
+
+<!-- TASK #0029 BEGIN
+     Owner: pending
+     Started: 2026-07-08
+     Status: pending
+-->
+## Задача #0029 — M5: read-write F2 (layered scheduler + cycle detection)
+
+- **Описание:** Реализовать F2-режим оркестрации: read-write хазарды, послойное расписание (Kahn) + write-write раскраска внутри слоя, детекция циклов, `readPathPatterns` в схеме контракта и возврат CLI-флага `--include-read-hazards`. Gate M4 пройден с вердиктом GO (#0028). Ссылки: `plans/orchestration-implementation-plan.md` §3-§5 (M5), `plans/orchestration-scope-algebra.md` §5.1 (worked example).
+- **Уровень сложности:** Level 3.
+- **Статус:** PENDING.
+
+### Под-milestone'ы
+- **M5.1 Schema.** В `packages/core/src/schemas/contract.ts` добавить в `scope` опциональное поле `readPathPatterns: string[]` (аддитивно, без bump `CONTRACT_SCHEMA_VERSION` — поле опциональное). Обновить `contract new` scaffolder, чтобы поле присутствовало (можно пустым). Тесты схемы.
+- **M5.2 Scheduler F2.** В `packages/core/src/schedule/scheduler.ts` реализовать послойный режим: топологическая сортировка Kahn по `readEdges` (направление writer→reader), внутри каждого ready-set — F1 write-write раскраска (переиспользовать существующую). Если Kahn не сливает все узлы → оставшиеся образуют read-write циклы → вернуть их в `cycles` (никаких бесконечных циклов). Детерминизм (H5): tie-break по id. Тесты: worked example §5.1 воспроизводит `{t3}` затем `{t1,t2,t4}` с хазардами; отдельный тест на цикл.
+- **M5.3 CLI.** Вернуть `--include-read-hazards` в `plan-parallel` (и `index.ts`, README). `loadTaskScope` заполняет `TaskScope.read` из `contract.scope.readPathPatterns`. **Восстановить exit-код 1** для unschedulable (непустой `cycles`) — он был убран в M3 (#0027), т.к. в F1 циклов нет, но в F2 снова актуален (см. `run.ts` exit-контракт 0/1/2 и план §6 exit codes). Human-вывод: секция cycles как ошибка. Тесты: read-write cycle → exit 1 с перечислением цикла; read-hazard без цикла → корректный порядок волн.
+
+### Под-пункты валидации (перенесены из caveat'ов ревью M4)
+- **H2 live-прогон (enforcement).** Один реальный прогон strict `hook gate` на задачах-соседях внутри одной волны из M4-сценария: подтвердить ~0 ложных отказов на легитимную in-scope запись. Зафиксировать результат.
+- **H3 timed (speedup).** Заменить чисто теоретический ~2x на измеренный: хотя бы прокси-замер (например, per-task sleep-нагрузка) sequential vs wave-план, записать реальные wall-clock цифры. Не оверселлить: выигрыш ограничен критическим путём волны.
+
+### DoD
+- Core + CLI тесты зелёные, включая новые F2/cycle тесты и восстановленный exit-1 путь.
+- `check-drift --json` = 0 под контрактом `orchestration-m5-readwrite`.
+- Отчёт по H2/H3 (можно дополнить `orchestration-m4-experiment.md` или новый `orchestration-m5-validation.md`).
+- Обновить `tasks.md` (#0029 → done), `activeContext.md`, `component-map.md`. Коммит. Push только по явной просьбе.
+
+### Контракт
+- `orchestration-m5-readwrite`: planned `packages/core/src/schedule/**`, `packages/core/src/schemas/contract.ts`, `packages/cli/**`, `README.md`, `memory-bank/**`, `.scopelock/experiments/**`; forbidden `packages/core/src/git/**`, `packages/core/src/hook/**`, `packages/core/src/drift/**`.
+<!-- TASK #0029 END -->

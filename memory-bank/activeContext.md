@@ -30,7 +30,7 @@
 - Задача #0028: M4 мини-эксперимент под контрактом `orchestration-m4-experiment`. 4 реальных draft-контракта + `plan.json` в `.scopelock/experiments/`; `plan-parallel` дал 2 волны с одним верно разнесённым конфликтом. H1/H4/H5 = GO, H3 = GO качественно, H2 не тестировался. Итог: **GO** к M5. Отчёт `plans/orchestration-m4-experiment.md`.
 
 ## Следующие шаги
-- M5: `readPathPatterns` в contract-схему (новое, опциональное поле scope), F2 layered scheduling (Kahn topological layering по readEdges + write-write coloring внутри слоя, `orchestration-implementation-plan.md` §4.3), cycle detection (read-write циклы -> `cycles` непустой, не зацикливаться), возврат CLI-флага `--include-read-hazards` (убран в M3 review fixes, вернуть только когда появятся реальные read-паттерны).
+- M5 (задача #0029): `readPathPatterns` в contract-схему (новое, опциональное поле scope), F2 layered scheduling (Kahn topological layering по readEdges + write-write coloring внутри слоя, `orchestration-implementation-plan.md` §4.3), cycle detection (read-write циклы -> `cycles` непустой, не зацикливаться), возврат CLI-флага `--include-read-hazards` + **восстановление exit-кода 1** для unschedulable/cycles (в F1 был убран, в F2 снова актуален). Плюс под-пункты валидации из caveat'ов ревью M4: H2 live-прогон `hook gate` на соседях волны и H3 timed (реальный/прокси wall-clock вместо теоретического ~2x).
 - CHECKPOINT/validation: провести 5 быстрых интервью по Stage 0 script, затем добить до 10-15 и принять go/no-go перед полноценной Phase 4.
 - Позже: реализовать настоящий repo manifest builder через git.
 - Решить открытые вопросы round 2 (Codex CLI enforcement, Spec Kit interop, warn-only vs strict default).
