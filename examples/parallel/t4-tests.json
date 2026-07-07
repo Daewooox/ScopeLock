@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "t4-tests",
+  "task": "Parallel-workflow example: scheduler tests (reads what t1-core writes)",
+  "createdAt": "2026-07-07T23:06:03.043Z",
+  "baseline": null,
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule.test.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": [
+      "packages/core/src/schedule/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

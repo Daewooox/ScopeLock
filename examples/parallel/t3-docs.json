@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "t3-docs",
+  "task": "Parallel-workflow example: docs updates",
+  "createdAt": "2026-07-07T23:06:02.987Z",
+  "baseline": null,
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**",
+      "README.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

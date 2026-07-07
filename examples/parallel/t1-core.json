@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "t1-core",
+  "task": "Parallel-workflow example: core scheduler tweaks",
+  "createdAt": "2026-07-07T23:06:02.879Z",
+  "baseline": null,
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/**"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

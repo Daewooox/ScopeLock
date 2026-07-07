@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "workflow-parallel-docs",
+  "task": "Document and demonstrate the end-to-end parallel-workflow (contract new -> approve -> plan-parallel -> export-prompt -> check-drift)",
+  "createdAt": "2026-07-07T23:05:01.031Z",
+  "baseline": {
+    "headSha": "1d343ec2dd6b1fb9ad326431b204317d5bf407dc",
+    "branch": "main",
+    "capturedAt": "2026-07-07T23:05:01.106Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "memory-bank/**",
+      "docs/**",
+      "examples/**",
+      ".scopelock/experiments/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/cli/src/commands/**",
+      "packages/cli/src/index.ts"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

@@ -91,6 +91,13 @@ path another task declares as a read must be scheduled in an earlier wave.
 If the read-write dependencies form a cycle, the plan is unschedulable as
 written - the command exits `1` and lists the cycle instead of a wave order.
 
+Running more than one agent on the same repo at once? See
+[**Running agents in parallel**](docs/parallel-workflow.md) for the full
+walkthrough - scaffold a contract per subtask, compute the schedule, hand
+each wave to its agent, and verify after the fact - with real command output
+at every step. A reproducible example lives in
+[`examples/parallel/`](examples/parallel/).
+
 ### `--local`
 
 Editor hooks call `scopelock` by default, which assumes it is on `PATH`.

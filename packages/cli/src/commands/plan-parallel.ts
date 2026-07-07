@@ -51,9 +51,14 @@ function humanReport(
 ): string {
   const lines = [`plan ${planId}`];
   if (cycles.length > 0) {
+    // "Group" rather than "cycle" in the per-line label: connectedComponents
+    // (scheduler.ts) also sweeps in nodes that are merely downstream of a
+    // true cycle (e.g. a reader of a cycle member), not only the cycle's
+    // own members, so not every listed group is a cycle in the strict
+    // graph-theory sense - all of them are equally unschedulable, though.
     lines.push(
-      "error: not parallelizable - read-write cycles detected (serialize or redesign contracts):",
-      ...cycles.map((cycle) => `  cycle: [${cycle.join(", ")}]`),
+      "error: unschedulable (read-write deadlock) - serialize or redesign contracts:",
+      ...cycles.map((group) => `  stuck group: [${group.join(", ")}]`),
     );
   }
   lines.push(...waves.map((wave, index) => `wave ${index + 1}: [${wave.join(", ")}]`));
