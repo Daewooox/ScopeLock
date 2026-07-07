@@ -597,3 +597,56 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - `pnpm test` → core 42/42 + cli 3/3 pass.
 - `node packages/cli/dist/index.js check-drift --json` → только ожидаемый `high_risk_file` на `.github/workflows/test.yml`.
 <!-- TASK #0022 END -->
+
+<!-- TASK #0023 BEGIN
+     Owner: codex
+     Started: 2026-07-07T21:39Z
+     Status: blocked
+-->
+## Задача #0023 — M1 hardening: release-gate выявил over-approx witness
+
+- **Описание:** Выполнить инструкцию hardening M1 release-gate: заменить тривиальный matcher-consistency тест на проверку witness через `picomatch`, добавить language-derived soundness sampling и продолжить F3/F5/F6/F7/F8 только если F1 зелёный.
+- **Уровень сложности:** Level 2
+- **Статус:** BLOCKED по стоп-условию инструкции. Новый F1-тест краснеет на supported-glob, значит найден реальный баг логики пересечений; production logic не менялась.
+
+### Root cause evidence
+- Команда: `pnpm --filter @scopelock/core build && node --test packages/core/dist/schedule.test.js`.
+- Failing case: `intersectionWitness("*.ts", "test-*/**")` вернул `"test-.ts"`.
+- Runtime matcher: `picomatch("*.ts", { dot: true })("test-.ts") === true`, но `picomatch("test-*/**", { dot: true })("test-.ts") === false`.
+- Вывод: `segmentListWitness` переоценивает trailing `/**` после glob-сегмента (`test-*`) и считает zero-dir вариант валидным там, где `picomatch` требует slash/child path.
+
+### Что уже сделано в рабочем дереве
+- `packages/core/src/schedule.test.ts`: добавлен новый F1 witness-under-picomatch gate и F2 language-derived soundness sampler.
+- F2 проходит, F1 падает на реальном counterexample.
+
+### Что НЕ сделано из-за стоп-условия
+- Не менялась production logic в `glob-intersect.ts`.
+- Не выполнялись F3/F5/F6/F7/F8, чтобы не смешивать hardening с отдельным prod-fix.
+
+### Следующая задача
+- #0024: отдельный prod-scope fix для `intersectionWitness` / `segmentListWitness` семантики trailing `/**` после glob-сегмента, затем вернуться к hardening checklist.
+<!-- TASK #0023 END -->
+
+<!-- TASK #0024 BEGIN
+     Owner: cursor
+     Started: 2026-07-07T21:39Z
+     Status: done
+-->
+## Задача #0024 — Prod fix: trailing globstar witness must match picomatch
+
+- **Описание:** Исправить production-логику пересечения glob-ов после counterexample из #0023: `*.ts` vs `test-*/**` не должен давать witness `"test-.ts"`, который не матчится вторым glob под `picomatch`.
+- **Уровень сложности:** Level 2
+- **Статус:** DONE под активным контрактом `schedule-m1-hardening` (glob-intersect.ts входит в его planned-scope). Core 45/45, CLI 3/3, `check-drift` = 0 violations.
+
+### Что сделано (`packages/core/src/schedule/glob-intersect.ts`)
+- `intersectionWitness` переписан: product-search теперь **генератор кандидатов** (`collectWitnesses`), а истиной пересечения служит `picomatch` (тот же матчер, что в runtime hook gate). Возвращаем только тот witness, который реально матчится обоими glob под picomatch → устранён seam между scheduler и gate и все trailing-`**` quirks.
+- Вердикт «disjoint» (null) возвращается только при исчерпании поиска без валидного кандидата; при упоре в `CANDIDATE_CAP` остаёмся консервативными (сообщаем пересечение — over-approx безопасен: теряем параллелизм, не корректность).
+- `collectWitnesses`: DFS по (i,j); каждый переход строго увеличивает `i+j` (DAG → терминируется без visited-pruning, чтобы не терять альтернативные witness). Добавлена depth-bounded ветка «оба globstar поглощают общий filler-сегмент» — покрывает случай `**` × `.../wildcard/**`, где picomatch требует ребёнка, а не родителя.
+- Добавлен memo-кеш picomatch-матчеров (`matcherFor`) — perf для property-тестов (20k+ вызовов).
+
+### Acceptance (все выполнены)
+- F1 witness-under-picomatch: зелёный на 10 000 supported-glob пар.
+- F2 language-derived soundness: зелёный на 10 000 пар (нашёл и подтвердил fix false-disjoint `** & [ab]/test-*/**`).
+- Regression-тесты `trailing globstar semantics match picomatch (#0024)`: `*.ts`×`test-*/**`→disjoint, `a/**`×`a`→intersect, `test-*/**`×`test-x/y.ts`→intersect.
+- `node --test packages/core/dist/*.test.js` = 45/45, CLI = 3/3, `check-drift` = 0.
+<!-- TASK #0024 END -->

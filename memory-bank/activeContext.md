@@ -1,7 +1,7 @@
 # Активный контекст
 
 ## Текущий фокус
-Задача #0020 — M2 scope-algebra conflict graph + F1 scheduler реализована под контрактом `schedule-m2-conflict-graph`: core получил `TaskScope`/`ScopeConflict`, `scopesConflict`, deterministic `buildConflictGraph`, F1 write-write greedy coloring `schedule`, и `schedulePlanSchema` (`schemaVersion: 1`, `planId`, `tasks[]`). Release-gate M2 зелёный: `node --test packages/core/dist/schedule.test.js` → 8/8, `pnpm test` → core 42/42 + cli 3/3, `check-drift` → 0 violations. Задача #0021: исправлен Windows CI false negative в `schema.test.ts` (expected path теперь через `join`, production-код не менялся). Задача #0022: CI workflow обновлён на Node24-compatible actions (`checkout@v7`, `setup-node@v6`, `pnpm/action-setup@v6`) и `macos-15` вместо `macos-latest`. Следующий исполнимый шаг по плану: M3 `plan-parallel` CLI command (load plan JSON, load referenced contracts, derive `TaskScope`, build graph, schedule, print matrix/waves/witnesses; exit codes 0/1/2). Ранее: #0019 M1 `globsIntersect`; #0018 синхронизировала планы под делегирование; #0017 implementation-ready план Идеи A; #0016 creative-формализация scope-algebra; #0015 Trialable v0.1; #0014 live UI dogfood. Интервью Stage 0 сознательно отложены до более цепляющего v0.1; продуктовая ставка: оркестрация (Идея A) = 4-й слой moat и ответ на «почему не Spec Kit/Traycer». Housekeeping pending: .pnpm-store/ в .gitignore, решить нужно ли вернуть mode=strict глобально, закоммитить .claude/.cursor настройки от live-теста.
+Задача #0024 — M1 prod fix ЗАВЕРШЕНА. `intersectionWitness` переписан: product-search стал генератором кандидатов, а истиной пересечения служит `picomatch` (тот же матчер, что в runtime hook gate). Устранён over-approx (`*.ts`×`test-*/**` теперь корректно disjoint) и найденный F2 false-disjoint (`**`×`[ab]/test-*/**`) через depth-bounded «оба globstar поглощают filler». F1 (10k) и F2 (10k) зелёные, Core 45/45, CLI 3/3, `check-drift` = 0 под контрактом `schedule-m1-hardening`. Следующий шаг: доделать оставшиеся hardening findings F3/F5/F6/F7/F8 (доки/константы), затем M3 `plan-parallel`. Ранее: #0023 hardening release-gate (F1/F2 тесты); #0020 M2 scope-algebra scheduler; #0021 Windows CI path fix; #0022 CI actions cleanup; #0019 M1 `globsIntersect`.
 
 ## Последние изменения
 - Memory Bank инициализирован
@@ -22,9 +22,12 @@
 - Задача #0020: реализован M2 scope-algebra scheduler. Core получил conflict API, deterministic conflict graph, F1 write-write coloring scheduler и `schedulePlanSchema`. `pnpm test` → core 42/42 + cli 3/3 pass; `check-drift` по контракту `schedule-m2-conflict-graph` → 0 violations.
 - Задача #0021: исправлен Windows CI storage layout test. Root cause: hardcoded POSIX expected path в тесте при runtime `node:path.join`. `pnpm test` → core 42/42 + cli 3/3 pass.
 - Задача #0022: убраны GitHub Actions Node 20 warnings через обновление official actions до Node24-compatible major versions; `macos-latest` запинен на `macos-15`.
+- Задача #0023: hardening M1 release-gate выявил баг witness: `*.ts` vs `test-*/**` даёт witness, который не матчится вторым glob под `picomatch`. Стоп-условие выполнено, production logic не менялась.
+- Задача #0024: prod fix выполнен — `intersectionWitness` теперь генерирует кандидатов и валидирует их `picomatch`; disjoint возвращается только при исчерпании поиска, иначе консервативный intersect. F1/F2 по 10k зелёные, добавлены regression-тесты trailing-`**`.
 
 ## Следующие шаги
-- M3 scope-algebra CLI: `plan-parallel <plan.json> [--json]`, load referenced contracts, derive scopes, build graph, schedule, output matrix/waves/witnesses; exit 0 schedulable / 1 unschedulable / 2 bad input.
+- Доделать оставшиеся hardening findings F3/F5/F6/F7/F8 (доки/константы, комментарии-инварианты).
+- После этого продолжить M3 `plan-parallel`.
 - CHECKPOINT/validation: провести 5 быстрых интервью по Stage 0 script, затем добить до 10-15 и принять go/no-go перед полноценной Phase 4.
 - Позже: реализовать настоящий repo manifest builder через git.
 - Решить открытые вопросы round 2 (Codex CLI enforcement, Spec Kit interop, warn-only vs strict default).

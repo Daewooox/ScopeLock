@@ -4,7 +4,6 @@ import picomatch from "picomatch";
 import {
   buildConflictGraph,
   globSetsIntersect,
-  globToRegExp,
   globsIntersect,
   intersectionWitness,
   schedule,
@@ -51,12 +50,61 @@ function randomPath(random: () => number): string {
   ).join("/");
 }
 
-const corpus = (() => {
-  const random = mulberry32(42);
-  const paths = new Set<string>(["src/api/x.ts", "src/ui/view.ts", "pkg/b/x", "a/x/b", ".env"]);
-  for (let index = 0; index < 300; index += 1) paths.add(randomPath(random));
-  return [...paths];
-})();
+function expandForTest(glob: string): string[] {
+  const start = glob.indexOf("{");
+  if (start === -1) return [glob];
+  const end = glob.indexOf("}", start + 1);
+  if (end === -1) return [glob];
+  const before = glob.slice(0, start);
+  const after = glob.slice(end + 1);
+  return glob
+    .slice(start + 1, end)
+    .split(",")
+    .flatMap((part) => expandForTest(`${before}${part}${after}`));
+}
+
+function sampleSegment(segment: string): string[] {
+  const samples = new Set<string>([""]);
+  let literal = "";
+  for (let index = 0; index < segment.length; index += 1) {
+    const char = segment[index];
+    if (char === "*") literal += "z";
+    else if (char === "?") literal += "q";
+    else if (char === "[") {
+      const end = segment.indexOf("]", index + 1);
+      if (end === -1) return [segment];
+      const body = segment.slice(index + 1, end);
+      if (body.startsWith("^")) literal += "z";
+      else literal += body[0] === "!" && body.length > 1 ? "!" : (body[0] ?? "z");
+      index = end;
+    } else {
+      literal += char ?? "";
+    }
+  }
+  samples.add(literal);
+  return [...samples];
+}
+
+function instantiate(segments: string[]): string[] {
+  let paths = [""];
+  for (const segment of segments) {
+    const segmentSamples = segment === "**" ? ["", "z"] : sampleSegment(segment);
+    paths = paths.flatMap((path) =>
+      segmentSamples.map((sample) => [path, sample].filter(Boolean).join("/")),
+    );
+  }
+  return paths;
+}
+
+function samplePaths(glob: string): string[] {
+  const out = new Set<string>();
+  for (const expanded of expandForTest(glob)) {
+    for (const variant of instantiate(expanded.split("/"))) {
+      if (variant.length > 0) out.add(variant);
+    }
+  }
+  return [...out];
+}
 
 describe("glob intersection known pairs", () => {
   it("handles the release-gate examples", () => {
@@ -68,6 +116,9 @@ describe("glob intersection known pairs", () => {
     assert.equal(intersectionWitness("a/*/b", "a/x/b"), "a/x/b");
     assert.equal(globsIntersect("src/ui/**", "src/api/**"), false);
     assert.equal(globsIntersect("pkg/{a,b}/**", "pkg/b/**"), true);
+    assert.equal(globsIntersect("[a-c]", "[b-d]"), true);
+    assert.equal(globsIntersect("[!a]", "[!b]"), true);
+    assert.equal(globsIntersect("[a-c]", "[x-z]"), false);
   });
 
   it("checks sets and conservative unsupported fallback", () => {
@@ -78,31 +129,55 @@ describe("glob intersection known pairs", () => {
   });
 });
 
-describe("glob matcher consistency", () => {
-  it("matches picomatch for supported random globs and paths", () => {
-    const random = mulberry32(7);
+describe("trailing globstar semantics match picomatch (regression #0024)", () => {
+  it("does not over-approximate wildcard-segment + trailing /**", () => {
+    // Bug: engine returned "test-.ts", but picomatch("test-*/**") rejects it,
+    // because a single-segment path never matches `wildcard/**`.
+    assert.equal(globsIntersect("*.ts", "test-*/**"), false);
+    assert.equal(intersectionWitness("*.ts", "test-*/**"), null);
+  });
+
+  it("keeps picomatch's literal/** parent match", () => {
+    assert.equal(globsIntersect("a/**", "a"), true);
+    assert.equal(globsIntersect("src/**", "src"), true);
+  });
+
+  it("still intersects when descent actually exists", () => {
+    assert.equal(globsIntersect("test-*/**", "test-x/y.ts"), true);
+  });
+});
+
+describe("intersection witness is a real path under picomatch", () => {
+  it("witness matches both globs (supported globs)", () => {
+    const random = mulberry32(11);
     for (let index = 0; index < 10_000; index += 1) {
-      const glob = randomGlob(random);
-      const path = randomPath(random);
-      const ours = globToRegExp(glob).test(path);
-      const theirs = picomatch(glob, { dot: true })(path);
-      assert.equal(ours, theirs, `${glob} should match ${path} like picomatch`);
+      const a = randomGlob(random);
+      const b = randomGlob(random);
+      const witness = intersectionWitness(a, b);
+      if (witness === null) continue;
+      const matchA = picomatch(a, { dot: true });
+      const matchB = picomatch(b, { dot: true });
+      assert.ok(
+        matchA(witness) && matchB(witness),
+        `witness "${witness}" must match both ${a} and ${b}`,
+      );
     }
   });
 });
 
-describe("glob intersection property soundness", () => {
-  it("does not declare disjoint when the path corpus finds a shared match", () => {
+describe("soundness: disjoint verdict has no shared member drawn from either glob", () => {
+  it("no path instantiated from a or b matches both when declared disjoint", () => {
     const random = mulberry32(99);
     for (let index = 0; index < 10_000; index += 1) {
       const a = randomGlob(random);
       const b = randomGlob(random);
-      if (globsIntersect(a, b)) continue;
-
       const matchA = picomatch(a, { dot: true });
       const matchB = picomatch(b, { dot: true });
-      const counterexample = corpus.find((path) => matchA(path) && matchB(path));
-      assert.equal(counterexample, undefined, `${a} and ${b} both match ${counterexample}`);
+      const samplesA = samplePaths(a).filter((path) => matchA(path));
+      const samplesB = samplePaths(b).filter((path) => matchB(path));
+      if (globsIntersect(a, b)) continue;
+      const shared = [...samplesA, ...samplesB].find((path) => matchA(path) && matchB(path));
+      assert.equal(shared, undefined, `${a} & ${b} disjoint but both match ${shared}`);
     }
   });
 });
