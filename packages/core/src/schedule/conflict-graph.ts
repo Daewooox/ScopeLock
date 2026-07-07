@@ -11,6 +11,8 @@ export function buildConflictGraph(
   scopes: TaskScope[],
   opts: { readHazards?: boolean } = {},
 ): ConflictGraph {
+  // nodes are sorted (not insertion order) so the graph, and any schedule built
+  // from it, is deterministic regardless of the order tasks are passed in.
   const nodes = scopes.map((scope) => scope.id).sort();
   if (new Set(nodes).size !== nodes.length) {
     throw new Error("task ids must be unique");
@@ -21,6 +23,8 @@ export function buildConflictGraph(
   const readEdges: Array<[string, string]> = [];
   const conflicts: ScopeConflict[] = [];
 
+  // left < right over the sorted nodes: each unordered pair is visited once,
+  // in a fixed order, so writeEdges/readEdges/conflicts are reproducible.
   for (let left = 0; left < nodes.length; left += 1) {
     for (let right = left + 1; right < nodes.length; right += 1) {
       const a = byId.get(nodes[left] as string) as TaskScope;

@@ -25,6 +25,8 @@ export function firstIntersectionWitness(as: string[], bs: string[]): string | n
 }
 
 export function scopesConflict(a: TaskScope, b: TaskScope): ScopeConflict | null {
+  // write-write always takes priority over read-write: a mutual-exclusion
+  // hazard is reported even if the pair also has a read-write ordering hazard.
   const writeWitness = firstIntersectionWitness(a.planned, b.planned);
   if (writeWitness !== null) {
     return { a: a.id, b: b.id, kind: "write-write", witness: writeWitness };

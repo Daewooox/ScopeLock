@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "schedule-m1-polish",
+  "task": "M1 polish: schema-version const, invariant comments, exports",
+  "createdAt": "2026-07-07T22:04:46.457Z",
+  "baseline": {
+    "headSha": "e3559026110312d6bf40cfd767a89deedf7d8be4",
+    "branch": "main",
+    "capturedAt": "2026-07-07T22:04:46.533Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/**",
+      "packages/core/src/schedule.test.ts",
+      "packages/core/src/index.ts",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/cli/**"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
