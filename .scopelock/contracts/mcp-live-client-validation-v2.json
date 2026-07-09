@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "mcp-live-client-validation-v2",
+  "task": "Live validate ScopeLock MCP client integration and record results",
+  "createdAt": "2026-07-09T21:42:43.703Z",
+  "baseline": {
+    "headSha": "3163092b25761ba157567402d4603819086ffa5d",
+    "branch": "main",
+    "capturedAt": "2026-07-09T21:42:43.798Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/mcp-live-client-validation-v2.json",
+      "memory-bank/**",
+      "README.md",
+      "docs/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/cli/**",
+      "packages/mcp/src/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

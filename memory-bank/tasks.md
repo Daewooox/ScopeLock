@@ -1019,6 +1019,7 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Уровень сложности:** Level 3 (spike Level 2 + build Level 3).
 - **Статус:** Step 5.0 BUILD завершён. Вердикт: **GO, но только narrow MCP**, без общего enforcer-клона.
 - **Step 5.1 статус:** BUILD завершён под контрактом `mcp-narrow-server-v2`; commit done.
+- **Step 5.2 статус:** live Codex MCP client validation завершена под контрактом `mcp-live-client-validation-v2`; commit done.
 - **Полное ТЗ:** `plans/scopelock-implementation-plan.md` → раздел «Phase 5 - MCP server === СЛЕДУЮЩИЙ ШАГ» (строка ~364) + «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ». Контекст конкурентов: `plans/competitive-landscape-2026-07.md`.
 
 ### Порядок (жёсткий)
@@ -1041,6 +1042,15 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Smoke через официальный MCP SDK client: `tools/list` вернул `check_drift`, `plan_parallel`, `scopes_conflict`; `scopes_conflict` вернул witness `config/.json`.
 - Dependency review: `pnpm-lock.yaml` изменён намеренно из-за `@modelcontextprotocol/sdk` + `zod`; `check-drift` ожидаемо флагует `high_risk_file` для lockfile как review stop, scope violations нет.
 
+### Step 5.2 live MCP client validation
+- Зарегистрирован глобальный Codex MCP server `scopelock`: `/opt/homebrew/bin/node packages/mcp/dist/index.js`.
+- Live `codex exec --json` подтвердил реальные `mcp_tool_call` events против server `scopelock`.
+- Проверены все 3 narrow tools:
+  - `scopes_conflict` → `conflict:true`, `kind:"write-write"`, witness `config/.json`.
+  - `check_drift` → `ok:true`, active contract `mcp-live-client-validation-v2`, violations `0`.
+  - `plan_parallel` → `waves:[["t1-core","t2-cli","t3-docs"]]`, conflicts `[]`, cycles `[]`.
+- Основной отчёт: `memory-bank/plans/mcp-live-client-validation.md`.
+
 ### DoD
 - [x] `plans/mcp-spike-verdict.md` с вердиктом GO/NO-GO (конкретика, не «кажется полезно»).
 - [x] Step 5.0 docs-only: `packages/**` не тронуты.
@@ -1049,4 +1059,6 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] Если следующий шаг запускается: Step 5.1 narrow MCP, не общий enforcer.
 - [x] Step 5.1 финальные проверки: `pnpm -r build`, `pnpm -r test` (core 53/53, cli 14/14, mcp 3/3), `pnpm typecheck`, MCP SDK stdio smoke. `check-drift` scope-clean; единственная violation — ожидаемый `high_risk_file` на `pnpm-lock.yaml` из-за dependency update (`@modelcontextprotocol/sdk` + `zod`), reviewed.
 - [x] Step 5.1 commit: `feat: add narrow ScopeLock MCP server`. Push — только по явной просьбе.
+- [x] Step 5.2 live client validation: Codex MCP registration + live calls to `scopes_conflict`, `check_drift`, `plan_parallel`.
+- [x] Step 5.2 commit: `docs: record live MCP client validation`. Push — только по явной просьбе.
 <!-- TASK #0034 END -->
