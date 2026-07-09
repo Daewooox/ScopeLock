@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "orchestration-planner-market-research",
+  "task": "Analyze GitHub run orchestrators and LLM planners for ScopeLock product direction",
+  "createdAt": "2026-07-09T22:05:12.441Z",
+  "baseline": {
+    "headSha": "c24fc4b4e648fe2cbcf4f1272efb735d38f29a6f",
+    "branch": "main",
+    "capturedAt": "2026-07-09T22:05:12.539Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/orchestration-planner-market-research.json",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
