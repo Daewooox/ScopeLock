@@ -76,6 +76,9 @@
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
+| `packages/mcp/src/index.ts` | Stdio bootstrap for the narrow ScopeLock MCP server |
+| `packages/mcp/src/tools.ts` | MCP adapters for plan_parallel, scopes_conflict, check_drift |
+| `packages/mcp/src/tools.test.ts` | MCP tool unit tests over scheduler and drift behavior |
 | `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
 | `docs/parallel-workflow.md` | Guide: running N agents in parallel via plan-parallel (real commands/output) |
 | `examples/parallel/` | Reproducible 4-task plan-parallel example (draft contracts, one-command repro) |

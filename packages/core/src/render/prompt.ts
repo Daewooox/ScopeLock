@@ -47,7 +47,7 @@ export function renderAgentPrompt(
     list(contract.openQuestions, "No open questions."),
     "",
     "## Final Instruction",
-    "Stay inside the approved scope, run the required tests when relevant, and stop to ask when the change appears to require forbidden or unapproved files.",
+    "Stay inside the approved scope, run the required tests when relevant, call the ScopeLock `check_drift` MCP tool before finishing, resolve any violations, and stop to ask when the change appears to require forbidden or unapproved files.",
     "",
   ].join("\n");
 }

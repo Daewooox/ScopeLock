@@ -1018,6 +1018,7 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Описание:** Приоритетный следующий шаг проекта. Веб-скан Q4 (2026-07, `plans/competitive-landscape-2026-07.md`) выявил, что планируемый MCP scope-enforcer — near-clone `logi-cmd/agent-guardrails` (~8★, zero traction), а категория с weak PMF. Поэтому шаг переработан: сперва обязательный spike buy-vs-build, потом узко-дифференцированный MCP-сервер (только если GO).
 - **Уровень сложности:** Level 3 (spike Level 2 + build Level 3).
 - **Статус:** Step 5.0 BUILD завершён. Вердикт: **GO, но только narrow MCP**, без общего enforcer-клона.
+- **Step 5.1 статус:** BUILD завершён под контрактом `mcp-narrow-server-v2`; commit done.
 - **Полное ТЗ:** `plans/scopelock-implementation-plan.md` → раздел «Phase 5 - MCP server === СЛЕДУЮЩИЙ ШАГ» (строка ~364) + «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ». Контекст конкурентов: `plans/competitive-landscape-2026-07.md`.
 
 ### Порядок (жёсткий)
@@ -1029,10 +1030,23 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - `wit-protocol@0.1.3`: npm-пакет требует Bun; `npx wit-protocol --help` без Bun завис, source-run через temporary `npx bun` работает. TS symbol lock conflict hard-fail (`LOCK_CONFLICT`), file intent overlap warning есть. JSON/YAML принимаются как string paths/locks, но parser/contract слой по docs/source поддерживает только TS/JS/Python.
 - ScopeLock: `plan-parallel` на TS+Python+JSON+YAML дал одну волну; конфликт `config/**` vs `config/*.json|*.yaml` дал witness. `hook gate` в strict на PreToolUse-событии `config/settings.json` вернул exit 2 до записи.
 
+### Step 5.1 narrow MCP implementation
+- Добавлен новый workspace package `@scopelock/mcp` (`packages/mcp`) со stdio MCP server на `@modelcontextprotocol/sdk@1.29.0`.
+- MCP tools строго ограничены дифференциаторами:
+  - `plan_parallel`: Zod-валидирует `schedulePlanSchema`, грузит contract files, возвращает waves/conflicts/cycles.
+  - `scopes_conflict`: проверяет две task scope структуры и возвращает boolean + witness detail.
+  - `check_drift`: запускает существующий core drift path для active approved contract и пишет report.
+- `renderAgentPrompt` получил финальную инструкцию вызывать `check_drift` перед завершением и устранять violations.
+- README дополнен MCP config snippets для Claude/Cursor-style JSON и Codex TOML.
+- Smoke через официальный MCP SDK client: `tools/list` вернул `check_drift`, `plan_parallel`, `scopes_conflict`; `scopes_conflict` вернул witness `config/.json`.
+- Dependency review: `pnpm-lock.yaml` изменён намеренно из-за `@modelcontextprotocol/sdk` + `zod`; `check-drift` ожидаемо флагует `high_risk_file` для lockfile как review stop, scope violations нет.
+
 ### DoD
 - [x] `plans/mcp-spike-verdict.md` с вердиктом GO/NO-GO (конкретика, не «кажется полезно»).
 - [x] Step 5.0 docs-only: `packages/**` не тронуты.
 - [x] Финальные проверки после записи Memory Bank: `pnpm -r build`, core 53/53, cli 14/14, `check-drift`=0 под контрактом.
 - [x] Коммит: `docs: add MCP buy-vs-build verdict`. Push — только по явной просьбе.
-- [ ] Если следующий шаг запускается: Step 5.1 narrow MCP, не общий enforcer.
+- [x] Если следующий шаг запускается: Step 5.1 narrow MCP, не общий enforcer.
+- [x] Step 5.1 финальные проверки: `pnpm -r build`, `pnpm -r test` (core 53/53, cli 14/14, mcp 3/3), `pnpm typecheck`, MCP SDK stdio smoke. `check-drift` scope-clean; единственная violation — ожидаемый `high_risk_file` на `pnpm-lock.yaml` из-за dependency update (`@modelcontextprotocol/sdk` + `zod`), reviewed.
+- [x] Step 5.1 commit: `feat: add narrow ScopeLock MCP server`. Push — только по явной просьбе.
 <!-- TASK #0034 END -->
