@@ -123,6 +123,79 @@ describe("cli end-to-end", () => {
       assert.equal(body.status, "error");
       assert.equal(body.error.code, "BASELINE_NOT_FOUND");
       assert.doesNotMatch(body.error.message, /fatal|UNEXPECTED/);
+      // The guidance must point at a command that actually works: `approve`
+      // would fail with CONTRACT_ID_EXISTS on an already-saved contract.
+      assert.match(body.error.message, /rebaseline/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rebaseline repairs a stale baseline so check-drift works again", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const draftPath = join(tmpdir(), `sl-rebase-${Date.now()}.json`);
+      assert.equal(
+        runCli(dir, [
+          "contract",
+          "new",
+          "--task",
+          "scoped change",
+          "--planned",
+          "src/**",
+          "--out",
+          draftPath,
+        ]).status,
+        0,
+      );
+      assert.equal(runCli(dir, ["--json", "approve", draftPath]).status, 0);
+
+      const activeId = JSON.parse(
+        await readFile(join(dir, ".scopelock", "active"), "utf8"),
+      ) as string;
+      const activePath = join(dir, ".scopelock", "contracts", `${activeId}.json`);
+      const contract = JSON.parse(await readFile(activePath, "utf8"));
+      const createdAt = contract.createdAt;
+      contract.baseline.headSha = "0".repeat(40);
+      await writeFile(activePath, JSON.stringify(contract));
+
+      // Broken.
+      assert.equal(runCli(dir, ["--json", "check-drift"]).status, 2);
+
+      // Repair.
+      const rebase = runCli(dir, ["--json", "rebaseline"]);
+      assert.equal(rebase.status, 0);
+      assert.equal(JSON.parse(rebase.stdout).status, "ok");
+
+      // Works again, and the contract's identity is preserved (only baseline changed).
+      assert.equal(runCli(dir, ["--json", "check-drift"]).status, 0);
+      const repaired = JSON.parse(await readFile(activePath, "utf8"));
+      assert.equal(repaired.id, activeId);
+      assert.equal(repaired.createdAt, createdAt);
+      assert.notEqual(repaired.baseline.headSha, "0".repeat(40));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rebaseline exits 2 with CONTRACT_NOT_FOUND for an unknown id", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const res = runCli(dir, ["--json", "rebaseline", "no-such-contract"]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "CONTRACT_NOT_FOUND");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
