@@ -85,6 +85,7 @@
 | `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
 | `docs/parallel-workflow.md` | Guide: running N agents in parallel via plan-parallel (real commands/output) |
 | `examples/parallel/` | Reproducible 4-task plan-parallel example (draft contracts, one-command repro) |
+| `benchmarks/coordination/run-benchmark.mjs` | Deterministic multi-agent coordination benchmark harness |
 
 ---
 
