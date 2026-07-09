@@ -1,6 +1,7 @@
 import {
   buildDriftReport,
   collectChangedFiles,
+  commitExists,
   driftReportFileName,
   findRepoRoot,
   getActiveContractId,
@@ -73,6 +74,16 @@ export async function checkDriftCommand(options: {
     throw new CliError(
       "NO_BASELINE",
       "active contract has no baseline; approve it with `scopelock approve <file>`",
+    );
+  }
+
+  // Catch a stale baseline (e.g. the commit was dropped by a history rewrite)
+  // here, with an actionable message, instead of letting `git diff` fail with
+  // a raw fatal that would surface as an opaque UNEXPECTED error.
+  if (!commitExists(root, baselineSha)) {
+    throw new CliError(
+      "BASELINE_NOT_FOUND",
+      `baseline commit ${baselineSha} not found (history rewritten?); re-run \`scopelock approve <file>\` to re-baseline`,
     );
   }
 

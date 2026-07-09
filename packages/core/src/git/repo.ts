@@ -22,3 +22,12 @@ export function currentBranch(cwd: string): string | null {
   if (!result.ok || result.stdout === "HEAD") return null;
   return result.stdout;
 }
+
+/**
+ * True when `sha` resolves to a commit object in this repo. Used to catch a
+ * stale contract baseline (e.g. after a history rewrite) before it reaches
+ * `git diff <sha>..HEAD`, which would otherwise fail with a raw git fatal.
+ */
+export function commitExists(cwd: string, sha: string): boolean {
+  return runGit(["cat-file", "-e", `${sha}^{commit}`], cwd).ok;
+}

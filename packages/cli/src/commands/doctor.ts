@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 import {
+  commitExists,
   findRepoRoot,
   getActiveContractId,
   gitVersion,
   hasScopeLockHooks,
   hooksConfigPath,
   loadContract,
-  runGit,
   scopelockConfigSchema,
   scopelockPaths,
 } from "@scopelock/core";
@@ -129,12 +129,8 @@ export async function doctorCommand(): Promise<CommandResult> {
             ),
           );
         } else {
-          const baseline = runGit(
-            ["cat-file", "-e", `${contract.baseline.headSha}^{commit}`],
-            root,
-          );
           checks.push(
-            baseline.ok
+            commitExists(root, contract.baseline.headSha)
               ? pass("active-baseline", contract.baseline.headSha)
               : fail(
                   "active-baseline",
