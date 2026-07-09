@@ -1009,23 +1009,30 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 <!-- TASK #0033 END -->
 
 <!-- TASK #0034 BEGIN
-     Owner: pending
+     Owner: codex
      Started: 2026-07-09
-     Status: pending
+     Status: build
 -->
 ## Задача #0034 — Phase 5 MCP server (competitively-informed) + buy-vs-build spike
 
 - **Описание:** Приоритетный следующий шаг проекта. Веб-скан Q4 (2026-07, `plans/competitive-landscape-2026-07.md`) выявил, что планируемый MCP scope-enforcer — near-clone `logi-cmd/agent-guardrails` (~8★, zero traction), а категория с weak PMF. Поэтому шаг переработан: сперва обязательный spike buy-vs-build, потом узко-дифференцированный MCP-сервер (только если GO).
 - **Уровень сложности:** Level 3 (spike Level 2 + build Level 3).
-- **Статус:** PENDING. ТЗ готово и делегируемо.
+- **Статус:** Step 5.0 BUILD завершён. Вердикт: **GO, но только narrow MCP**, без общего enforcer-клона.
 - **Полное ТЗ:** `plans/scopelock-implementation-plan.md` → раздел «Phase 5 - MCP server === СЛЕДУЮЩИЙ ШАГ» (строка ~364) + «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ». Контекст конкурентов: `plans/competitive-landscape-2026-07.md`.
 
 ### Порядок (жёсткий)
-- **Step 5.0 — buy-vs-build spike (гейт, docs-only, ~1 сессия):** погонять `logi-cmd/agent-guardrails` + `wit` на реальной работе; вердикт в новый `plans/mcp-spike-verdict.md`. Kill-criterion: покрывают ≥90% → НЕ строить, вернуться к пользователю.
+- **Step 5.0 — buy-vs-build spike (гейт, docs-only, ~1 сессия):** **СДЕЛАНО**. Погоняны `logi-cmd/agent-guardrails` + `wit` на полиглот scratch-репо (`/tmp/scopelock-mcp-spike`). Основной документ: `plans/mcp-spike-verdict.md`. Kill-criterion НЕ сработал: вместе покрывают ~65-75% целевого Step 5.1, но не language-agnostic wave scheduler и не true pre-write deny.
 - **Step 5.1 — MCP server (только если GO):** `packages/mcp`, тонкие обёртки над core, строго 2 дифференциатора: `plan_parallel`/`scopes_conflict` (уникальный language-agnostic scheduler) + `check_drift` verification-tool + опора на готовый real-time hook gate. НЕ дублировать enforcer agent-guardrails.
 
+### Evidence / выводы Step 5.0
+- `agent-guardrails@0.20.0`: зрелый CLI/MCP/daemon/adapters; первый `npx` упал на packaged native binary `EACCES`, fallback `AGENT_GUARDRAILS_RUNTIME=node` работает. Scope violation ловится `check`/daemon/PostToolUse/Stop/pre-commit **после записи**; clean-run `check --json` дал `outOfTaskScopeFiles:["config/settings.json"]`, exit 1. Scheduler отсутствует.
+- `wit-protocol@0.1.3`: npm-пакет требует Bun; `npx wit-protocol --help` без Bun завис, source-run через temporary `npx bun` работает. TS symbol lock conflict hard-fail (`LOCK_CONFLICT`), file intent overlap warning есть. JSON/YAML принимаются как string paths/locks, но parser/contract слой по docs/source поддерживает только TS/JS/Python.
+- ScopeLock: `plan-parallel` на TS+Python+JSON+YAML дал одну волну; конфликт `config/**` vs `config/*.json|*.yaml` дал witness. `hook gate` в strict на PreToolUse-событии `config/settings.json` вернул exit 2 до записи.
+
 ### DoD
-- `plans/mcp-spike-verdict.md` с вердиктом GO/NO-GO (конкретика, не «кажется полезно»).
-- Если GO: `packages/mcp` собирается, smoke через MCP inspector + live-вызов из Claude Code, core/cli тесты целы, `check-drift`=0 под контрактом, README+component-map+tasks/activeContext обновлены, коммит. Push — только по явной просьбе.
-- Всё под ScopeLock-контрактом (dogfooding).
+- [x] `plans/mcp-spike-verdict.md` с вердиктом GO/NO-GO (конкретика, не «кажется полезно»).
+- [x] Step 5.0 docs-only: `packages/**` не тронуты.
+- [x] Финальные проверки после записи Memory Bank: `pnpm -r build`, core 53/53, cli 14/14, `check-drift`=0 под контрактом.
+- [x] Коммит: `docs: add MCP buy-vs-build verdict`. Push — только по явной просьбе.
+- [ ] Если следующий шаг запускается: Step 5.1 narrow MCP, не общий enforcer.
 <!-- TASK #0034 END -->
