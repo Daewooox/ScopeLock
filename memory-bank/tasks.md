@@ -1154,3 +1154,84 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] `check-drift` clean: 0 violations.
 - [x] Commit: `test: add multi-agent coordination benchmark`. Push — только по явной просьбе.
 <!-- TASK #0037 END -->
+
+<!-- TASK #0038 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: build
+-->
+## Задача #0038 — Real-Agent Coordination Benchmark / Codex CLI K=3
+
+- **Описание:** Повторить benchmark #0037 на настоящих агентских outputs, минимально K=3. Проверить доступность Codex/Claude/Cursor CLI, запустить доступный real-agent прогон и записать ограничения.
+- **Уровень сложности:** Level 2 validation/build.
+- **Статус:** BUILD завершён; Codex K=3 прогнан, Claude/Cursor недоступны в PATH.
+- **Контракт:** `real-agent-coordination-benchmark-codex-k3` approved at `c8a7996`.
+
+### Артефакты
+- `benchmarks/coordination/run-codex-real-agent-benchmark.mjs`
+- `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs`
+- `memory-bank/plans/real-agent-coordination-benchmark.md`
+
+### Результат Codex CLI K=3
+| Mode | Runs | Scope violations applied avg | Unresolved conflicts avg | Detected/prevented conflicts avg | Manual interventions avg | Failed tests avg | Accepted tasks avg | Wall-clock avg |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| without_scopelock | 3 | 2 | 2 | 0 | 0 | 1 | 5/6 | 51.5s |
+| contracts_hooks | 3 | 0 | 2 | 0 | 0 | 1 | 5/6 | 57.3s |
+| contracts_hooks_plan_parallel | 3 | 0 | 0 | 2 | 1 | 0 | 5/6 | 74.3s |
+
+### Важное ограничение
+- Для Codex CLI это не true pre-write hook: режим `contracts_hooks` означает contract prompt + post-run metrics.
+- Claude CLI и Cursor CLI не найдены в PATH; для полного cross-agent K=3-5 нужны установленные/авторизованные CLI или native hook flow.
+
+### Вывод
+- Real Codex повтор подтверждает deterministic benchmark: contracts убирают scope drift, но не решают coordination; `plan_parallel` превращает скрытые write-write/read-write hazards в явные scheduling/defer decisions и даёт clean test result.
+- Primary product claim должен быть не speedup, а merge-readiness / conflict prevention / receipts.
+
+### DoD
+- [x] Проверена доступность Codex/Claude/Cursor CLI.
+- [x] Codex K=3 прогнан на 3 режимах.
+- [x] Zero-run smoke test добавлен для harness без запуска Codex.
+- [x] Метрики записаны в таблицу.
+- [x] Ограничения Codex hook story зафиксированы.
+- [x] Memory Bank обновлён.
+<!-- TASK #0038 END -->
+
+<!-- TASK #0039 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: build
+-->
+## Задача #0039 — Thin `scopelock run --plan` Dispatcher Prototype
+
+- **Описание:** Реализовать самый маленький `scopelock run --plan plan.json` как dispatcher/receipt layer: compute waves/conflicts → defer write-write conflicts → launch configured task commands → final `check-drift` → receipt. Не строить generic runner.
+- **Уровень сложности:** Level 2 validation/build.
+- **Статус:** BUILD завершён; commit/push requested by user.
+- **Контракт:** `thin-run-dispatcher-prototype` approved at `c8a7996`.
+
+### Артефакты
+- `packages/cli/src/commands/run-plan.ts`
+- `packages/cli/src/index.ts`
+- `packages/cli/src/cli.test.ts`
+
+### Что реализовано
+- `scopelock run --plan <plan.json>`.
+- Backward-compatible plan extension: task may include `command` as shell string or argv string array.
+- Default behavior: include read hazards, defer lexically later task on write-write conflict, run final `check-drift`, write receipt.
+- Options: `--no-read-hazards`, `--no-defer-write-conflicts`, `--no-check-drift`, `--receipt <path>`, `--json`.
+- Receipt includes waves, conflicts, cycles, deferredTasks, taskRuns, drift status.
+
+### Что НЕ строили
+- No daemon.
+- No generic runner DSL.
+- No retry policy.
+- No agent registry/presets.
+- No cloud/session/worktree orchestration.
+- No core scheduler changes.
+
+### DoD
+- [x] CLI command wired.
+- [x] Independent command tasks run by wave.
+- [x] Write-write conflict defers one side before dispatch.
+- [x] Receipt written and exposed in JSON output.
+- [x] CLI tests pass: 17/17.
+<!-- TASK #0039 END -->

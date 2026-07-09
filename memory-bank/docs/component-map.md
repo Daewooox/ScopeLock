@@ -78,6 +78,7 @@
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
+| `packages/cli/src/commands/run-plan.ts` | Thin plan dispatcher: waves, commands, drift, receipt |
 | `packages/cli/src/commands/manifest.ts` | Print deterministic tracked-file repo manifest |
 | `packages/mcp/src/index.ts` | Stdio bootstrap for the narrow ScopeLock MCP server |
 | `packages/mcp/src/tools.ts` | MCP adapters for plan_parallel, scopes_conflict, check_drift |
@@ -86,6 +87,8 @@
 | `docs/parallel-workflow.md` | Guide: running N agents in parallel via plan-parallel (real commands/output) |
 | `examples/parallel/` | Reproducible 4-task plan-parallel example (draft contracts, one-command repro) |
 | `benchmarks/coordination/run-benchmark.mjs` | Deterministic multi-agent coordination benchmark harness |
+| `benchmarks/coordination/run-codex-real-agent-benchmark.mjs` | Real Codex CLI K-run coordination benchmark harness |
+| `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs` | Zero-run smoke test for real-agent harness |
 
 ---
 

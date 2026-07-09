@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "real-agent-coordination-benchmark-codex-k3",
+  "task": "Run real Codex CLI coordination benchmark K=3 and record limitations for Claude/Cursor",
+  "createdAt": "2026-07-09T22:36:55.572Z",
+  "baseline": {
+    "headSha": "c8a799665eb8431f0177dd7f71c863073f894c9c",
+    "branch": "main",
+    "capturedAt": "2026-07-09T22:36:55.656Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "benchmarks/coordination/run-codex-real-agent-benchmark.mjs",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs",
+      "memory-bank/plans/real-agent-coordination-benchmark.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/docs/component-map.md",
+      ".scopelock/contracts/real-agent-coordination-benchmark-codex-k3.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
