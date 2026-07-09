@@ -1007,3 +1007,25 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Эксперимент — вне продуктового репо; `check-drift` под `h3-real-agent-docs` = 0 (только docs в memory-bank).
 - `orchestration-m5-validation.md` H3-строка обновлена (proxy → real).
 <!-- TASK #0033 END -->
+
+<!-- TASK #0034 BEGIN
+     Owner: pending
+     Started: 2026-07-09
+     Status: pending
+-->
+## Задача #0034 — Phase 5 MCP server (competitively-informed) + buy-vs-build spike
+
+- **Описание:** Приоритетный следующий шаг проекта. Веб-скан Q4 (2026-07, `plans/competitive-landscape-2026-07.md`) выявил, что планируемый MCP scope-enforcer — near-clone `logi-cmd/agent-guardrails` (~8★, zero traction), а категория с weak PMF. Поэтому шаг переработан: сперва обязательный spike buy-vs-build, потом узко-дифференцированный MCP-сервер (только если GO).
+- **Уровень сложности:** Level 3 (spike Level 2 + build Level 3).
+- **Статус:** PENDING. ТЗ готово и делегируемо.
+- **Полное ТЗ:** `plans/scopelock-implementation-plan.md` → раздел «Phase 5 - MCP server === СЛЕДУЮЩИЙ ШАГ» (строка ~364) + «АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ». Контекст конкурентов: `plans/competitive-landscape-2026-07.md`.
+
+### Порядок (жёсткий)
+- **Step 5.0 — buy-vs-build spike (гейт, docs-only, ~1 сессия):** погонять `logi-cmd/agent-guardrails` + `wit` на реальной работе; вердикт в новый `plans/mcp-spike-verdict.md`. Kill-criterion: покрывают ≥90% → НЕ строить, вернуться к пользователю.
+- **Step 5.1 — MCP server (только если GO):** `packages/mcp`, тонкие обёртки над core, строго 2 дифференциатора: `plan_parallel`/`scopes_conflict` (уникальный language-agnostic scheduler) + `check_drift` verification-tool + опора на готовый real-time hook gate. НЕ дублировать enforcer agent-guardrails.
+
+### DoD
+- `plans/mcp-spike-verdict.md` с вердиктом GO/NO-GO (конкретика, не «кажется полезно»).
+- Если GO: `packages/mcp` собирается, smoke через MCP inspector + live-вызов из Claude Code, core/cli тесты целы, `check-drift`=0 под контрактом, README+component-map+tasks/activeContext обновлены, коммит. Push — только по явной просьбе.
+- Всё под ScopeLock-контрактом (dogfooding).
+<!-- TASK #0034 END -->

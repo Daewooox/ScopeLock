@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "plan-mcp-competitive-refresh",
+  "task": "Competitive scan (Q4) + sharpen MCP-server next step in the plan for delegation",
+  "createdAt": "2026-07-09T20:43:11.618Z",
+  "baseline": {
+    "headSha": "b3db5c009132fec19434e441e68ffd06cbcd3ffe",
+    "branch": "main",
+    "capturedAt": "2026-07-09T20:43:11.695Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
