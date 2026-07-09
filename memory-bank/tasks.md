@@ -916,3 +916,34 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Тесты core/cli зелёные, JSON-схема не менялась. ✅
 - `tasks.md`/`activeContext.md` обновлены с пометкой про rewrite-эффект на baseline. ✅ Коммит. Push только по явной просьбе.
 <!-- TASK #0030 END -->
+
+<!-- TASK #0031 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-09
+     Status: done
+-->
+## Задача #0031 — Fix baseline-not-found: понятная ошибка вместо сырого git fatal + чистка leaked-контрактов
+
+- **Описание:** Реализовать backlog-находку из #0030 follow-up: `check-drift` при отсутствующем baseline-коммите (например, после rewrite истории) отдавал сырой `fatal: Invalid revision range <sha>..HEAD` как `UNEXPECTED`. Дать вместо этого понятную типизированную ошибку `BASELINE_NOT_FOUND` с actionable-текстом. Плюс подчистить 6 leaked-контрактов из `.scopelock/contracts/`, просочившихся из живых прогонов гайда #0030.
+- **Уровень сложности:** Level 2.
+- **Статус:** DONE под контрактом `fix-baseline-not-found` (approve от `595c8ab`). Core 53/53, CLI 12/12 (+1), `check-drift` = 0.
+
+### Сделано
+- **Core** `packages/core/src/git/repo.ts`: новый `commitExists(cwd, sha): boolean` — `git cat-file -e <sha>^{commit}`. Экспортируется автоматически (`export * from "./git/repo.js"` в index.ts).
+- **CLI** `packages/cli/src/commands/check-drift.ts`: preflight после резолвинга `baselineSha` — если `!commitExists(root, baselineSha)`, кидаем `CliError("BASELINE_NOT_FOUND", "baseline commit <sha> not found (history rewritten?); re-run \`scopelock approve <file>\` to re-baseline")`. Ловится общим `run()` → exit 2, `status:error`, чёткий `code`/`message` вместо `UNEXPECTED`. Работает и для `--base <sha>` override (проверяется итоговый baselineSha).
+- **CLI** `packages/cli/src/commands/doctor.ts`: заменил инлайновый `runGit(["cat-file","-e",...])` на `commitExists(...)` — DRY, единый источник истины для «существует ли коммит». `runGit` убран из импортов doctor (больше не используется).
+- **Тест** `packages/cli/src/cli.test.ts`: integration-тест воспроизводит реальный баг — approve контракта → правка `baseline.headSha` на несуществующий SHA (симуляция rewrite) → `check-drift` даёт exit 2, `code: BASELINE_NOT_FOUND`, и `message` не содержит `fatal`/`UNEXPECTED`.
+- **Чистка:** `git rm` шести leaked approved-контрактов (`t1-core`, `t2-cli`, `t3-docs`, `t4-tests`, `t5-cycle-a`, `t5-cycle-b`) из `.scopelock/contracts/` — это были approved-копии draft'ов из `examples/parallel/` (тот же scope, только с протухшим baseline), просочившиеся при живых прогонах #0030. Draft-версии в `examples/parallel/` не тронуты; `examples/parallel/plan.json` ссылается на них, не на удалённые копии — пример по-прежнему воспроизводится. Настоящие task-history контракты (`orchestration-*`, `schedule-m3-*`, `workflow-parallel-docs*`) оставлены как аудит-след (их протухший baseline безвреден — они никогда не активны).
+
+### Проверки
+- `pnpm -r build` чист.
+- `node --test packages/core/dist/*.test.js` → 53/53.
+- `node --test packages/cli/dist/*.test.js` → 12/12 (+1 baseline-тест).
+- Живой прогон в scratch-репо: valid baseline → check-drift exit 0; bogus baseline → exit 2 `BASELINE_NOT_FOUND` (не raw fatal); doctor корректно показывает `active-baseline FAIL` без краша.
+- `examples/parallel/plan.json --include-read-hazards` из корня → вывод не изменился.
+- `check-drift --json` под `fix-baseline-not-found` → 0 violations (4 изменённых файла в scope; удаления в `.scopelock/` исключены из drift по дизайну).
+
+### Не сделано (осознанно, вне scope)
+- Подготовка к npm publish — по явной просьбе пользователя не трогал.
+- Реальный multi-agent dogfood (H3 живой замер) — отдельная задача, обсуждена, отложена.
+<!-- TASK #0031 END -->

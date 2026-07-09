@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -78,6 +78,51 @@ describe("cli end-to-end", () => {
       assert.equal(dirty.status, 1);
       const report = JSON.parse(dirty.stdout).data.report;
       assert.ok(report.violations.some((v: { type: string }) => v.type === "forbidden_path"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports BASELINE_NOT_FOUND (not raw git fatal) when the baseline commit is gone", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const draftPath = join(tmpdir(), `sl-draft-baseline-${Date.now()}.json`);
+      assert.equal(
+        runCli(dir, [
+          "contract",
+          "new",
+          "--task",
+          "scoped change",
+          "--planned",
+          "src/**",
+          "--out",
+          draftPath,
+        ]).status,
+        0,
+      );
+      assert.equal(runCli(dir, ["--json", "approve", draftPath]).status, 0);
+
+      // Simulate a history rewrite: point the active contract's baseline at a
+      // commit that no longer exists.
+      const activeId = JSON.parse(
+        await readFile(join(dir, ".scopelock", "active"), "utf8"),
+      ) as string;
+      const activePath = join(dir, ".scopelock", "contracts", `${activeId}.json`);
+      const contract = JSON.parse(await readFile(activePath, "utf8"));
+      contract.baseline.headSha = "0".repeat(40);
+      await writeFile(activePath, JSON.stringify(contract));
+
+      const res = runCli(dir, ["--json", "check-drift"]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "BASELINE_NOT_FOUND");
+      assert.doesNotMatch(body.error.message, /fatal|UNEXPECTED/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

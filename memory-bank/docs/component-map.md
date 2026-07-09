@@ -37,7 +37,7 @@
 | `packages/core/src/storage/atomic.ts` | writeJsonAtomic (temp + rename) |
 | `packages/core/src/storage/contracts.ts` | save/load contract, active-pointer |
 | `packages/core/src/git/exec.ts` | runGit sync-обёртка |
-| `packages/core/src/git/repo.ts` | findRepoRoot, headSha, currentBranch, gitVersion |
+| `packages/core/src/git/repo.ts` | findRepoRoot, headSha, currentBranch, gitVersion, commitExists |
 | `packages/core/src/git/status.ts` | Parser git status porcelain v2 -z |
 | `packages/core/src/git/diff.ts` | Committed changes since approved baseline |
 | `packages/core/src/drift/collect.ts` | Merge worktree and baseline changes |

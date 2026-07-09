@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-baseline-not-found",
+  "task": "Fix baseline-not-found: give a clear error instead of raw git fatal when a contract baseline commit is missing (e.g. after history rewrite); clean up leaked example contracts",
+  "createdAt": "2026-07-09T19:31:50.484Z",
+  "baseline": {
+    "headSha": "595c8ab64ee1cc1290a3e4d4c413eac5fc0eeab1",
+    "branch": "main",
+    "capturedAt": "2026-07-09T19:31:50.564Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/git/repo.ts",
+      "packages/cli/src/commands/check-drift.ts",
+      "packages/cli/src/commands/doctor.ts",
+      "packages/cli/src/cli.test.ts",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/exec.ts",
+      "packages/core/src/git/diff.ts",
+      "packages/core/src/git/status.ts",
+      "packages/core/src/drift/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/schedule/**",
+      "packages/core/src/schemas/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
