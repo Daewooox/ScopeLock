@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "h3-real-agent-docs",
+  "task": "H3 real-agent measurement writeup: results doc + update M5 validation row + tasks/activeContext",
+  "createdAt": "2026-07-09T20:12:05.648Z",
+  "baseline": {
+    "headSha": "f5bdf1a23edd7814cdf1d857c5eacdee60096313",
+    "branch": "main",
+    "capturedAt": "2026-07-09T20:12:05.728Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

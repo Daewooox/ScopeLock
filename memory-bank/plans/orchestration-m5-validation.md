@@ -86,6 +86,16 @@ future work, not covered by this proxy.
 **Verdict: GO (as a proxy measurement)** - real-agent timing is left as a
 follow-up, not a blocker for M5.
 
+> **Update (2026-07-09, task #0033):** the real-agent measurement is now done
+> - see `orchestration-h3-real-agents.md`. Real subagents editing disjoint
+> scopes gave a measured **~1.5–2.0x** (median ~1.8x) on a 3-task wave,
+> corroborating this proxy's ~2.0x. The sub-3x gap is now *explained*: the
+> execution platform staggered agent dispatch (14.6–23.6 s spread), and it is
+> **not** contention (solo ≈ parallel per-task durations) and **not** the
+> scheduler (H1/H4 clean across 4 real runs, 0 collisions). Takeaway: the
+> scheduler is necessary but not sufficient - a true concurrent executor
+> (`scopelock run`) is needed to realize the full ceiling.
+
 ## Combined effect on the M4 table
 
 Both caveats raised in `orchestration-m4-experiment.md` §4 are now closed:
@@ -93,4 +103,4 @@ Both caveats raised in `orchestration-m4-experiment.md` §4 are now closed:
 | Hypothesis | M4 status | M5 status |
 |---|---|---|
 | H2 Enforcement | not tested | **GO** (live hook gate run, 0/2 false denials) |
-| H3 Speedup | reasoned only | **GO** (timed proxy, ~2.0x measured across 3 runs) |
+| H3 Speedup | reasoned only | **GO** (proxy ~2.0x; real-agent ~1.5–2.0x median ~1.8x in #0033, gap = platform dispatch stagger) |
