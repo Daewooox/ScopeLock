@@ -27,3 +27,4 @@ export * from "./schedule/scope-algebra.js";
 export * from "./schedule/conflict-graph.js";
 export * from "./schedule/scheduler.js";
 export * from "./schedule/plan.js";
+export * from "./manifest/build.js";

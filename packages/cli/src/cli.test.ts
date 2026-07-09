@@ -462,3 +462,37 @@ describe("plan-parallel", () => {
     }
   });
 });
+
+describe("manifest", () => {
+  it("prints a repo manifest built from tracked git files", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "package.json"), "{}\n");
+      await writeFile(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "index.ts"), "export {};\n");
+      await writeFile(join(dir, "src", "index.test.ts"), "test('x', () => {});\n");
+      await writeFile(join(dir, "untracked.test.ts"), "not tracked\n");
+      spawnSync("git", ["add", "package.json", "pnpm-lock.yaml", "src"], { cwd: dir });
+      spawnSync("git", ["commit", "-qm", "manifest fixture"], { cwd: dir });
+
+      const res = runCli(dir, ["--json", "manifest"]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      const manifest = body.data.manifest;
+      assert.deepEqual(manifest.packageManagers, ["pnpm"]);
+      assert.deepEqual(manifest.projectTypes, ["backend"]);
+      assert.ok(manifest.files.includes("src/index.ts"));
+      assert.ok(!manifest.files.includes("untracked.test.ts"));
+      assert.deepEqual(manifest.testPaths, ["src/index.test.ts"]);
+      assert.deepEqual(manifest.riskyPaths, ["pnpm-lock.yaml"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
