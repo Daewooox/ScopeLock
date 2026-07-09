@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "multi-agent-coordination-benchmark-m1",
+  "task": "Build and run Multi-Agent Coordination Benchmark fixture",
+  "createdAt": "2026-07-09T22:27:06.267Z",
+  "baseline": {
+    "headSha": "ac41145ce4120a5f8210f6e8eea0edda94b5acd5",
+    "branch": "main",
+    "capturedAt": "2026-07-09T22:27:06.365Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/multi-agent-coordination-benchmark-m1.json",
+      "benchmarks/coordination/**",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
