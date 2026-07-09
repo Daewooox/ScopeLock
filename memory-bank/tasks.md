@@ -1090,3 +1090,30 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] `check-drift` по контракту `repo-manifest-builder-m1` = 0 violations.
 - [x] Commit: `feat: add repo manifest builder`. Push — только по явной просьбе.
 <!-- TASK #0035 END -->
+
+<!-- TASK #0036 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: research
+-->
+## Задача #0036 — SA research: run-orchestrators, LLM planners, and ScopeLock product direction
+
+- **Описание:** Проанализировать GitHub/ecosystem run-оркестраторы и LLM-планировщики: есть ли доказанная эффективность, что из этого полезно ScopeLock, и нужен ли нам собственный run-orchestrator/planner.
+- **Уровень сложности:** Level 2 research.
+- **Статус:** RESEARCH завершён; выводы записаны и закоммичены.
+- **Контракт:** `orchestration-planner-market-research` approved at `c24fc4b`.
+
+### Ключевой вывод
+- Не строить generic run-orchestrator и не строить generic LLM planner как основной продукт.
+- Есть сильный спрос на coordination layer для мультиагентов, но рынок run-оркестраторов уже красный океан.
+- ScopeLock должен позиционироваться как **multi-agent flight-control / coordination proof layer**: deterministic scope contracts, conflict graph, leases, live drift/guard checks, merge readiness receipts, telemetry of interventions/conflicts.
+
+### Артефакты
+- `memory-bank/plans/orchestration-planner-github-analysis.md`
+
+### DoD
+- [x] GitHub/ecosystem scan done.
+- [x] Evidence оценён отдельно от stars/маркетинга.
+- [x] Product recommendation записана.
+- [x] Commit: `docs: analyze multi-agent orchestration strategy`. Push — только по явной просьбе.
+<!-- TASK #0036 END -->
