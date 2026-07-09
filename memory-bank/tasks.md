@@ -947,3 +947,45 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Подготовка к npm publish — по явной просьбе пользователя не трогал.
 - Реальный multi-agent dogfood (H3 живой замер) — отдельная задача, обсуждена, отложена.
 <!-- TASK #0031 END -->
+
+<!-- TASK #0032 BEGIN
+     Owner: cursor-agent
+     Started: 2026-07-09
+     Status: done
+-->
+## Задача #0032 — SA-решение по протухшим baseline: команда `scopelock rebaseline`
+
+- **Описание:** SA-разбор ситуации с 13 (после чистки #0031 — 7) протухшими baseline у неактивных контрактов. Вывод: сами архивные записи оставить (иммутабельность approved-контракта + они никогда функционально не читаются), но закрыть реальную дыру — текст ошибки `BASELINE_NOT_FOUND` (из #0031) направлял на `scopelock approve`, который для существующего id падает `CONTRACT_ID_EXISTS`, т.е. советовал нерабочую команду. Правильное завершение — первоклассная команда репары `scopelock rebaseline`.
+- **Уровень сложности:** Level 2.
+- **Статус:** DONE под контрактом `add-rebaseline-command` (approve от `f984f45`). Core не трогали. CLI 14/14 (+2), `check-drift` = 0.
+
+### SA-решение (зафиксировано)
+- **Симптом vs болезнь:** «протухшие baseline» — симптом. Болезнь: provenance пиннится к commit SHA — изменяемому идентификатору, который инвалидируют рутинные rebase/squash-merge/rewrite. Ударит любую команду на rebase-workflow, не только разовый rewrite.
+- **7 архивных протухших baseline — оставлены как есть.** Причины: (1) approved-контракт иммутабелен по модели доверия — переписывать baseline задним числом хуже, чем честно хранить «стамп был на SHA X (которого больше нет)»; (2) их baseline никогда не читается (не активны); (3) фабриковать новый SHA = подрыв «заморожен на approve».
+- **Реальный фикс — forward-looking:** `scopelock rebaseline [<id>]` пере-анкорит baseline существующего контракта на текущий HEAD, сохраняя id/task/scope/createdAt. Закрывает actionability-дыру из #0031 и даёт честный ответ на весь класс «история переписалась».
+- **В бэклог (НЕ реализовано):** глубокая робастность — tree-hash как доп. якорь (переживает message-only rewrite) и/или degraded-mode diff против merge-base при отсутствующем baseline. Отдельный эпик со сменой схемы.
+
+### Сделано
+- `packages/cli/src/commands/rebaseline.ts` (новый): резолвит контракт (явный id или активный), берёт HEAD (`headSha`), грузит контракт (`loadContract`, ENOENT → `CONTRACT_NOT_FOUND`), пере-стамповывает `baseline` (`headSha`/`currentBranch`/`capturedAt`), сохраняет (`saveContract`, overwrite). Активный указатель не трогает. Всё на существующих экспортах core — core не менялся. v1 анкорит только на HEAD (90%-кейс «resume after rewrite»); `--to <sha>` для исторического коммита осознанно отложен (избегает канонизации SHA без правки core).
+- `packages/cli/src/index.ts`: команда `rebaseline [contract] [--json]`.
+- `packages/cli/src/commands/check-drift.ts`: текст `BASELINE_NOT_FOUND` теперь указывает на `scopelock rebaseline` (рабочая команда), а не на `approve` (падал бы `CONTRACT_ID_EXISTS`).
+- `packages/cli/src/cli.test.ts`: +2 теста — repair-loop (сломать baseline → check-drift exit 2 → rebaseline → check-drift exit 0; id/createdAt сохранены, baseline сменился); unknown id → exit 2 `CONTRACT_NOT_FOUND`. Существующий BASELINE_NOT_FOUND-тест дополнен проверкой, что сообщение указывает на `rebaseline`.
+- `README.md`: строка про `rebaseline` в таблице команд.
+
+### Проверки
+- `pnpm -r build` чист; core 53/53; CLI 14/14.
+- Живой прогон scratch-репо: сломанный baseline → `BASELINE_NOT_FOUND`/rebaseline-подсказка → `rebaseline` → `check-drift` снова 0; unknown id → `CONTRACT_NOT_FOUND`; rebaseline не-активного по id не меняет активный указатель.
+- `check-drift --json` под `add-rebaseline-command` → 0 violations.
+<!-- TASK #0032 END -->
+
+<!-- TASK #0033 BEGIN
+     Owner: pending
+     Started: 2026-07-09
+     Status: pending
+-->
+## Задача #0033 — H3 real-agent measurement (реальный multi-agent замер вместо proxy)
+
+- **Описание:** Заменить proxy-замер H3 (setTimeout-нагрузка из M5) на реальный: запустить параллельные субагенты по волнам scope-locked-workload, измерить wall-clock sequential vs wave-parallel живыми агентами + проверить H1/H4 (нет коллизий между волнами) под реальным исполнением. План — `plans/orchestration-h3-real-agents-plan.md`.
+- **Уровень сложности:** Level 3 (эксперимент).
+- **Статус:** PENDING. Детальный SA-план записан, реализация не начата.
+<!-- TASK #0033 END -->

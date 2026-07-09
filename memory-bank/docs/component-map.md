@@ -68,6 +68,7 @@
 | `packages/cli/src/commands/init.ts` | init: mkdir, config, .scopelock/.gitignore, идемпотентен |
 | `packages/cli/src/commands/doctor.ts` | Проверки severity/detail/fix |
 | `packages/cli/src/commands/approve.ts` | Approve contract, stamp git baseline, activate |
+| `packages/cli/src/commands/rebaseline.ts` | Re-anchor existing contract's baseline to current HEAD (repair stale baseline) |
 | `packages/cli/src/commands/check-drift.ts` | Collect drift, write report, return violations |
 | `packages/cli/src/commands/export-prompt.ts` | Print active contract as agent prompt |
 | `packages/cli/src/commands/inject-contract.ts` | Inject contract into AGENTS/CLAUDE doc |

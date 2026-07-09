@@ -83,7 +83,7 @@ export async function checkDriftCommand(options: {
   if (!commitExists(root, baselineSha)) {
     throw new CliError(
       "BASELINE_NOT_FOUND",
-      `baseline commit ${baselineSha} not found (history rewritten?); re-run \`scopelock approve <file>\` to re-baseline`,
+      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock rebaseline\` to re-anchor it to the current commit`,
     );
   }
 

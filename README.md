@@ -71,6 +71,7 @@ scopelock check-drift                          # exit 0 clean, 1 = violations
 | `scopelock doctor` | Check git, Node, config, active contract, hooks. |
 | `scopelock contract new` | Scaffold a schema-valid draft contract (no LLM). |
 | `scopelock approve <file>` | Save a contract and capture the git baseline. |
+| `scopelock rebaseline [<id>]` | Re-anchor an existing contract's baseline to the current commit (repairs a stale baseline after a rebase / squash-merge / history rewrite). |
 | `scopelock export-prompt --target <id>` | Print the contract as agent instructions. |
 | `scopelock inject-contract --target <id>` | Inject the contract into `AGENTS.md` / `CLAUDE.md`. |
 | `scopelock hooks install --target <id> [--mode warn\|strict] [--local]` | Install editor hooks. |

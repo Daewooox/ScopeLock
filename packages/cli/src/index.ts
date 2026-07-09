@@ -5,6 +5,7 @@ import { initCommand } from "./commands/init.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { checkDriftCommand } from "./commands/check-drift.js";
 import { approveCommand } from "./commands/approve.js";
+import { rebaselineCommand } from "./commands/rebaseline.js";
 import { exportPromptCommand } from "./commands/export-prompt.js";
 import { injectContractCommand } from "./commands/inject-contract.js";
 import { hookGateCommand } from "./commands/hook.js";
@@ -39,6 +40,15 @@ program
   .option("--json", "print machine-readable JSON")
   .action((contract: string, options: { activate: boolean }, command: Command) =>
     run(() => approveCommand(contract, options), jsonOf(command)),
+  );
+
+program
+  .command("rebaseline")
+  .description("re-anchor an existing contract's baseline to the current commit (repairs a stale baseline)")
+  .argument("[contract]", "contract id to rebaseline (default: the active contract)")
+  .option("--json", "print machine-readable JSON")
+  .action((contract: string | undefined, _options: unknown, command: Command) =>
+    run(() => rebaselineCommand(contract), jsonOf(command)),
   );
 
 program
