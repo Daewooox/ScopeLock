@@ -12,6 +12,7 @@ import { hookGateCommand } from "./commands/hook.js";
 import { contractNewCommand } from "./commands/contract-new.js";
 import { planParallelCommand } from "./commands/plan-parallel.js";
 import { manifestCommand } from "./commands/manifest.js";
+import { runPlanCommand } from "./commands/run-plan.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
@@ -141,6 +142,28 @@ program
   .description("build a deterministic repo manifest from tracked git files")
   .option("--json", "print machine-readable JSON")
   .action((_options, command: Command) => run(manifestCommand, jsonOf(command)));
+
+program
+  .command("run")
+  .description("thin dispatcher: run plan tasks by safe waves and write a receipt")
+  .requiredOption("--plan <path>", "path to a plan JSON file")
+  .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
+  .option("--no-defer-write-conflicts", "run write-write conflicts instead of deferring one side")
+  .option("--no-check-drift", "skip the final check-drift receipt step")
+  .option("--receipt <path>", "write receipt to a custom path")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      options: {
+        plan: string;
+        readHazards?: boolean;
+        deferWriteConflicts?: boolean;
+        checkDrift?: boolean;
+        receipt?: string;
+      },
+      command: Command,
+    ) => run(() => runPlanCommand(options), jsonOf(command)),
+  );
 
 const hook = program.command("hook").description("internal hook entrypoints");
 

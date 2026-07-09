@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "thin-run-dispatcher-prototype",
+  "task": "Add thin scopelock run --plan dispatcher receipt prototype",
+  "createdAt": "2026-07-09T22:57:22.188Z",
+  "baseline": {
+    "headSha": "c8a799665eb8431f0177dd7f71c863073f894c9c",
+    "branch": "main",
+    "capturedAt": "2026-07-09T22:57:22.294Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/index.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/docs/component-map.md",
+      "memory-bank/plans/real-agent-coordination-benchmark.md",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.mjs",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs",
+      ".scopelock/contracts/real-agent-coordination-benchmark-codex-k3.json",
+      ".scopelock/contracts/thin-run-dispatcher-prototype.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/mcp/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

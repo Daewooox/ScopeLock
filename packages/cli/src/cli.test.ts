@@ -496,3 +496,152 @@ describe("manifest", () => {
     }
   });
 });
+
+describe("run", () => {
+  async function writeContract(
+    dir: string,
+    file: string,
+    id: string,
+    planned: string[],
+    read: string[] = [],
+  ): Promise<void> {
+    const res = runCli(dir, [
+      "contract",
+      "new",
+      "--task",
+      id,
+      "--id",
+      id,
+      ...planned.flatMap((glob) => ["--planned", glob]),
+      ...read.flatMap((glob) => ["--read", glob]),
+      "--out",
+      file,
+    ]);
+    assert.equal(res.status, 0, res.stderr);
+  }
+
+  it("runs command tasks by waves and writes a receipt", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeContract(dir, join(dir, "b.json"), "b", ["b.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "run-demo",
+          tasks: [
+            {
+              id: "a",
+              contract: "a.json",
+              command: [
+                process.execPath,
+                "-e",
+                "require('node:fs').writeFileSync('a.txt', 'a')",
+              ],
+            },
+            {
+              id: "b",
+              contract: "b.json",
+              command: [
+                process.execPath,
+                "-e",
+                "require('node:fs').writeFileSync('b.txt', 'b')",
+              ],
+            },
+          ],
+        }),
+      );
+
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, [
+        "--json",
+        "run",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "a");
+      assert.equal(await readFile(join(dir, "b.txt"), "utf8"), "b");
+
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      assert.equal(body.data.receiptPath, receiptPath);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.deepEqual(receipt.waves, [["a", "b"]]);
+      assert.deepEqual(receipt.deferredTasks, []);
+      assert.equal(receipt.taskRuns.length, 2);
+      assert.ok(receipt.taskRuns.every((task: { status: string }) => task.status === "passed"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("defers one side of a write-write conflict before dispatch", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["shared.txt"]);
+      await writeContract(dir, join(dir, "b.json"), "b", ["shared.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "run-conflict-demo",
+          tasks: [
+            {
+              id: "a",
+              contract: "a.json",
+              command: [
+                process.execPath,
+                "-e",
+                "require('node:fs').writeFileSync('shared.txt', 'a')",
+              ],
+            },
+            {
+              id: "b",
+              contract: "b.json",
+              command: [
+                process.execPath,
+                "-e",
+                "require('node:fs').writeFileSync('shared.txt', 'b')",
+              ],
+            },
+          ],
+        }),
+      );
+
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, [
+        "--json",
+        "run",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 1);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "violations");
+      assert.deepEqual(body.data.receipt.deferredTasks, ["b"]);
+      assert.equal(await readFile(join(dir, "shared.txt"), "utf8"), "a");
+      assert.equal(
+        body.data.receipt.taskRuns.find((task: { id: string }) => task.id === "b").status,
+        "skipped",
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
