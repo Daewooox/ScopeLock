@@ -33,6 +33,7 @@
 | `packages/core/src/schemas/drift.ts` | Drift report, changed file, violation types |
 | `packages/core/src/schemas/repo-manifest.ts` | Repo manifest схема, projectType enum |
 | `packages/core/src/schemas/config.ts` | `.scopelock/config.json` схема, mode warn/strict |
+| `packages/core/src/manifest/build.ts` | Build repo manifest from tracked git files |
 | `packages/core/src/storage/paths.ts` | Layout `.scopelock/` (единственный источник путей) |
 | `packages/core/src/storage/atomic.ts` | writeJsonAtomic (temp + rename) |
 | `packages/core/src/storage/contracts.ts` | save/load contract, active-pointer |
@@ -63,6 +64,7 @@
 | `packages/core/src/prompt.test.ts` | Harness prompt and injection tests |
 | `packages/core/src/hook.test.ts` | Hook gate and config merge tests |
 | `packages/core/src/schedule.test.ts` | Glob intersection property/consistency tests |
+| `packages/core/src/manifest.test.ts` | Repo manifest builder tests |
 | `packages/cli/src/index.ts` | Commander wiring, --json на подкомандах |
 | `packages/cli/src/run.ts` | CommandResult, CliError, exit-code контракт 0/1/2 |
 | `packages/cli/src/commands/init.ts` | init: mkdir, config, .scopelock/.gitignore, идемпотентен |
@@ -76,6 +78,7 @@
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
+| `packages/cli/src/commands/manifest.ts` | Print deterministic tracked-file repo manifest |
 | `packages/mcp/src/index.ts` | Stdio bootstrap for the narrow ScopeLock MCP server |
 | `packages/mcp/src/tools.ts` | MCP adapters for plan_parallel, scopes_conflict, check_drift |
 | `packages/mcp/src/tools.test.ts` | MCP tool unit tests over scheduler and drift behavior |

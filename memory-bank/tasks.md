@@ -1062,3 +1062,31 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] Step 5.2 live client validation: Codex MCP registration + live calls to `scopes_conflict`, `check_drift`, `plan_parallel`.
 - [x] Step 5.2 commit: `docs: record live MCP client validation`. Push — только по явной просьбе.
 <!-- TASK #0034 END -->
+
+<!-- TASK #0035 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: build
+-->
+## Задача #0035 — Phase 4 M1: deterministic repo manifest builder
+
+- **Описание:** Реализовать безопасную детерминированную часть Phase 4: repo manifest builder на `git ls-files` без LLM/API. Цель — typed manifest с tracked files, package managers, project types, test paths и risky paths как фундамент для будущего planner-а.
+- **Уровень сложности:** Level 2.
+- **Статус:** BUILD завершён под контрактом `repo-manifest-builder-m1`; commit done.
+- **Контракт:** `.scopelock/contracts/repo-manifest-builder-m1.json` approved at `a3dce8e`.
+
+### План
+- Core: `packages/core/src/manifest/build.ts` с `buildRepoManifest(cwd)` и heuristics по tracked files.
+- CLI: команда `scopelock manifest [--json]` для печати manifest.
+- Tests: core fixture repo + CLI JSON smoke.
+- Memory Bank: component-map + activeContext обновить по факту.
+
+### DoD
+- [x] Core tests pass: 55/55.
+- [x] CLI tests pass: 15/15.
+- [x] MCP regression tests pass: 3/3.
+- [x] `pnpm -r build` pass.
+- [x] `pnpm typecheck` pass.
+- [x] `check-drift` по контракту `repo-manifest-builder-m1` = 0 violations.
+- [x] Commit: `feat: add repo manifest builder`. Push — только по явной просьбе.
+<!-- TASK #0035 END -->

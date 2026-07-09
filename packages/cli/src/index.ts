@@ -11,6 +11,7 @@ import { injectContractCommand } from "./commands/inject-contract.js";
 import { hookGateCommand } from "./commands/hook.js";
 import { contractNewCommand } from "./commands/contract-new.js";
 import { planParallelCommand } from "./commands/plan-parallel.js";
+import { manifestCommand } from "./commands/manifest.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
@@ -134,6 +135,12 @@ program
   .action((plan: string, options: { includeReadHazards?: boolean }, command: Command) =>
     run(() => planParallelCommand(plan, options), jsonOf(command)),
   );
+
+program
+  .command("manifest")
+  .description("build a deterministic repo manifest from tracked git files")
+  .option("--json", "print machine-readable JSON")
+  .action((_options, command: Command) => run(manifestCommand, jsonOf(command)));
 
 const hook = program.command("hook").description("internal hook entrypoints");
 
