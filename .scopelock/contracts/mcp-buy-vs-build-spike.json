@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "mcp-buy-vs-build-spike",
+  "task": "Step 5.0 buy-vs-build spike before MCP server",
+  "createdAt": "2026-07-09T20:57:54.305Z",
+  "baseline": {
+    "headSha": "faaf9590bbff3eef2dfa9e0187966ed198944a4b",
+    "branch": "main",
+    "capturedAt": "2026-07-09T20:57:54.395Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
