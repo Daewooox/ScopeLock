@@ -99,6 +99,50 @@ each wave to its agent, and verify after the fact - with real command output
 at every step. A reproducible example lives in
 [`examples/parallel/`](examples/parallel/).
 
+## MCP server
+
+ScopeLock also ships a narrow stdio MCP server for agent loops. It intentionally
+does **not** clone generic reviewer/enforcer suites; it exposes only the two
+ScopeLock-specific surfaces:
+
+| Tool | What it does |
+|---|---|
+| `plan_parallel` | Build deterministic waves/conflicts from a plan JSON object and contract files. |
+| `scopes_conflict` | Check two task scopes and return the conflict witness. |
+| `check_drift` | Verify the active approved contract against git drift. |
+
+Run from source:
+
+```bash
+pnpm --filter @scopelock/mcp build
+node packages/mcp/dist/index.js
+```
+
+Claude Code / Cursor-style MCP config while running from source:
+
+```json
+{
+  "mcpServers": {
+    "scopelock": {
+      "command": "node",
+      "args": ["/absolute/path/to/ScopeLock/packages/mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+Codex TOML-style config:
+
+```toml
+[mcp_servers.scopelock]
+command = "node"
+args = ["/absolute/path/to/ScopeLock/packages/mcp/dist/index.js"]
+```
+
+When a ScopeLock contract is injected into an agent prompt, the final
+instruction tells the agent to call `check_drift` before finishing and resolve
+any violations.
+
 ### `--local`
 
 Editor hooks call `scopelock` by default, which assumes it is on `PATH`.

@@ -47,6 +47,7 @@ describe("prompt rendering", () => {
       assert.match(prompt, /src\/checkout\/\*\*/);
       assert.match(prompt, /Do NOT modify/);
       assert.match(prompt, /pnpm test/);
+      assert.match(prompt, /check_drift/);
       assert.match(prompt, /stop to ask/);
     });
   }

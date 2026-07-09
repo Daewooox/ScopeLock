@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "mcp-narrow-server-v2",
+  "task": "Step 5.1 narrow MCP server plus MCP prompt instruction",
+  "createdAt": "2026-07-09T21:23:17.755Z",
+  "baseline": {
+    "headSha": "887bf4b310000add13ea0f2db812ee3ae0289bbb",
+    "branch": "main",
+    "capturedAt": "2026-07-09T21:23:17.850Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/mcp/**",
+      "packages/core/src/render/**",
+      "packages/core/src/prompt.test.ts",
+      "package.json",
+      "pnpm-lock.yaml",
+      "memory-bank/**",
+      "README.md",
+      "docs/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/schemas/**",
+      "packages/core/src/hook/**",
+      "packages/cli/src/commands/hook.ts",
+      "packages/cli/src/commands/hooks.ts"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
