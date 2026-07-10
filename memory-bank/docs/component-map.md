@@ -89,7 +89,10 @@
 | `benchmarks/coordination/run-benchmark.mjs` | Deterministic multi-agent coordination benchmark harness |
 | `benchmarks/coordination/run-codex-real-agent-benchmark.mjs` | Real Codex K-run benchmark incl. thin dispatcher dogfood |
 | `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs` | Zero-run smoke test for real-agent harness |
+| `benchmarks/coordination/analyze-receipt.mjs` | Measure receipt byte composition and Codex usage |
+| `benchmarks/coordination/run-flight-control-demo.mjs` | One-command deterministic Flight Control demo |
 | `memory-bank/plans/scopelock-run-dogfood.md` | K=3 dispatcher dogfood evidence and SA decision |
+| `memory-bank/plans/flight-control-demo-receipt-baseline.md` | Demo and full-receipt K=3 baseline evidence |
 
 ---
 

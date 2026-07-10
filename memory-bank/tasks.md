@@ -1308,3 +1308,33 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] Memory Bank report written.
 - [x] Full repo checks pass; commit and push prepared.
 <!-- TASK #0041 END -->
+
+<!-- TASK #0042 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: done
+-->
+## Задача #0042 - One-command Flight Control demo + receipt baseline
+
+- **Описание:** Собрать воспроизводимый deterministic demo одной командой и измерить текущий full receipt до bounded-handoff изменений. Отдельно прогнать real Codex K=3 baseline.
+- **Уровень сложности:** Level 3 validation/build.
+- **Статус:** DONE; deterministic demo и real Codex K=3 baseline завершены.
+
+### Scope
+- `benchmarks/coordination/**`
+- `package.json`
+- `memory-bank/tasks.md`
+- `memory-bank/activeContext.md`
+- `memory-bank/docs/component-map.md`
+- `memory-bank/plans/flight-control-demo-receipt-baseline.md`
+
+### Ограничения
+- Production receipt schema и dispatcher behavior не менять.
+- Не добавлять SQLite, FTS, LLM summary, command proxy или новые зависимости.
+- Deterministic demo не должен требовать API key или установленный agent CLI.
+
+### Результат
+- `pnpm demo:flight-control`: without ScopeLock 2 violations / 2 conflicts / 2 failed tests / 4/6 accepted; Flight Control 0 / 0 / 0 / 5/6, 2 hazards prevented.
+- Real Codex K=3: avg receipt 30,306 bytes; stdout+stderr 77%; wall-clock 48.2s; parallel factor 2.39x; 0 violations/conflicts/failed tests.
+- Отчёт: `memory-bank/plans/flight-control-demo-receipt-baseline.md`.
+<!-- TASK #0042 END -->
