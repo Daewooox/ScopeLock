@@ -14,6 +14,7 @@ import {
   probeHookConfig,
   NOMINAL_HOOK_CAPABILITIES,
   installHooks,
+  scopelockPaths,
   type AgentWorkspaceManifest,
 } from "./index.js";
 
@@ -369,6 +370,38 @@ describe("hook capability model (Step 3)", () => {
       const installed = probeHookConfig(root, "codex");
       assert.equal(installed.installed, true);
       assert.equal(installed.capabilities.confidence, "degraded");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("codex uses a matching live verification record for live-verified confidence", () => {
+    const root = tempRepo();
+    try {
+      write(root, ".codex/hooks.json", JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: "^apply_patch$", hooks: [{ command: "scopelock hook gate --format codex" }] },
+          ],
+        },
+      }));
+      write(root, ".scopelock/hook-verifications.json", JSON.stringify({
+        schemaVersion: 1,
+        verifications: [
+          {
+            target: "codex",
+            checkedAt: "2026-07-10T00:00:00.000Z",
+            hookConfigDigest: hashFileBytes(join(root, ".codex/hooks.json")),
+            result: "passed",
+            detail: "test",
+          },
+        ],
+      }));
+
+      const installed = probeHookConfig(root, "codex");
+      assert.equal(scopelockPaths(root).hookVerificationsPath.endsWith("hook-verifications.json"), true);
+      assert.equal(installed.installed, true);
+      assert.equal(installed.capabilities.confidence, "live-verified");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
