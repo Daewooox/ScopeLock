@@ -10,8 +10,10 @@ import {
   hasScopeLockHooks,
   installHooks,
   mergeClaudeHooks,
+  mergeCodexHooks,
   mergeCursorHooks,
   removeClaudeHooks,
+  removeCodexHooks,
   removeCursorHooks,
   saveContract,
   scopelockConfigSchema,
@@ -111,6 +113,37 @@ describe("hook gate", () => {
     }
   });
 
+  it("denies any forbidden file in a Codex apply_patch payload", async () => {
+    const strict = await makeScopelockRepo("strict");
+    try {
+      const denied = await evaluateHookGate({
+        cwd: strict.root,
+        rawInput: JSON.stringify({
+          tool_name: "apply_patch",
+          tool_input: {
+            command: [
+              "*** Begin Patch",
+              "*** Update File: src/planned/a.ts",
+              "@@",
+              "-a",
+              "+b",
+              "*** Update File: src/auth/session.ts",
+              "@@",
+              "-a",
+              "+b",
+              "*** End Patch",
+            ].join("\n"),
+          },
+        }),
+      });
+
+      assert.equal(denied.decision, "deny");
+      assert.equal(denied.path, "src/auth/session.ts");
+    } finally {
+      await rm(strict.root, { recursive: true, force: true });
+    }
+  });
+
   it("A1: records a hook-errors line and noops when the active contract is corrupt", async () => {
     const root = await mkdtemp(join(tmpdir(), "scopelock-hook-"));
     const paths = scopelockPaths(root);
@@ -164,6 +197,19 @@ describe("hook config merge", () => {
     assert.equal(hasScopeLockHooks(installed, "cursor"), true);
     assert.deepEqual(installed, reinstalled);
     assert.deepEqual(removed.afterFileEdit, [foreign]);
+  });
+
+  it("installs and removes Codex hooks without touching foreign entries", () => {
+    const foreign = { matcher: "^mcp__foreign__sentinel$", hooks: [{ command: "true" }] };
+    const installed = mergeCodexHooks({
+      hooks: { PreToolUse: [foreign, { matcher: "^apply_patch$", hooks: [{ command: "scopelock hook gate --format codex" }] }] },
+    });
+    const reinstalled = mergeCodexHooks(installed);
+    const removed = removeCodexHooks(reinstalled);
+
+    assert.equal(hasScopeLockHooks(installed, "codex"), true);
+    assert.deepEqual(installed, reinstalled);
+    assert.deepEqual((removed.hooks as { PreToolUse: unknown[] }).PreToolUse, [foreign]);
   });
 
   it("recognises custom --local command prefixes on reinstall and uninstall", () => {

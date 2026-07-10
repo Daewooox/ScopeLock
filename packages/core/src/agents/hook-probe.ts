@@ -45,22 +45,21 @@ export function probeHookConfig(repoRoot: string, target: AgentId): HookConfigPr
   const nominal = NOMINAL_HOOK_CAPABILITIES[target];
 
   if (target === "codex") {
-    // Neither the JSON `.codex/hooks.json` schema nor the PreToolUse event
-    // shape for the file-editing `apply_patch` tool is documented or
-    // live-captured (see capabilities.ts). We can only detect that *some*
-    // Codex hook config exists, never that it is ScopeLock's, correctly
-    // formed, or effective - so confidence is always degraded here.
     const hooksJsonPath = resolveRepoPath(repoRoot, ".codex/hooks.json");
     const configTomlPath = resolveRepoPath(repoRoot, ".codex/config.toml");
-    const anyConfigPresent = existsSync(hooksJsonPath) || existsSync(configTomlPath);
+    const config = readJsonObjectSync(hooksJsonPath);
+    const installed = config !== null && hasScopeLockHooks(config, target);
+    const anyConfigPresent = installed || existsSync(configTomlPath);
     const capabilities: HookCapabilities = { ...nominal, confidence: "degraded" };
     return {
       target,
-      installed: false, // ScopeLock does not write a Codex hook entry yet
+      installed,
       capabilities,
-      detail: anyConfigPresent
-        ? "a Codex hook config exists, but ScopeLock cannot confirm it is installed, well-formed, or effective (undocumented hooks.json schema, unconfirmed apply_patch event shape, unverifiable project-trust state)"
-        : "no Codex hook config found; PreToolUse deny is documented as a nominal capability but unverified for this repo",
+      detail: installed
+        ? `ScopeLock codex hook entry found at ${hooksJsonPath}; confidence remains degraded because project trust cannot be verified statically`
+        : anyConfigPresent
+          ? "a Codex hook config exists, but ScopeLock cannot confirm an installed trusted ScopeLock entry"
+          : "no Codex hook config found; run `scopelock hooks install --target codex` to configure apply_patch PreToolUse",
     };
   }
 

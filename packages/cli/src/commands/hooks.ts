@@ -25,14 +25,7 @@ function localCommandPrefix(): string {
 }
 
 function parseHookTarget(target: string) {
-  const parsed = agentIdSchema.parse(target);
-  if (parsed === "codex") {
-    throw new CliError(
-      "HOOKS_TARGET_UNSUPPORTED",
-      "Codex hooks are not supported yet; use prompt injection and check-drift",
-    );
-  }
-  return parsed;
+  return agentIdSchema.parse(target);
 }
 
 async function updateMode(root: string, mode: EnforcementMode): Promise<void> {
@@ -66,14 +59,14 @@ export async function hooksInstallCommand(options: {
   const target = parseHookTarget(options.target);
   const mode = enforcementModeSchema.parse(options.mode);
   const commandPrefix = options.local === true ? localCommandPrefix() : undefined;
-  const path = await installHooks(root, target, commandPrefix);
   await updateMode(root, mode);
+  const path = await installHooks(root, target, commandPrefix);
 
   return {
     data: { target, mode, path, local: options.local === true },
     human: `installed ${target} hooks in ${hooksConfigPath(root, target)} (${mode}${
       options.local === true ? ", local" : ""
-    })`,
+    })${target === "codex" ? "; Codex project hooks still require project trust or --dangerously-bypass-hook-trust" : ""}`,
     exitCode: 0,
   };
 }

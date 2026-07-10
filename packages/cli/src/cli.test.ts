@@ -578,6 +578,31 @@ describe("agents preflight", () => {
     }
   });
 
+  it("reflects an installed codex hook entry as installed=true but confidence=degraded", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      assert.equal(runCli(dir, ["hooks", "install", "--target", "codex", "--local"]).status, 0);
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["codex"],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(res.status, 0);
+      const codex = JSON.parse(res.stdout).data.report.targets[0];
+      assert.equal(codex.hook.installed, true);
+      assert.equal(codex.hook.capabilities.confidence, "degraded");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("exits 1 and reports a violation when a required skill is missing for one target", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -867,11 +892,120 @@ describe("run", () => {
       assert.equal(res.status, 0, res.stdout || res.stderr);
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
       const task = receipt.taskRuns[0];
-      assert.equal(receipt.schemaVersion, 2);
+      assert.equal(receipt.schemaVersion, 3);
       assert.equal(task.stdout.length, 400);
       assert.equal(task.outputArtifacts.stdout.bytes, 3000);
       assert.equal(task.outputArtifacts.stdout.truncated, true);
       assert.equal(await readFile(task.outputArtifacts.stdout.path, "utf8"), "x".repeat(3000));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks dispatch in strict mode when agent preflight has violations", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      await writeFile(join(dir, ".scopelock", "config.json"), JSON.stringify({ schemaVersion: 1, mode: "strict" }));
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(
+        join(dir, ".scopelock", "agents.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          targets: ["codex"],
+          skills: [{ name: "review", path: ".agents/skills/review", required: true }],
+          policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+        }),
+      );
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "env-block-demo",
+          tasks: [
+            {
+              id: "a",
+              contract: "a.json",
+              command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','ran')"],
+            },
+          ],
+        }),
+      );
+
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, [
+        "--json",
+        "run",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 1, res.stdout || res.stderr);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.blockedByEnvironment, true);
+      assert.equal(receipt.environment.status, "fail");
+      assert.equal(receipt.taskRuns[0].status, "skipped");
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("records environment violations but still dispatches in warn mode", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(
+        join(dir, ".scopelock", "agents.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          targets: ["codex"],
+          skills: [{ name: "review", path: ".agents/skills/review", required: true }],
+          policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+        }),
+      );
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "env-warn-demo",
+          tasks: [
+            {
+              id: "a",
+              contract: "a.json",
+              command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','ran')"],
+            },
+          ],
+        }),
+      );
+
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, [
+        "--json",
+        "run",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 1, res.stdout || res.stderr);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.blockedByEnvironment, false);
+      assert.equal(receipt.environment.status, "fail");
+      assert.equal(receipt.taskRuns[0].status, "passed");
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "ran");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

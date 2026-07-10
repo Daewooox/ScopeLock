@@ -184,7 +184,8 @@ const hook = program.command("hook").description("internal hook entrypoints");
 hook
   .command("gate")
   .description("evaluate a hook event and deny in strict mode")
-  .action(() => hookGateCommand());
+  .option("--format <format>", "hook host output format: plain or codex", "plain")
+  .action((options: { format: "plain" | "codex" }) => hookGateCommand({ format: options.format }));
 
 hook
   .command("audit")
@@ -195,7 +196,7 @@ const hooks = program.command("hooks").description("install or uninstall agent h
 
 hooks
   .command("install")
-  .requiredOption("--target <id>", "hook target: claude or cursor")
+  .requiredOption("--target <id>", "hook target: claude, cursor, or codex")
   .option("--mode <mode>", "warn or strict", "warn")
   .option(
     "--local",

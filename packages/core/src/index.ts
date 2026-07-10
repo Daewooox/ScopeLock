@@ -16,6 +16,7 @@ export * from "./rules/risk-rules.js";
 export * from "./rules/test-heuristics.js";
 export * from "./harness/registry.js";
 export * from "./harness/claude-hooks.js";
+export * from "./harness/codex-hooks.js";
 export * from "./harness/cursor-hooks.js";
 export * from "./harness/hooks-merge.js";
 export * from "./hook/gate.js";
