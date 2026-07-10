@@ -1378,7 +1378,7 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 <!-- TASK #0044 BEGIN
      Owner: codex
      Started: 2026-07-10T16:23Z
-     Status: plan
+     Status: build
 -->
 ## Задача #0044 - Agent Environment Preflight research and delegable plan
 
@@ -1387,8 +1387,8 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   интегрировать и строить в ScopeLock; подготовить пошаговый план для менее
   опытного разработчика/агента.
 - **Уровень сложности:** Level 3 product/architecture plan.
-- **Статус:** RESEARCH + PLAN + Steps 0-4 завершены; следующий шаг Step 5
-  video/demo + design-partner pilot.
+- **Статус:** RESEARCH + PLAN + Steps 0-5a завершены; следующий шаг video script
+  + design-partner pilot.
 - **Контракты:** `agent-environment-preflight-memory-bank`,
   `agent-environment-preflight-handoff-docs`, `agent-env-step0-spike` и active
   `agent-env-step0-spike-docs`, baseline `9d9f0e1`.
@@ -1417,13 +1417,15 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   evidence, gaps, metrics, commands, GO/NO-GO decisions.
 - `memory-bank/plans/agent-environment-preflight-step3b-step4.md` - live Codex
   apply_patch hook evidence + run receipt environment integration.
+- `memory-bank/plans/agent-environment-preflight-step5-pilot-demo.md` -
+  one-command pilot demo + Codex hook live verification evidence.
 
 ### Следующий делегируемый шаг
-- Step 5: сделать короткий demo/video script и провести design-partner pilot.
-  Минимальный сценарий: missing required skill блокирует `scopelock run --plan`
-  в strict; после фикса preflight проходит/предупреждает; `plan_parallel` строит
-  safe waves; Codex `apply_patch` hook deny блокирует forbidden path; receipt v3
-  показывает `environment` provenance без raw contents.
+- Step 5b: записать короткий demo/video script и провести design-partner pilot.
+  Стабильная команда для сценария уже есть: `pnpm demo:pilot`. Она показывает
+  missing required skill block → fix → safe waves → Codex `apply_patch` hook deny
+  → receipt v3. Для trust gap использовать `scopelock hooks verify --target codex`
+  как live evidence; без passed verification Codex остаётся `degraded`.
 
 ### DoD текущей planning-задачи
 - [x] Research conclusions сохранены в product/tech context.
@@ -1433,6 +1435,7 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] Step 0 experiment выполнен - verdict записан в
   `plans/agent-environment-preflight-spike-verdict.md`.
 - [x] Steps 1-4 реализованы и проверены под отдельными контрактами.
+- [x] Step 5a реализован: one-command pilot demo + Codex hook live verification.
 
 ### Step 1 (production) - read-only preflight core - DONE
 
@@ -1491,4 +1494,18 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Тесты/проверки:** `pnpm typecheck`; `pnpm build && pnpm -r test` → core 78/78, cli 30/30, mcp 3/3; `pnpm exec node --test benchmarks/coordination/*.test.mjs` → 7/7; live smoke `hook gate --format codex` вернул `permissionDecision:"deny"` для forbidden apply_patch payload; `node packages/cli/dist/index.js check-drift --json` → 0 violations; `pnpm demo:flight-control -- --output-dir /tmp/scopelock-flight-control-demo-step4` → ScopeLock 0 violations / 0 conflicts / 0 failed tests / 5 of 6 accepted.
 - **Ограничения:** ScopeLock не может статически доказать, что пользователь доверил project `.codex` layer. Поэтому Codex hook confidence не апгрейдится до `live-verified` в обычном preflight; это честный degraded signal, не продуктовая слабость.
 - **Следующий шаг:** Step 5 - demo/video + pilot на реальном репозитории design partner; не добавлять новую инфраструктуру до реакции пользователя.
+
+### Step 5a (production/demo) - one-command pilot demo + Codex hook verify - DONE
+
+- **Контракт:** `pilot-demo-codex-hook-verify` (approve baseline `0a105a9`, scope включает pilot demo, hook verification store/schema, `hooks verify`, tests, Memory Bank).
+- **Реализовано:**
+  - `package.json` - `pnpm demo:pilot`.
+  - `benchmarks/coordination/run-pilot-demo.mjs` - deterministic temp-fixture demo без LLM/API: missing skill block → skill fix → safe waves → Codex-format hook deny → receipt v3.
+  - `benchmarks/coordination/run-pilot-demo.test.mjs` - regression test на весь demo storyline.
+  - `packages/cli/src/commands/hooks.ts` + `index.ts` - `scopelock hooks verify --target codex [--codex-bin] [--timeout-ms] [--json]`.
+  - `packages/core/src/schemas/agent-workspace.ts` + `storage/paths.ts` - `.scopelock/hook-verifications.json` store, Zod-validated records.
+  - `packages/core/src/agents/hook-probe.ts` - Codex confidence becomes `live-verified` only when latest passed verification matches current `.codex/hooks.json` SHA-256; otherwise remains `degraded`.
+- **Codex trust gap decision:** не угадывать project trust из файлов. Проверять живым harmless probe: если forbidden `apply_patch` не мутировал файл и вывел ScopeLock denial, записывать live evidence; иначе confidence degraded и понятный detail/fix.
+- **Тесты/проверки:** `pnpm typecheck`; `pnpm build`; `pnpm -r test` → core 79/79, cli 31/31, mcp 3/3; `pnpm exec node --test benchmarks/coordination/*.test.mjs` → 8/8; `pnpm demo:pilot -- --output-dir .scopelock/reports/pilot-demo` → PASS all steps; `node packages/cli/dist/index.js check-drift --json` → 0 violations; `git diff --check` clean.
+- **Следующий шаг:** сделать видео/demo script поверх `pnpm demo:pilot`, отдельно показать `hooks verify --target codex` на trusted Codex repo, затем провести 1 design-partner pilot.
 <!-- TASK #0044 END -->

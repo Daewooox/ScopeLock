@@ -13,6 +13,23 @@ read-only environment attestation. ScopeLock не копирует Ruler/skills 
 проверяет, что нужные rules/skills/hook capability реально присутствуют перед
 dispatch, и пишет hashes/provenance в bounded receipt.
 
+**Step 5a ЗАВЕРШЁН** под контрактом `pilot-demo-codex-hook-verify`.
+Добавлен one-command pilot demo `pnpm demo:pilot`, который без LLM/API создаёт
+temp fixture и показывает весь end-to-end сценарий:
+missing required skill → strict preflight block → skill fix → `scopelock run
+--plan` с safe waves (`pilot-writer` затем `pilot-reader`) → Codex-format
+`apply_patch` hook deny → receipt v3. Демо пишет `summary.json` и `receipt.json`
+в `.scopelock/reports/pilot-demo/`.
+
+Codex trust gap закрыт практическим live-подтверждением, а не статическим
+угадыванием: добавлена команда `scopelock hooks verify --target codex`
+(`--codex-bin`, `--timeout-ms`). Она запускает harmless `codex exec` probe,
+проверяет, что forbidden `apply_patch` не мутировал файл и дал ScopeLock-deny,
+затем сохраняет результат в `.scopelock/hook-verifications.json` с SHA-256
+текущего `.codex/hooks.json`. `agents preflight` апгрейдит Codex hook confidence
+до `live-verified` только при совпадающем passed record; иначе честно остаётся
+`degraded`.
+
 **Step 1 (production) ЗАВЕРШЁН** под контрактом `agent-env-preflight-core-step1`.
 Добавлен read-only preflight core (pure, без commander/console/exit/network/мутаций):
 `agents/paths.ts` (repo-relative safety), `schemas/agent-workspace.ts` (manifest v1 +
@@ -68,10 +85,11 @@ benchmark tests 7/7, live Codex-format hook smoke, `check-drift`=0,
 
 Основной отчёт: `memory-bank/plans/agent-environment-preflight-step3b-step4.md`.
 
-**Следующий шаг:** Step 5 - короткое видео/demo script + design-partner pilot.
-Показывать не “ещё одну CLI”, а end-to-end flight-control: missing skill blocks
-in strict, fix → preflight pass/warn, safe waves, Codex apply_patch deny,
-receipt v3 с environment provenance.
+**Следующий шаг:** записать короткое видео/demo script поверх `pnpm demo:pilot`
+и провести design-partner pilot. Показывать не “ещё одну CLI”, а
+end-to-end flight-control: missing skill blocks in strict, fix → preflight
+pass/warn, safe waves, Codex apply_patch deny/live-verify, receipt v3 с
+environment provenance.
 <!-- TASK #0044 END -->
 
 ## Текущий фокус

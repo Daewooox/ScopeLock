@@ -34,15 +34,15 @@
 | `packages/core/src/schemas/repo-manifest.ts` | Repo manifest схема, projectType enum |
 | `packages/core/src/schemas/config.ts` | `.scopelock/config.json` схема, mode warn/strict |
 | `packages/core/src/manifest/build.ts` | Build repo manifest from tracked git files |
-| `packages/core/src/schemas/agent-workspace.ts` | Agent workspace manifest v1 + preflight report Zod schemas |
+| `packages/core/src/schemas/agent-workspace.ts` | Agent workspace manifest, preflight report, hook verification store schemas |
 | `packages/core/src/agents/paths.ts` | Repo-relative path safety + POSIX normalization (preflight) |
 | `packages/core/src/agents/locations.ts` | Sole home of target-specific rule/skill paths; shared `.agents/skills` first-class |
 | `packages/core/src/agents/hash.ts` | SHA-256 file bytes + deterministic skill-dir digest |
 | `packages/core/src/agents/preflight.ts` | Read-only `runAgentPreflight`: presence/symlink/parity + hook probe per target |
-| `packages/core/src/agents/hook-probe.ts` | Config-file-only hook capability probe (no process exec); always degrades codex |
+| `packages/core/src/agents/hook-probe.ts` | Hook config probe plus Codex live-verification confidence lookup |
 | `packages/core/src/harness/capabilities.ts` | Nominal `HookCapabilities` per target (documented format, never live-verified by default) |
 | `packages/core/src/agent-preflight.test.ts` | Agent env preflight schema/hash/engine/hook-capability tests |
-| `packages/core/src/storage/paths.ts` | Layout `.scopelock/` (единственный источник путей) |
+| `packages/core/src/storage/paths.ts` | Layout `.scopelock/` incl. contracts/reports/hook-verifications paths |
 | `packages/core/src/storage/atomic.ts` | writeJsonAtomic (temp + rename) |
 | `packages/core/src/storage/contracts.ts` | save/load contract, active-pointer |
 | `packages/core/src/git/exec.ts` | runGit sync-обёртка |
@@ -84,7 +84,7 @@
 | `packages/cli/src/commands/export-prompt.ts` | Print active contract as agent prompt |
 | `packages/cli/src/commands/inject-contract.ts` | Inject contract into AGENTS/CLAUDE doc |
 | `packages/cli/src/commands/hook.ts` | Quiet hook gate/audit CLI entrypoints |
-| `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
+| `packages/cli/src/commands/hooks.ts` | Install/uninstall hook configs; verify Codex hook live behavior |
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
 | `packages/cli/src/commands/run-plan.ts` | Thin dispatcher: waves, commands, env preflight, bounded receipt artifacts |
@@ -101,9 +101,12 @@
 | `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs` | Zero-run smoke test for real-agent harness |
 | `benchmarks/coordination/analyze-receipt.mjs` | Measure receipt/artifact bytes and Codex usage |
 | `benchmarks/coordination/run-flight-control-demo.mjs` | One-command deterministic Flight Control demo |
+| `benchmarks/coordination/run-pilot-demo.mjs` | Pilot demo: env block, safe waves, Codex deny, receipt v3 |
+| `benchmarks/coordination/run-pilot-demo.test.mjs` | Regression test for pilot demo storyline |
 | `memory-bank/plans/scopelock-run-dogfood.md` | K=3 dispatcher dogfood evidence and SA decision |
 | `memory-bank/plans/flight-control-demo-receipt-baseline.md` | Demo and full-receipt K=3 baseline evidence |
 | `memory-bank/plans/agent-environment-preflight-step3b-step4.md` | Codex hook live spike + run receipt environment integration |
+| `memory-bank/plans/agent-environment-preflight-step5-pilot-demo.md` | One-command pilot demo + Codex hook verify evidence |
 
 ---
 
