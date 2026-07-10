@@ -1338,3 +1338,39 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - Real Codex K=3: avg receipt 30,306 bytes; stdout+stderr 77%; wall-clock 48.2s; parallel factor 2.39x; 0 violations/conflicts/failed tests.
 - Отчёт: `memory-bank/plans/flight-control-demo-receipt-baseline.md`.
 <!-- TASK #0042 END -->
+
+<!-- TASK #0043 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: done
+-->
+## Задача #0043 - Bounded receipt spike
+
+- **Описание:** Уменьшить token/size footprint `scopelock run --plan` receipt без LLM summary и без нового runner слоя: bounded previews в JSON, raw command/stdout/stderr в локальных artifacts.
+- **Уровень сложности:** Level 2 product/architecture spike.
+- **Статус:** DONE; bounded receipt v2 реализован и измерен.
+- **Контракт:** `bounded-receipt-spike` approved at `7cc5060`.
+
+### Артефакты
+- `packages/cli/src/commands/run-plan.ts`: receipt `schemaVersion: 2`, `limits`, `artifactsDir`, `handoffSummary`, 400-byte previews, raw artifacts with bytes/sha256.
+- `benchmarks/coordination/analyze-receipt.mjs`: artifact-aware analysis and Codex usage extraction from raw stdout artifacts.
+- `memory-bank/plans/bounded-receipt-spike.md`: report, measurements, decision.
+
+### Результат
+- Deterministic one-command demo receipt: 6,657 bytes.
+- Real Codex K=1 `scopelock_run` receipt: 15,191 bytes.
+- Previous real-agent baseline from #0042: avg 30,306 bytes.
+- Raw evidence preserved outside receipt: commands 4,271 bytes, stdout 16,068 bytes, stderr 6,225 bytes.
+
+### Decision
+- GO for bounded receipt v2 as default dispatcher receipt shape.
+- Не строить LLM summary/SQLite/FTS/command proxy сейчас.
+- Следующий refinement только если interviews/usage покажут, что ~15KB всё ещё слишком много для handoff.
+
+### Проверки
+- [x] `pnpm -r build`.
+- [x] `pnpm --filter @scopelock/cli test`: 19/19.
+- [x] `node --test benchmarks/coordination/analyze-receipt.test.mjs benchmarks/coordination/run-flight-control-demo.test.mjs`: 5/5.
+- [x] `pnpm demo:flight-control -- --output-dir .scopelock/reports/bounded-receipt-spike`.
+- [x] Real Codex K=1 bounded receipt measurement.
+<!-- TASK #0043 END -->
