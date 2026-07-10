@@ -352,19 +352,23 @@ describe("hook capability model (Step 3)", () => {
     }
   });
 
-  it("codex is always degraded, regardless of any config file present", () => {
+  it("codex detects installed ScopeLock hooks but keeps degraded confidence", () => {
     const root = tempRepo();
     try {
-      // no config at all
       const bare = probeHookConfig(root, "codex");
       assert.equal(bare.capabilities.confidence, "degraded");
       assert.equal(bare.installed, false);
 
-      // a config.toml exists, but ScopeLock still cannot confirm it is ours,
-      // well-formed, or effective (undocumented schema/event shape/trust state)
-      write(root, ".codex/config.toml", "[hooks]\n");
-      const withConfig = probeHookConfig(root, "codex");
-      assert.equal(withConfig.capabilities.confidence, "degraded");
+      write(root, ".codex/hooks.json", JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: "^apply_patch$", hooks: [{ command: "scopelock hook gate --format codex" }] },
+          ],
+        },
+      }));
+      const installed = probeHookConfig(root, "codex");
+      assert.equal(installed.installed, true);
+      assert.equal(installed.capabilities.confidence, "degraded");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

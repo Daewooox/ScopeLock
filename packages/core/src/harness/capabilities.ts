@@ -17,19 +17,11 @@ import type { HookCapabilities } from "../schemas/agent-workspace.js";
  *   a pre-write deny. The Step 0 spike could not live-probe Cursor (no
  *   executable available), so per the plan's decision this MUST NOT be
  *   upgraded to canDeny from assumption alone.
- * - codex: official docs (developers.openai.com/codex/config-advanced#hooks,
- *   fetched 2026-07-10) confirm a documented PreToolUse hook mechanism with a
- *   TOML `[[hooks.PreToolUse]]` inline form, and the Step 0 live probe
- *   confirmed a project-local PreToolUse hook CAN deny a Bash tool call.
- *   However: (a) the JSON `.codex/hooks.json` schema is explicitly undocumented,
- *   (b) the PreToolUse event shape for the file-editing tool (`apply_patch`,
- *   as opposed to the `Bash` tool Step 0 actually probed) was never captured
- *   live, and (c) "project trust" gates whether the hook loads at all and has
- *   no documented, statically-readable indicator. `canDeny: true` is recorded
- *   as the nominal/documented capability; the probe always reports codex
- *   confidence as "degraded" until a dedicated live sub-spike captures a real
- *   `apply_patch` PreToolUse event and a ScopeLock hook adapter can be built
- *   against a confirmed shape instead of a guess.
+ * - codex: official docs fetched 2026-07-10 confirm `PreToolUse` can deny
+ *   `apply_patch`. Step 3b live spike captured the real event shape and
+ *   verified 3/3 denied `apply_patch` mutations before write when hook trust
+ *   was bypassed/trusted. Confidence is still degraded in static preflight,
+ *   because project trust has no statically-readable indicator.
  */
 export const NOMINAL_HOOK_CAPABILITIES: Record<AgentId, HookCapabilities> = {
   claude: {

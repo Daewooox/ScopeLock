@@ -46,18 +46,32 @@ async function findScopelockRoot(cwd: string): Promise<string | null> {
   }
 }
 
-function pathFromInput(rawInput: string): string | null {
+function pathsFromPatchCommand(command: string): string[] {
+  const paths: string[] = [];
+  for (const line of command.split("\n")) {
+    const match =
+      line.match(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/) ??
+      line.match(/^\*\*\* Move to: (.+)$/);
+    if (match?.[1]) paths.push(match[1]);
+  }
+  return paths;
+}
+
+function pathsFromInput(rawInput: string): string[] {
   try {
     const parsed = hookInputSchema.parse(JSON.parse(rawInput));
-    return (
+    const direct =
       parsed.tool_input?.file_path ??
       parsed.tool_input?.path ??
       parsed.file_path ??
       parsed.path ??
-      null
-    );
+      null;
+    if (direct !== null) return [direct];
+    const patch = parsed.tool_input?.command;
+    if (typeof patch === "string") return pathsFromPatchCommand(patch);
+    return [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -122,53 +136,59 @@ export async function evaluateHookGate(input: {
   forceAudit?: boolean;
   now?: string;
 }): Promise<HookGateResult> {
-  const rawPath = pathFromInput(input.rawInput);
-  if (rawPath === null) {
+  const rawPaths = pathsFromInput(input.rawInput);
+  if (rawPaths.length === 0) {
     return { decision: "noop", reason: "invalid-input", path: null, message: null };
   }
 
   const root = await findScopelockRoot(input.cwd);
   if (root === null) {
-    return { decision: "noop", reason: "no-scopelock-root", path: rawPath, message: null };
+    return { decision: "noop", reason: "no-scopelock-root", path: rawPaths[0] ?? null, message: null };
   }
 
   const paths = scopelockPaths(root);
   const activeId = await getActiveContractId(paths);
   if (activeId === null) {
-    return { decision: "noop", reason: "no-active-contract", path: rawPath, message: null };
+    return {
+      decision: "noop",
+      reason: "no-active-contract",
+      path: rawPaths[0] ?? null,
+      message: null,
+    };
   }
 
   try {
     const contract = await loadContract(paths, activeId);
     const mode = input.forceAudit === true ? "warn" : await loadMode(paths);
-    const path = relativeHookPath(root, rawPath);
-    const verdict = classifyPath(hookFile(path), contract.scope);
-    if (verdict === "planned") {
-      return { decision: "allow", reason: "planned", path, message: null };
+    for (const rawPath of rawPaths) {
+      const path = relativeHookPath(root, rawPath);
+      const verdict = classifyPath(hookFile(path), contract.scope);
+      if (verdict === "planned") continue;
+
+      const message =
+        verdict === "forbidden"
+          ? `ScopeLock: forbidden path changed: ${path}`
+          : `ScopeLock: changed outside approved scope: ${path}`;
+
+      if (mode === "strict") {
+        return { decision: "deny", reason: verdict, path, message };
+      }
+
+      await appendAudit(paths, {
+        ts: input.now ?? new Date().toISOString(),
+        path,
+        verdict: "warn",
+        reason: verdict,
+      });
+      return { decision: "warn", reason: verdict, path, message };
     }
-
-    const message =
-      verdict === "forbidden"
-        ? `ScopeLock: forbidden path changed: ${path}`
-        : `ScopeLock: changed outside approved scope: ${path}`;
-
-    if (mode === "strict") {
-      return { decision: "deny", reason: verdict, path, message };
-    }
-
-    await appendAudit(paths, {
-      ts: input.now ?? new Date().toISOString(),
-      path,
-      verdict: "warn",
-      reason: verdict,
-    });
-    return { decision: "warn", reason: verdict, path, message };
+    return { decision: "allow", reason: "planned", path: rawPaths[0] ?? null, message: null };
   } catch (error) {
     await appendHookError(paths, {
       ts: input.now ?? new Date().toISOString(),
-      path: rawPath,
+      path: rawPaths[0] ?? null,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { decision: "noop", reason: "gate-error", path: rawPath, message: null };
+    return { decision: "noop", reason: "gate-error", path: rawPaths[0] ?? null, message: null };
   }
 }

@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import type { AgentId } from "../schemas/contract.js";
 import { writeJsonAtomic } from "../storage/atomic.js";
 import { claudeScopeLockEntry } from "./claude-hooks.js";
+import { codexScopeLockEntry } from "./codex-hooks.js";
 import { cursorScopeLockEntry } from "./cursor-hooks.js";
 
 export class HooksFileInvalidError extends Error {
@@ -97,10 +98,43 @@ export function removeCursorHooks(existing: Record<string, unknown>): Record<str
   };
 }
 
+function codexHooks(existing: Record<string, unknown>): Record<string, unknown> {
+  return typeof existing.hooks === "object" && existing.hooks !== null && !Array.isArray(existing.hooks)
+    ? { ...(existing.hooks as Record<string, unknown>) }
+    : {};
+}
+
+export function mergeCodexHooks(
+  existing: Record<string, unknown>,
+  commandPrefix?: string,
+): Record<string, unknown> {
+  const hooks = codexHooks(existing);
+  const preToolUse = withoutOwnEntries(hooks.PreToolUse);
+  return {
+    ...existing,
+    hooks: {
+      ...hooks,
+      PreToolUse: [...preToolUse, codexScopeLockEntry(commandPrefix)],
+    },
+  };
+}
+
+export function removeCodexHooks(existing: Record<string, unknown>): Record<string, unknown> {
+  const hooks = codexHooks(existing);
+  return {
+    ...existing,
+    hooks: {
+      ...hooks,
+      PreToolUse: withoutOwnEntries(hooks.PreToolUse),
+    },
+  };
+}
+
 export function hooksConfigPath(root: string, target: AgentId): string {
   if (target === "claude") return resolve(root, ".claude", "settings.json");
   if (target === "cursor") return resolve(root, ".cursor", "hooks.json");
-  throw new HooksFileInvalidError("hooks are only supported for claude and cursor");
+  if (target === "codex") return resolve(root, ".codex", "hooks.json");
+  throw new HooksFileInvalidError("unsupported hook target");
 }
 
 export async function installHooks(
@@ -113,7 +147,9 @@ export async function installHooks(
   const next =
     target === "claude"
       ? mergeClaudeHooks(existing, commandPrefix)
-      : mergeCursorHooks(existing, commandPrefix);
+      : target === "cursor"
+        ? mergeCursorHooks(existing, commandPrefix)
+        : mergeCodexHooks(existing, commandPrefix);
   await mkdir(dirname(path), { recursive: true });
   await writeJsonAtomic(path, next);
   return path;
@@ -123,7 +159,11 @@ export async function uninstallHooks(root: string, target: AgentId): Promise<str
   const path = hooksConfigPath(root, target);
   const existing = await readJsonObject(path);
   const next =
-    target === "claude" ? removeClaudeHooks(existing) : removeCursorHooks(existing);
+    target === "claude"
+      ? removeClaudeHooks(existing)
+      : target === "cursor"
+        ? removeCursorHooks(existing)
+        : removeCodexHooks(existing);
   await mkdir(dirname(path), { recursive: true });
   await writeJsonAtomic(path, next);
   return path;
@@ -136,6 +176,10 @@ export function hasScopeLockHooks(config: Record<string, unknown>, target: Agent
   }
   if (target === "cursor") {
     return Array.isArray(config.afterFileEdit) && config.afterFileEdit.some(isOwnEntry);
+  }
+  if (target === "codex") {
+    const hooks = config.hooks as Record<string, unknown> | undefined;
+    return Array.isArray(hooks?.PreToolUse) && hooks.PreToolUse.some(isOwnEntry);
   }
   return false;
 }

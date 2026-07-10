@@ -3,13 +3,21 @@ import { createHash } from "node:crypto";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { spawn } from "node:child_process";
 import {
+  agentEnvironmentPreflightReportSchema,
+  agentWorkspaceManifestSchema,
   approvedContractSchema,
   buildConflictGraph,
   findRepoRoot,
+  hashFileBytes,
+  runAgentPreflight,
   schedule,
   schedulePlanSchema,
+  scopelockConfigSchema,
   scopelockPaths,
   writeJsonAtomic,
+  type AgentEnvironmentPreflightReport,
+  type ArtifactCheckResult,
+  type EnforcementMode,
   type ScopeConflict,
   type TaskScope,
 } from "@scopelock/core";
@@ -59,6 +67,21 @@ type TaskRun = {
   };
 };
 
+type ReceiptEnvironment = {
+  manifestDigest: string;
+  mode: EnforcementMode;
+  status: AgentEnvironmentPreflightReport["summary"]["status"];
+  violationsCount: number;
+  targets: Array<{
+    id: string;
+    version: string | null;
+    rulesDigest: string | null;
+    skillsDigest: string | null;
+    hookConfidence: string;
+    violations: string[];
+  }>;
+};
+
 async function readJsonFile(path: string, notFoundCode: string): Promise<unknown> {
   let raw: string;
   try {
@@ -74,6 +97,15 @@ async function readJsonFile(path: string, notFoundCode: string): Promise<unknown
     return JSON.parse(raw);
   } catch {
     throw new CliError("INVALID_JSON", `invalid JSON in ${path}`);
+  }
+}
+
+async function maybeReadJsonFile(path: string): Promise<unknown | null> {
+  try {
+    return await readJsonFile(path, "NOT_FOUND");
+  } catch (error) {
+    if (error instanceof CliError && error.code === "NOT_FOUND") return null;
+    throw error;
   }
 }
 
@@ -123,6 +155,45 @@ async function loadTaskScope(task: { id: string; contract: string }): Promise<Ta
     planned: contract.scope.plannedPathPatterns,
     forbidden: contract.scope.forbiddenPathPatterns,
     read: contract.scope.readPathPatterns,
+  };
+}
+
+async function loadMode(cwd: string): Promise<EnforcementMode> {
+  const raw = await readJsonFile(scopelockPaths(cwd).configPath, "NOT_INITIALIZED");
+  return scopelockConfigSchema.parse(raw).mode;
+}
+
+function digestResults(results: ArtifactCheckResult[]): string | null {
+  const digests = results
+    .map((result) => result.digest)
+    .filter((digest): digest is string => digest !== null)
+    .sort();
+  if (digests.length === 0) return null;
+  return createHash("sha256").update(digests.join("\n")).digest("hex");
+}
+
+async function maybeEnvironment(cwd: string): Promise<ReceiptEnvironment | null> {
+  const manifestPath = join(cwd, ".scopelock", "agents.json");
+  const raw = await maybeReadJsonFile(manifestPath);
+  if (raw === null) return null;
+  const manifest = agentWorkspaceManifestSchema.parse(raw);
+  const report = agentEnvironmentPreflightReportSchema.parse(
+    runAgentPreflight({ manifest, repoRoot: cwd }),
+  );
+  const mode = await loadMode(cwd);
+  return {
+    manifestDigest: hashFileBytes(manifestPath),
+    mode,
+    status: report.summary.status,
+    violationsCount: report.summary.violationsCount,
+    targets: report.targets.map((target) => ({
+      id: target.id,
+      version: null,
+      rulesDigest: digestResults(target.ruleResults),
+      skillsDigest: digestResults(target.skillResults),
+      hookConfidence: target.hook.capabilities.confidence,
+      violations: target.violations.map((violation) => violation.code),
+    })),
   };
 }
 
@@ -308,8 +379,26 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const artifactDir = join(dirname(receiptPath), `${basename(receiptPath, ".json")}-artifacts`);
   const startedAt = new Date().toISOString();
   const taskRuns: TaskRun[] = [];
+  const environment = await maybeEnvironment(cwd);
+  const blockedByEnvironment = environment?.mode === "strict" && environment.status === "fail";
 
-  if (cycles.length === 0) {
+  if (blockedByEnvironment) {
+    for (const task of runTasks) {
+      const persistedCommand = await persistCommand(artifactDir, task.id, task.command ?? null);
+      taskRuns.push({
+        id: task.id,
+        status: "skipped",
+        command: persistedCommand.preview,
+        exitCode: null,
+        durationMs: 0,
+        stdout: "",
+        stderr: "blocked by agent environment preflight",
+        outputArtifacts: {
+          ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+        },
+      });
+    }
+  } else if (cycles.length === 0) {
     for (const wave of waves) {
       const runnable = wave
         .filter((id) => !deferredSet.has(id))
@@ -346,7 +435,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
 
   const receipt = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     planId: plan.planId,
     startedAt,
     finishedAt: new Date().toISOString(),
@@ -356,6 +445,8 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       rawOutputStorage: "local-artifacts",
     },
     artifactsDir: artifactDir,
+    environment,
+    blockedByEnvironment,
     waves,
     conflicts: graph.conflicts,
     cycles,
@@ -365,6 +456,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       failedTasks: taskRuns.filter((task) => task.status === "failed").map((task) => task.id).sort(),
       skippedTasks: taskRuns.filter((task) => task.status === "skipped").map((task) => task.id).sort(),
       driftStatus: drift?.status ?? "not_checked",
+      environmentStatus: environment?.status ?? "not_configured",
     },
     taskRuns,
     drift,
@@ -375,7 +467,11 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const hasFailedTask = taskRuns.some((task) => task.status === "failed");
   const hasSkippedTask = taskRuns.some((task) => task.status === "skipped");
   const hasDriftProblems = drift?.status === "violations" || drift?.status === "error";
-  const exitCode: ExitCode = cycles.length > 0 || hasFailedTask || hasSkippedTask || hasDriftProblems ? 1 : 0;
+  const hasEnvironmentProblems = environment !== null && environment.status === "fail";
+  const exitCode: ExitCode =
+    cycles.length > 0 || hasFailedTask || hasSkippedTask || hasDriftProblems || hasEnvironmentProblems
+      ? 1
+      : 0;
 
   return {
     data: { receiptPath, receipt },

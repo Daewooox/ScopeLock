@@ -14,6 +14,7 @@ export async function readStdin(): Promise<string> {
 
 export async function hookGateCommand(options: {
   forceAudit?: boolean;
+  format?: "plain" | "codex";
 } = {}): Promise<void> {
   const result = await evaluateHookGate({
     cwd: process.cwd(),
@@ -22,6 +23,19 @@ export async function hookGateCommand(options: {
   });
 
   if (result.decision === "deny") {
+    if (options.format === "codex") {
+      process.stdout.write(
+        `${JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "deny",
+            permissionDecisionReason: result.message ?? "ScopeLock: denied",
+          },
+        })}\n`,
+      );
+      process.exitCode = 0;
+      return;
+    }
     process.stderr.write(`${result.message ?? "ScopeLock: denied"}\n`);
     process.exitCode = 2;
     return;
