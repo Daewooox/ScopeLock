@@ -4,10 +4,10 @@
 > самодостаточна: порядок чтения, дисциплина контракта, команды и текущая задача.
 > При расхождении с более ранними документами - верить авторитетному плану (Шаг 1.5).
 
-Проект: **ScopeLock** - локальные детерминированные guardrails для AI-агентов
-(approve scope-контракта → export/inject в агента → runtime hooks → drift check).
-Стек: TypeScript, pnpm monorepo (`packages/core` + `packages/cli`), Zod, commander,
-Node >= 22, `node:test`.
+Проект: **ScopeLock** - local-first Flight Control для AI coding agents:
+scope contracts, conflict-aware scheduling, runtime hooks, drift verification и
+bounded run receipts. Стек: TypeScript, pnpm monorepo (`packages/core` +
+`packages/cli` + `packages/mcp`), Zod, commander, Node >= 22, `node:test`.
 
 ---
 
@@ -20,9 +20,9 @@ Node >= 22, `node:test`.
 4. `memory-bank/activeContext.md` - текущий фокус одним абзацем.
 5. **Авторитетный план:** `memory-bank/plans/scopelock-implementation-plan.md` →
    раздел **«АКТУАЛЬНЫЙ ПЛАН И СЛЕДУЮЩИЙ ШАГ»** (внизу файла).
-6. Детали следующей задачи: `memory-bank/plans/orchestration-implementation-plan.md`
-   (§2 алгоритм, §5 CLI, §8 shape контракта); теория -
-   `memory-bank/plans/orchestration-scope-algebra.md`.
+6. Детали следующей задачи:
+   `memory-bank/plans/agent-environment-preflight-plan.md` → **Step 0**.
+   Не переходи к Steps 1-5, пока Step 0 не дал письменный GO.
 7. Перед любым поиском/чтением по `packages/**` - сначала `memory-bank/docs/component-map.md`.
 
 ## Шаг 2. Правила проекта (нарушение = ошибка ревью)
@@ -41,53 +41,54 @@ Node >= 22, `node:test`.
 ```bash
 pnpm install
 pnpm -r build
-node --test packages/core/dist/*.test.js   # ожидание: core 34/34
-node --test packages/cli/dist/*.test.js     # ожидание: cli 3/3
+pnpm -r test
+pnpm typecheck
 node packages/cli/dist/index.js doctor
 ```
 
 CLI вызывается как `node packages/cli/dist/index.js <команда>` (глобального `scopelock`
 в PATH нет до npm publish).
 
-## Шаг 4. Текущая задача - M1-spike `globsIntersect`
+## Шаг 4. Текущая задача - Agent Environment Preflight Step 0
 
-Цель: честная консервативная функция «пересекаются ли два glob'а» + property-тесты.
-Единственный рискованный кусок Идеи A; всё остальное - тривиальная надстройка.
-Полные шаги и DoD - в `scopelock-implementation-plan.md` → «СЛЕДУЮЩАЯ ЗАДАЧА
-(делегируемая): M1-spike». Кратко:
+Цель: проверить на реальном scratch fixture, решают ли Ruler и open `skills` CLI
+проблему переноса rules/skills между Claude Code, Cursor и Codex. Это
+buy-vs-build gate, а не production implementation.
 
-1. **Заведи контракт.** Возьми shape из `orchestration-implementation-plan.md` §8,
-   сохрани как staging JSON в `.scopelock/`, затем:
-   `node packages/cli/dist/index.js approve .scopelock/<staging>.json`.
-   planned: `packages/core/src/schedule/**`, `packages/core/src/schedule.test.ts`,
-   `packages/core/src/index.ts`; forbidden: остальное ядро и `packages/cli/**`.
-2. **Реализуй** `packages/core/src/schedule/glob-intersect.ts` по §2.3-2.4:
-   `globsIntersect`, `globSetsIntersect`, `intersectionWitness`; директорный prefix
-   fast-path; general путь glob→regex→NFA (char-предикаты)→product-BFS emptiness;
-   неподдержанный конструкт → `true` (консервативно = конфликт).
-3. **Экспорт**: одна строка re-export в `packages/core/src/index.ts`.
-4. **Тесты** `packages/core/src/schedule.test.ts` по §2.5: известные пары +
-   property-soundness + property-consistency с `picomatch({dot:true})` на ≥10k случаев.
-5. **Проверь:**
-   ```bash
-   pnpm -r build
-   node --test packages/core/dist/schedule.test.js
-   node packages/cli/dist/index.js check-drift   # ожидание: 0 нарушений scope
-   ```
-6. **Зафиксируй:** новый блок задачи в `tasks.md`, обнови `activeContext.md` и
-   `component-map.md`; commit (push - только если попросят).
+1. Работай во внешнем temp git repository, не в ScopeLock repo.
+2. Создай canonical rule и Agent Skill с уникальными sentinels.
+3. Проверь `vercel-labs/skills --copy`: physical files без symlink, target
+   locations, update/remove, SHA-256 parity и idempotence.
+4. Проверь Ruler: rules/skills/config materialization, foreign-entry
+   preservation, repeated apply и cleanup behavior.
+5. Для реально установленных Claude/Cursor/Codex выполни live rule/skill/hook
+   probes. Неустановленный target пометь `blocked`, не `failed`.
+6. Ничего не меняй в `packages/**`.
+7. Запиши evidence и два независимых GO/NO-GO в
+   `memory-bank/plans/agent-environment-preflight-spike-verdict.md`:
+   static materializer и ScopeLock environment attestation.
 
-## Шаг 5. Definition of Done M1 (gate перехода к M2)
+Точная fixture structure, команды, таблица измерений и kill-criteria находятся
+в `memory-bank/plans/agent-environment-preflight-plan.md` → Step 0.
 
-- [ ] property-soundness зелёный на ≥10k случаев (ни одного контрпримера);
-- [ ] property-consistency с picomatch зелёный;
-- [ ] `globsIntersect` без внешних зависимостей, typecheck чист;
-- [ ] `check-drift` под M1-контрактом = 0 нарушений scope.
+## Шаг 5. Definition of Done Step 0
+
+- [ ] Ruler и `skills --copy` реально запущены, а не оценены только по README.
+- [ ] `lstat`/`readlink` подтверждают physical-copy поведение.
+- [ ] Hash parity, update/remove и repeated apply проверены.
+- [ ] Foreign config entries не потеряны.
+- [ ] Live capability claims разделены по harness/version/tool type.
+- [ ] `packages/**` не изменены.
+- [ ] Вердикт содержит письменный GO/NO-GO по обоим decision gates.
 
 ## Стоп-условия (не продолжай молча)
 
-- M1 не сходится (soundness/consistency недостижимы дёшево) - **СТОП**, не начинай M2+,
-  доложи: вся гарантия Идеи A держится на этом примитиве.
+- Ruler + skills CLI покрывают >=90% static distribution - **СТОП**, не создавай
+  собственный `agents apply`; рекомендуй integration/doctor.
+- Environment preflight не находит meaningful mismatch или unverifiable
+  capability - **СТОП**, не начинай Steps 1-5.
+- Для live probe нужен логин, разрешение или установленный harness, которого нет -
+  пометь target `blocked` и продолжай с доступными targets; не подделывай evidence.
 - Правка требует файла вне твоего scope - не обходи guardrail: заведи/расширь контракт,
   при сомнении спроси.
 - `git config`, force-push, коммиты без явной просьбы - запрещены.

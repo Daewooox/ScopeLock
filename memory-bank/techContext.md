@@ -259,6 +259,89 @@ Minimum GitHub Actions:
 
 ---
 
+## 14. Agent Environment Compatibility
+
+### Canonical artifacts
+
+- Durable repo guidance: root/nested `AGENTS.md`.
+- Reusable workflows: Agent Skills directories with required `SKILL.md` and
+  optional `scripts/`, `references/`, `assets/`.
+- Dynamic per-task policy: existing `.scopelock/contracts/*.json`.
+- Run provenance: bounded ScopeLock receipt with hashes, not source contents.
+
+ScopeLock must not invent a second skill standard. Static distribution is an
+external/materializer concern until the mandatory Ruler + `skills --copy`
+spike proves a concrete uncovered gap.
+
+### Adapter model
+
+`HarnessAdapter` must evolve from one coarse `hooksSupport` enum into:
+
+1. static locations and nominal capabilities documented by the harness;
+2. observed configuration/version/probe status returned per repository.
+
+Nominal support never implies reliable enforcement. Each preflight result
+records confidence as `documented`, `live-verified`, or `degraded`. Post-run
+git drift remains the source of truth when a host ignores or skips a hook.
+
+Current correction: Codex now documents lifecycle hooks, including project and
+user `hooks.json`/`config.toml` layers and `PreToolUse`. The existing ScopeLock
+registry value `hooksSupport: none` is stale and must be corrected only after a
+live fixture confirms the exact event/response contract. Project-local Codex
+hooks also depend on repository trust.
+
+### Agent workspace manifest
+
+The planned `.scopelock/agents.json` v1 declares only:
+
+- target harness ids;
+- required repo-relative rule files;
+- required repo-relative skill directories;
+- parity policy for physical copies and hashes.
+
+It must not contain secrets, MCP credentials, raw agent config, model API keys,
+or executable install commands. All JSON boundaries use Zod; all persisted JSON
+uses `writeJsonAtomic` and `scopelockPaths()`.
+
+### Preflight engine
+
+Pure core logic discovers declared target locations, uses `lstat` to distinguish
+physical files from symlinks, computes deterministic SHA-256 digests in sorted
+repo-relative path order, and returns typed findings with severity/detail/fix.
+It never executes skill scripts, starts agents, downloads packages, or performs
+network calls.
+
+CLI target: `scopelock agents preflight --manifest .scopelock/agents.json` with
+existing exit contract `0` pass / `1` violations / `2` operational error.
+
+### Receipt integration
+
+After the standalone preflight is stable, `scopelock run --plan` may run it
+automatically when an agent manifest exists. The bounded receipt stores:
+
+- manifest digest;
+- harness id/version;
+- rules and skills digests;
+- observed hook confidence;
+- compact violation codes.
+
+Raw rule/skill/config content is forbidden in the receipt. Optional raw probe
+evidence uses local artifacts and the existing bounded-receipt pattern.
+
+### Explicit exclusions
+
+- no SQLite/FTS/session memory;
+- no RTK/context-mode command proxy;
+- no generic rule compiler before the buy-vs-build gate;
+- no daemon/watcher/cloud sync;
+- no model-specific adapters;
+- no more than Claude/Cursor/Codex in the first slice.
+
+Authoritative implementation sequence, tests, and stop conditions:
+`plans/agent-environment-preflight-plan.md`.
+
+---
+
 ## Куда смотреть дальше
 
 | Вопрос | Файл |

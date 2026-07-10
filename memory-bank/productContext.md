@@ -91,6 +91,51 @@ ScopeLock помогает разработчикам контролироват
 
 ---
 
+## 6. Multi-Agent Environment Preflight
+
+### Пользовательский сценарий
+- Пользователь назначает одну задачу или plan нескольким harness: Claude Code,
+  Cursor и Codex.
+- До запуска ScopeLock проверяет, что каждый target реально видит обязательные
+  project rules и skills, а его hooks/config соответствуют требуемому уровню
+  enforcement.
+- Если правила или skills расходятся, отсутствуют либо представлены
+  ненадёжным symlink, запуск блокируется или получает явное предупреждение с
+  конкретным способом исправления.
+- После выполнения receipt содержит версии harness и hashes эффективных
+  rules/skills, чтобы результат можно было воспроизвести и объяснить.
+
+### Product requirements
+- Использовать открытые стандарты: `AGENTS.md` для durable project guidance и
+  Agent Skills (`SKILL.md`) для reusable workflows. Не создавать собственный
+  формат skills.
+- Различать модель и harness. ScopeLock интегрируется с host/runtime, который
+  владеет tools, hooks и config; отдельный adapter для GLM или другой модели не
+  нужен.
+- Статическую materialization rules/skills сначала покупать или интегрировать:
+  Ruler и `skills` CLI с physical-copy mode должны пройти реальный spike до
+  любого собственного sync engine.
+- Уникальная ценность ScopeLock - не копирование файлов, а pre-dispatch parity
+  check, capability evidence и run-level attestation в receipt.
+- Nominal capability из документации недостаточна: hook enforcement должен
+  иметь status `live-verified` либо честно деградировать до audit/post-run.
+- Проверки local-first, deterministic и без LLM/network. В receipt запрещено
+  сохранять содержимое rules, skills, secrets или raw configs; только hashes и
+  ограниченные диагностические metadata.
+- First slice поддерживает Claude Code, Cursor и Codex. Новые harness добавляются
+  только после пользовательского сигнала и live fixture.
+
+### Product boundary
+ScopeLock не становится skill marketplace, универсальным rule manager,
+Context Mode/RTK proxy или OpenHands-подобным runtime. Ruler/skills
+распространяют; RTK/Context Mode оптимизируют контекст; harness исполняет;
+ScopeLock проверяет готовность, координирует и доказывает результат.
+
+Полный phased plan и decision gates:
+`plans/agent-environment-preflight-plan.md`.
+
+---
+
 ## Продуктовые принципы
 
 - Не продавать "AI diagram generator": продуктовая ценность в контроле scope, risks, tests и drift.
@@ -103,3 +148,8 @@ ScopeLock помогает разработчикам контролироват
 - Уменьшать friction: output должен экспортироваться в уже используемые tools.
 - Repeat usage важнее разового "вау": первый success metric - пользователь возвращается на следующую задачу.
 - Small scriptable devtool first: ScopeLock не должен копировать Traycer как desktop/cloud/collaboration platform; первый продукт - CLI/MCP guardrails utility.
+- Open standards before proprietary formats: `AGENTS.md`, Agent Skills и MCP
+  являются integration boundaries; собственный формат вводится только для
+  уникальных ScopeLock contracts/receipts.
+- Verify before synchronize: если экосистема уже умеет разложить rules/skills,
+  ScopeLock проверяет parity и provenance, а не дублирует materializer.

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-environment-preflight-handoff-docs",
+  "task": "Finalize agent environment preflight handoff documentation",
+  "createdAt": "2026-07-10T16:28:21.027Z",
+  "baseline": {
+    "headSha": "9d9f0e1515fc2e7710df1ab7e7d54189f91c1d5c",
+    "branch": "main",
+    "capturedAt": "2026-07-10T16:28:21.116Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/docs/agent-onboarding.md",
+      "memory-bank/productContext.md",
+      "memory-bank/techContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/plans/scopelock-implementation-plan.md",
+      "memory-bank/plans/agent-environment-preflight-plan.md",
+      ".scopelock/contracts/agent-environment-preflight-memory-bank.json",
+      ".scopelock/contracts/agent-environment-preflight-handoff-docs.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
