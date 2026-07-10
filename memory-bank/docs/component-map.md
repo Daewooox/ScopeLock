@@ -34,6 +34,12 @@
 | `packages/core/src/schemas/repo-manifest.ts` | Repo manifest схема, projectType enum |
 | `packages/core/src/schemas/config.ts` | `.scopelock/config.json` схема, mode warn/strict |
 | `packages/core/src/manifest/build.ts` | Build repo manifest from tracked git files |
+| `packages/core/src/schemas/agent-workspace.ts` | Agent workspace manifest v1 + preflight report Zod schemas |
+| `packages/core/src/agents/paths.ts` | Repo-relative path safety + POSIX normalization (preflight) |
+| `packages/core/src/agents/locations.ts` | Sole home of target-specific rule/skill paths; shared `.agents/skills` first-class |
+| `packages/core/src/agents/hash.ts` | SHA-256 file bytes + deterministic skill-dir digest |
+| `packages/core/src/agents/preflight.ts` | Read-only `runAgentPreflight`: presence/symlink/parity per target |
+| `packages/core/src/agent-preflight.test.ts` | Agent env preflight schema/hash/engine tests |
 | `packages/core/src/storage/paths.ts` | Layout `.scopelock/` (единственный источник путей) |
 | `packages/core/src/storage/atomic.ts` | writeJsonAtomic (temp + rename) |
 | `packages/core/src/storage/contracts.ts` | save/load contract, active-pointer |

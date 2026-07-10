@@ -28,3 +28,8 @@ export * from "./schedule/conflict-graph.js";
 export * from "./schedule/scheduler.js";
 export * from "./schedule/plan.js";
 export * from "./manifest/build.js";
+export * from "./schemas/agent-workspace.js";
+export * from "./agents/paths.js";
+export * from "./agents/locations.js";
+export * from "./agents/hash.js";
+export * from "./agents/preflight.js";

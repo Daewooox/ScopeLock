@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-env-preflight-core-step1",
+  "task": "Implement read-only agent environment preflight core schemas and engine",
+  "createdAt": "2026-07-10T17:29:26.370Z",
+  "baseline": {
+    "headSha": "1eb315276bba122256328e6e2b3de36c19b30fa9",
+    "branch": "main",
+    "capturedAt": "2026-07-10T17:39:53.197Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schemas/agent-workspace.ts",
+      "packages/core/src/agents/**",
+      "packages/core/src/agent-preflight.test.ts",
+      "packages/core/src/index.ts",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/plans/agent-environment-preflight-plan.md",
+      "memory-bank/docs/component-map.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/**",
+      "packages/mcp/src/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

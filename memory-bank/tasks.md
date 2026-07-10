@@ -1374,3 +1374,73 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] `pnpm demo:flight-control -- --output-dir .scopelock/reports/bounded-receipt-spike`.
 - [x] Real Codex K=1 bounded receipt measurement.
 <!-- TASK #0043 END -->
+
+<!-- TASK #0044 BEGIN
+     Owner: codex
+     Started: 2026-07-10T16:23Z
+     Status: plan
+-->
+## Задача #0044 - Agent Environment Preflight research and delegable plan
+
+- **Описание:** Зафиксировать product/SA решение по проблеме cross-harness rules,
+  skills, config divergence и symlink incompatibility; определить, что покупать,
+  интегрировать и строить в ScopeLock; подготовить пошаговый план для менее
+  опытного разработчика/агента.
+- **Уровень сложности:** Level 3 product/architecture plan.
+- **Статус:** RESEARCH + PLAN + Step 0 buy-vs-build spike завершены; следующий
+  production-шаг требует отдельного контракта.
+- **Контракты:** `agent-environment-preflight-memory-bank`,
+  `agent-environment-preflight-handoff-docs`, `agent-env-step0-spike` и active
+  `agent-env-step0-spike-docs`, baseline `9d9f0e1`.
+
+### Решения
+- Не строить второй Ruler, skill marketplace, RTK/Context Mode proxy или
+  OpenHands runtime.
+- Canonical formats: `AGENTS.md` + open Agent Skills (`SKILL.md`).
+- Проверить Ruler и `vercel-labs/skills --copy` на реальном fixture до любого
+  собственного materializer.
+- Новый ScopeLock differentiator: pre-dispatch environment parity/capability
+  check + hashes/provenance в bounded receipt.
+- Интегрироваться с harness, а не с model; GLM сам по себе не требует adapter.
+- Текущий `codex hooksSupport: none` признан stale по официальной документации;
+  production fix только после live probe отдельной задачей.
+
+### Артефакты
+- `memory-bank/plans/agent-environment-preflight-plan.md` - authoritative phased
+  plan, Step 0 fixture, decision gates, Steps 1-5, tests and stop conditions.
+- `memory-bank/productContext.md` - новый domain Multi-Agent Environment Preflight.
+- `memory-bank/techContext.md` - canonical artifacts, adapter/probe model,
+  manifest/preflight/receipt architecture.
+- `memory-bank/plans/scopelock-implementation-plan.md` - актуальный следующий шаг
+  переключён с уже завершённого MCP на Step 0 compatibility spike.
+- `memory-bank/plans/agent-environment-preflight-spike-verdict.md` - Step 0
+  evidence, gaps, metrics, commands, GO/NO-GO decisions.
+
+### Следующий делегируемый шаг
+- Начать Step 1 только под новым production-контрактом: read-only
+  `agents preflight` core schemas/engine, без `scopelock agents apply` и без
+  мутаций agent config.
+
+### DoD текущей planning-задачи
+- [x] Research conclusions сохранены в product/tech context.
+- [x] Direct competitor Ruler и open Agent Skills учтены.
+- [x] Детальный план делегируем без повторного исследования.
+- [x] Kill-criteria не позволяют начать speculative implementation.
+- [x] Step 0 experiment выполнен - verdict записан в
+  `plans/agent-environment-preflight-spike-verdict.md`.
+
+### Step 1 (production) - read-only preflight core - DONE
+
+- **Контракт:** `agent-env-preflight-core-step1` (approve baseline `9d9f0e1`, rebaselined после коммита inherited #0044 docs). Forbidden `packages/cli/src/**`, `packages/mcp/src/**` - CLI/MCP не тронуты.
+- **Реализовано (pure core, read-only, без commander/console/exit/network/мутаций):**
+  - `packages/core/src/agents/paths.ts` - repo-relative safety (`isRepoRelativeSafe`, `toPosix`, `resolveRepoPath`); отклоняет `../secret`, абсолютные, Windows-drive; POSIX-нормализация.
+  - `packages/core/src/schemas/agent-workspace.ts` - `agentWorkspaceManifestSchema` v1 (targets/rules/skills/policy), path-traversal через refine, duplicate target/rule/skill через `.superRefine`; переиспользует `agentIdSchema` (единый harness-enum); типизированные Zod-схемы отчёта (`agentEnvironmentPreflightReportSchema`) с `hookConfidence` заготовкой под Step 3.
+  - `packages/core/src/agents/locations.ts` - ЕДИНСТВЕННЫЙ дом target-специфичных путей; shared `.agents/skills/<name>` first-class (satisfies cursor+codex).
+  - `packages/core/src/agents/hash.ts` - SHA-256 по raw bytes; `hashSkillDir` детерминированный (сортировка по POSIX-rel path + bytes), исключает `.git`/cache, не следует за symlink в обходе, игнорирует чужие файлы вне skill-dir.
+  - `packages/core/src/agents/preflight.ts` - `runAgentPreflight({manifest, repoRoot})` → typed report; per-target rule/skill проверки: presence, symlink-детект при `requirePhysicalCopies`, parity vs canonical при `requireRuleParity`/`requireSkillParity`; missing required = violation, missing optional = warn; rollup pass/warn/fail.
+  - `packages/core/src/index.ts` - реэкспорт agents/* + agent-workspace.
+- **Тесты:** `packages/core/src/agent-preflight.test.ts` - 15 тестов (schema valid/invalid target/duplicates/traversal; path safety + separators; digest identical/byte-change/order-independent/foreign-file/`.git`-exclude; preflight pass, shared-path multi-target, missing required vs optional, symlink detect, parity mismatch). Все зелёные.
+- **Проверки:** `pnpm -r build` чист; `pnpm typecheck` чист (core/cli/mcp); core 70/70 (+15), cli 19/19, mcp 3/3; `git diff --check` чист; `check-drift` под контрактом = 0 violations после rebaseline.
+- **Ограничения / отложено:** нет harness discovery (executable/version probe - Step 2/3, требует process exec, не pure core); `hookConfidence` только тип, не заполняется; нет CLI-команды и мутаций.
+- **Следующий шаг:** Step 2 - CLI `scopelock agents preflight --manifest ... [--json]` (тонкая обёртка над core), ТОЛЬКО отдельным контрактом.
+<!-- TASK #0044 END -->

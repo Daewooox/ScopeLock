@@ -1,5 +1,48 @@
 # Активный контекст
 
+<!-- TASK #0044 BEGIN
+     Owner: codex
+     Started: 2026-07-10T16:23Z
+     Status: plan
+-->
+## Текущий следующий шаг - Agent Environment Preflight Step 1
+
+Research/PLAN и Step 0 buy-vs-build spike по сигналу design partner завершены.
+Статическую проблему разных
+`AGENTS.md`/`CLAUDE.md`, skill directories и symlink incompatibility уже частично
+решают open Agent Skills, `vercel-labs/skills --copy` и Ruler. Поэтому ScopeLock
+не строит второй universal rule/skill manager. Step 0 подтвердил: `skills --copy`
+и Ruler создают physical files без symlink и в целом закрывают static
+distribution, но есть gaps вокруг shared `.agents` ownership, remove/revert,
+existing generated docs и Codex hook trust. Новый продуктовый кандидат
+подтверждён как **environment attestation**: перед dispatch проверить, что каждый
+harness получил обязательные rules/skills, hashes совпадают, а enforcement
+capability подтверждена; после run записать provenance в bounded receipt.
+
+Verdict:
+`memory-bank/plans/agent-environment-preflight-spike-verdict.md`.
+
+Решения Step 0: **NO-GO** для собственного `scopelock agents apply` сейчас;
+**GO** для read-only ScopeLock environment attestation. Следующий production-шаг
+только под свежим контрактом: Step 1 core schemas/engine для preflight, без
+мутаций agent config и без `packages/**` вне нового scope.
+
+Важная техническая коррекция: текущий ScopeLock registry считает Codex hooks
+unsupported, но актуальная официальная документация Codex описывает
+`PreToolUse` в user/project `hooks.json` и `config.toml`. Это не исправлять
+вслепую: сначала live probe в Step 0, затем отдельный контракт/commit.
+
+**Step 1 (production) ЗАВЕРШЁН** под контрактом `agent-env-preflight-core-step1`.
+Добавлен read-only preflight core (pure, без commander/console/exit/network/мутаций):
+`agents/paths.ts` (repo-relative safety), `schemas/agent-workspace.ts` (manifest v1 +
+Zod report schema, duplicate/traversal reject, hookConfidence-заготовка под Step 3),
+`agents/locations.ts` (единственный дом target-путей, shared `.agents/skills` first-class),
+`agents/hash.ts` (SHA-256 raw bytes + детерминированный skill-dir digest), `agents/preflight.ts`
+(`runAgentPreflight` → typed report: presence/symlink/parity, required=violation/optional=warn).
+15 тестов зелёные; core 70/70, cli 19/19, mcp 3/3, typecheck чист; `check-drift` под контрактом = 0.
+CLI/MCP не тронуты. **Следующий шаг: Step 2 — CLI `scopelock agents preflight` только отдельным контрактом.**
+<!-- TASK #0044 END -->
+
 ## Текущий фокус
 Задача #0043 - bounded receipt spike ЗАВЕРШЕНА. `scopelock run --plan` теперь пишет receipt v2: в основном JSON остаются bounded previews command/stdout/stderr по 400 bytes, а полные raw command/stdout/stderr сохраняются локально рядом с receipt в `<receipt-name>-artifacts/` с bytes/sha256/previewBytes/truncated. Добавлен `handoffSummary`, `limits`, `artifactsDir`; analyzer теперь считает artifact bytes отдельно и извлекает Codex usage из raw stdout artifact. Измерения: deterministic demo receipt 6,657 bytes; real Codex K=1 `scopelock_run` receipt 15,191 bytes против baseline #0042 avg 30,306 bytes. Raw evidence сохранён вне receipt: commands 4,271 bytes, stdout 16,068 bytes, stderr 6,225 bytes. Decision: GO для bounded receipt v2; НЕ строить LLM summary/SQLite/FTS/command proxy до пользовательского сигнала. Отчёт: `memory-bank/plans/bounded-receipt-spike.md`.
 
