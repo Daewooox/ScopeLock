@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-env-codex-step3b-run-step4-v3",
+  "task": "Agent environment Step 3b Codex hook + Step 4 run receipt integration v3",
+  "createdAt": "2026-07-10T20:01:35.420Z",
+  "baseline": {
+    "headSha": "337364dfd0c42d501482851fce361cb50d7f59dc",
+    "branch": "main",
+    "capturedAt": "2026-07-10T20:01:35.519Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/agent-env-codex-step3b-run-step4*.json",
+      "packages/core/src/harness/**",
+      "packages/core/src/hook/gate.ts",
+      "packages/core/src/agents/hook-probe.ts",
+      "packages/core/src/schemas/agent-workspace.ts",
+      "packages/core/src/agent-preflight.test.ts",
+      "packages/core/src/hook.test.ts",
+      "packages/core/src/index.ts",
+      "packages/cli/src/commands/hooks.ts",
+      "packages/cli/src/commands/hook.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/commands/agents-preflight.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "benchmarks/coordination/run-flight-control-demo.mjs",
+      "benchmarks/coordination/run-flight-control-demo.test.mjs",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/docs/component-map.md",
+      "memory-bank/plans/agent-environment-preflight-plan.md",
+      "memory-bank/plans/agent-environment-preflight-spike-verdict.md",
+      "memory-bank/plans/agent-environment-preflight-step3b-step4.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/drift/**",
+      "packages/core/src/schedule/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

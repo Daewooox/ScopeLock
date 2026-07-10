@@ -3,34 +3,15 @@
 <!-- TASK #0044 BEGIN
      Owner: codex
      Started: 2026-07-10T16:23Z
-     Status: plan
+     Status: build
 -->
-## Текущий следующий шаг - Agent Environment Preflight Step 1
+## Текущий следующий шаг - Agent Environment Preflight Step 5
 
-Research/PLAN и Step 0 buy-vs-build spike по сигналу design partner завершены.
-Статическую проблему разных
-`AGENTS.md`/`CLAUDE.md`, skill directories и symlink incompatibility уже частично
-решают open Agent Skills, `vercel-labs/skills --copy` и Ruler. Поэтому ScopeLock
-не строит второй universal rule/skill manager. Step 0 подтвердил: `skills --copy`
-и Ruler создают physical files без symlink и в целом закрывают static
-distribution, но есть gaps вокруг shared `.agents` ownership, remove/revert,
-existing generated docs и Codex hook trust. Новый продуктовый кандидат
-подтверждён как **environment attestation**: перед dispatch проверить, что каждый
-harness получил обязательные rules/skills, hashes совпадают, а enforcement
-capability подтверждена; после run записать provenance в bounded receipt.
-
-Verdict:
-`memory-bank/plans/agent-environment-preflight-spike-verdict.md`.
-
-Решения Step 0: **NO-GO** для собственного `scopelock agents apply` сейчас;
-**GO** для read-only ScopeLock environment attestation. Следующий production-шаг
-только под свежим контрактом: Step 1 core schemas/engine для preflight, без
-мутаций agent config и без `packages/**` вне нового scope.
-
-Важная техническая коррекция: текущий ScopeLock registry считает Codex hooks
-unsupported, но актуальная официальная документация Codex описывает
-`PreToolUse` в user/project `hooks.json` и `config.toml`. Это не исправлять
-вслепую: сначала live probe в Step 0, затем отдельный контракт/commit.
+Agent Environment Preflight Steps 0-4 завершены. Решение Step 0 сохранилось:
+**NO-GO** для собственного `scopelock agents apply` сейчас, **GO** для
+read-only environment attestation. ScopeLock не копирует Ruler/skills CLI, а
+проверяет, что нужные rules/skills/hook capability реально присутствуют перед
+dispatch, и пишет hashes/provenance в bounded receipt.
 
 **Step 1 (production) ЗАВЕРШЁН** под контрактом `agent-env-preflight-core-step1`.
 Добавлен read-only preflight core (pure, без commander/console/exit/network/мутаций):
@@ -68,14 +49,29 @@ invalid-schema). core 70/70 (не менялся), cli **26/26 (+8)**, mcp 3/3, 
 получил hook-строку. +6 core + 1 CLI тест. core **76/76 (+21 итого)**, cli **27/27**,
 mcp 3/3, typecheck чист, `check-drift`=0. Codex hook file adapter (install/uninstall,
 парсинг реального события) **сознательно отложен** до отдельного live-суб-спайка
-с настоящим Codex CLI. Побочная находка (не мой баг, не чинил): `hooks install`
+с настоящим Codex CLI. Побочная находка: `hooks install`
 пишет файл, но всё равно репортит `NOT_INITIALIZED` без `scopelock init` первым.
 
-**Следующий шаг:** (a) Codex hook adapter live sub-spike (поймать реальное
-`apply_patch` PreToolUse событие, только тогда install/uninstall + `hook gate`
-парсинг под codex); (b) Step 4 - dispatcher + bounded receipt integration
-(gating по hook capability/parity в strict policy) - не начинать раньше (a)
-или без явного решения пропустить его.
+**Step 3b + Step 4 ЗАВЕРШЕНЫ** под контрактом
+`agent-env-codex-step3b-run-step4-v3`. Live Codex fixture поймал реальное
+`apply_patch` PreToolUse event; trusted/bypassed Codex hook заблокировал 3/3
+forbidden patch до записи, negative untrusted run подтвердил trust gap. В коде:
+`codexScopeLockEntry`, `.codex/hooks.json` merge с сохранением foreign entries,
+`hook gate --format codex`, extraction всех путей из native apply_patch payload,
+`hooks install` больше не пишет partial hook до `NOT_INITIALIZED`. `scopelock run
+--plan` теперь при наличии `.scopelock/agents.json` запускает preflight перед
+dispatch; strict блокирует task commands и пишет receipt, warn продолжает, но
+receipt получает `environment`. Receipt schema поднята до v3. Проверки:
+`pnpm typecheck`, `pnpm build && pnpm -r test` (core 78/78, cli 30/30, mcp 3/3),
+benchmark tests 7/7, live Codex-format hook smoke, `check-drift`=0,
+`pnpm demo:flight-control` зелёный.
+
+Основной отчёт: `memory-bank/plans/agent-environment-preflight-step3b-step4.md`.
+
+**Следующий шаг:** Step 5 - короткое видео/demo script + design-partner pilot.
+Показывать не “ещё одну CLI”, а end-to-end flight-control: missing skill blocks
+in strict, fix → preflight pass/warn, safe waves, Codex apply_patch deny,
+receipt v3 с environment provenance.
 <!-- TASK #0044 END -->
 
 ## Текущий фокус

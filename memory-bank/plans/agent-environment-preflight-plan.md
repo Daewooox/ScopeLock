@@ -1,6 +1,6 @@
 # Agent Environment Preflight: product and implementation plan
 
-> Status: approved direction; Step 0 is the next delegable task.
+> Status: Steps 0-4 implemented through Codex hook adapter + receipt integration.
 > Updated: 2026-07-10.
 > Owner of current planning task: codex, Task #0044.
 
@@ -362,6 +362,14 @@ Requirements:
 
 ### Step 3 - harness capability refresh and Codex hook adapter
 
+Status: implemented.
+
+Step 3a shipped nominal capabilities and config-file probes. Step 3b then live
+captured Codex `apply_patch` `PreToolUse` and verified deny behavior in an
+external fixture. Production now includes `.codex/hooks.json` merge,
+`hook gate --format codex`, and `apply_patch` path extraction. Static confidence
+remains `degraded` for Codex because project trust is not statically readable.
+
 Do not start until Step 0 records live behavior.
 
 Replace the overly coarse `hooksSupport: deny|audit|none` assumption with two
@@ -400,6 +408,14 @@ Cursor work:
 
 ### Step 4 - dispatcher and bounded receipt integration
 
+Status: implemented.
+
+Receipt schema is now v3. `scopelock run --plan` checks
+`.scopelock/agents.json` when present, blocks dispatch in strict mode on
+required violations, continues in warn mode while recording violations, and
+stores manifest/target digests plus hook confidence without raw rule/skill
+contents.
+
 Only after Steps 1-3 are stable.
 
 - If `.scopelock/agents.json` exists, run preflight before dispatch.
@@ -427,6 +443,8 @@ evidence, if needed, belongs in local artifacts and follows the existing
 bounded-receipt pattern.
 
 ### Step 5 - demo and design-partner validation
+
+Status: next.
 
 Build one deterministic demo with two states:
 

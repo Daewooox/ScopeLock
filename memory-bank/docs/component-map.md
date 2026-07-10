@@ -56,6 +56,7 @@
 | `packages/core/src/rules/test-heuristics.ts` | Required-test drift heuristic |
 | `packages/core/src/harness/registry.ts` | Agent adapters, docFile, hook support |
 | `packages/core/src/harness/claude-hooks.ts` | Claude Code ScopeLock hook entry |
+| `packages/core/src/harness/codex-hooks.ts` | Codex `apply_patch` PreToolUse ScopeLock hook entry |
 | `packages/core/src/harness/cursor-hooks.ts` | Cursor ScopeLock audit hook entry |
 | `packages/core/src/harness/hooks-merge.ts` | Idempotent install/uninstall hook configs |
 | `packages/core/src/hook/gate.ts` | Fast hook gate/audit decision engine |
@@ -86,7 +87,7 @@
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall agent hook configs |
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
-| `packages/cli/src/commands/run-plan.ts` | Thin dispatcher: waves, commands, drift, bounded receipt artifacts |
+| `packages/cli/src/commands/run-plan.ts` | Thin dispatcher: waves, commands, env preflight, bounded receipt artifacts |
 | `packages/cli/src/commands/agents-preflight.ts` | Thin CLI over `runAgentPreflight`; human fix hints, exit 0/1/2 |
 | `packages/cli/src/commands/manifest.ts` | Print deterministic tracked-file repo manifest |
 | `packages/mcp/src/index.ts` | Stdio bootstrap for the narrow ScopeLock MCP server |
@@ -102,6 +103,7 @@
 | `benchmarks/coordination/run-flight-control-demo.mjs` | One-command deterministic Flight Control demo |
 | `memory-bank/plans/scopelock-run-dogfood.md` | K=3 dispatcher dogfood evidence and SA decision |
 | `memory-bank/plans/flight-control-demo-receipt-baseline.md` | Demo and full-receipt K=3 baseline evidence |
+| `memory-bank/plans/agent-environment-preflight-step3b-step4.md` | Codex hook live spike + run receipt environment integration |
 
 ---
 

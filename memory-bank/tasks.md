@@ -138,7 +138,7 @@
 <!-- TASK #0006 BEGIN
      Owner: cursor-agent
      Started: 2026-07-05T19:25Z
-     Status: plan
+     Status: build
 -->
 ## Задача #0006 — Технический план реализации ScopeLock v1
 
@@ -1387,8 +1387,8 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   интегрировать и строить в ScopeLock; подготовить пошаговый план для менее
   опытного разработчика/агента.
 - **Уровень сложности:** Level 3 product/architecture plan.
-- **Статус:** RESEARCH + PLAN + Step 0 buy-vs-build spike завершены; следующий
-  production-шаг требует отдельного контракта.
+- **Статус:** RESEARCH + PLAN + Steps 0-4 завершены; следующий шаг Step 5
+  video/demo + design-partner pilot.
 - **Контракты:** `agent-environment-preflight-memory-bank`,
   `agent-environment-preflight-handoff-docs`, `agent-env-step0-spike` и active
   `agent-env-step0-spike-docs`, baseline `9d9f0e1`.
@@ -1415,11 +1415,15 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   переключён с уже завершённого MCP на Step 0 compatibility spike.
 - `memory-bank/plans/agent-environment-preflight-spike-verdict.md` - Step 0
   evidence, gaps, metrics, commands, GO/NO-GO decisions.
+- `memory-bank/plans/agent-environment-preflight-step3b-step4.md` - live Codex
+  apply_patch hook evidence + run receipt environment integration.
 
 ### Следующий делегируемый шаг
-- Начать Step 1 только под новым production-контрактом: read-only
-  `agents preflight` core schemas/engine, без `scopelock agents apply` и без
-  мутаций agent config.
+- Step 5: сделать короткий demo/video script и провести design-partner pilot.
+  Минимальный сценарий: missing required skill блокирует `scopelock run --plan`
+  в strict; после фикса preflight проходит/предупреждает; `plan_parallel` строит
+  safe waves; Codex `apply_patch` hook deny блокирует forbidden path; receipt v3
+  показывает `environment` provenance без raw contents.
 
 ### DoD текущей planning-задачи
 - [x] Research conclusions сохранены в product/tech context.
@@ -1428,6 +1432,7 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] Kill-criteria не позволяют начать speculative implementation.
 - [x] Step 0 experiment выполнен - verdict записан в
   `plans/agent-environment-preflight-spike-verdict.md`.
+- [x] Steps 1-4 реализованы и проверены под отдельными контрактами.
 
 ### Step 1 (production) - read-only preflight core - DONE
 
@@ -1470,4 +1475,20 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Проверки:** `pnpm -r build` + `pnpm typecheck` чисты; core **76/76 (+21 итого / +6 в этом шаге)**, cli **27/27 (+1)**, mcp 3/3; `git diff --check` чист; ручной smoke (temp git repo, реальный `hooks install`) подтвердил, что проба видит на 100% реальное состояние диска - неожиданно вскрыл существующий (не мой) баг: `hooks install` пишет файл, но всё равно репортит `NOT_INITIALIZED` без предварительного `scopelock init` - зафиксировано как отдельная находка, НЕ чинил (вне scope Step 3a, файл `hooks.ts` не в planned).
 - **Осознанно НЕ сделано:** Codex `.codex/hooks.json`/`config.toml` install/uninstall адаптер; парсинг реального Codex PreToolUse события в `hook gate`/`hook audit`; апгрейд Cursor до `canDeny`; какой-либо live/process-exec probe (только конфиг-файлы).
 - **Следующий шаг:** (a) Codex hook adapter live sub-spike - установить настоящий Codex CLI, поймать реальное `apply_patch` PreToolUse событие, только тогда строить install/uninstall + `hook gate` парсинг под отдельным контрактом; (b) Step 4 - dispatcher + bounded receipt integration (добавить `environment`-секцию в receipt, gating по `hookCapability`/parity в strict policy) - не начинать раньше стабильного Step 3.
+
+### Step 3b + Step 4 (production) - Codex hook adapter + run receipt environment - DONE
+
+- **Контракт:** `agent-env-codex-step3b-run-step4-v3` (approve baseline `337364d`, scope включает Codex hook adapter, hook gate parser/output, run-plan receipt, tests, Memory Bank).
+- **Live evidence:** внешний fixture `/tmp/scopelock-codex-hook-step3b`, Codex CLI `codex-cli 0.144.0-alpha.4`. Валидный `.codex/hooks.json` с `PreToolUse` поймал native `apply_patch` event (`tool_name:"apply_patch"`, полный patch в `tool_input.command`). With hook trust bypass/trusted mode: 2/2 allowed patch applied, 3/3 forbidden patch denied before mutation. Without trust bypass: hook не сработал, mutation applied. Вывод: adapter viable, но static confidence для Codex остаётся `degraded` из-за unverifiable project trust.
+- **Реализовано:**
+  - `packages/core/src/harness/codex-hooks.ts` - `codexScopeLockEntry()` для `.codex/hooks.json`, command `hook gate --format codex`.
+  - `packages/core/src/harness/hooks-merge.ts` - Codex install/remove/hasScopeLockHooks с сохранением foreign hook entries; `.codex/hooks.json` path.
+  - `packages/core/src/hook/gate.ts` - extraction всех paths из native `apply_patch` payload (`Add/Update/Delete File`, `Move to`); deny если любой touched path forbidden/outside.
+  - `packages/cli/src/commands/hook.ts` + `index.ts` - `hook gate --format codex` отдаёт Codex deny JSON через stdout.
+  - `packages/cli/src/commands/hooks.ts` - `--target codex`; mode/config проверяется до записи hook file, закрыт partial-write баг `NOT_INITIALIZED`.
+  - `packages/core/src/agents/hook-probe.ts` - Codex installed=true определяется по ScopeLock entry, confidence остаётся `degraded`.
+  - `packages/cli/src/commands/run-plan.ts` - при наличии `.scopelock/agents.json` preflight запускается перед dispatch; strict блокирует commands и пишет skipped receipt; warn продолжает и записывает violation provenance; receipt schemaVersion = 3, `environment` + `blockedByEnvironment`.
+- **Тесты/проверки:** `pnpm typecheck`; `pnpm build && pnpm -r test` → core 78/78, cli 30/30, mcp 3/3; `pnpm exec node --test benchmarks/coordination/*.test.mjs` → 7/7; live smoke `hook gate --format codex` вернул `permissionDecision:"deny"` для forbidden apply_patch payload; `node packages/cli/dist/index.js check-drift --json` → 0 violations; `pnpm demo:flight-control -- --output-dir /tmp/scopelock-flight-control-demo-step4` → ScopeLock 0 violations / 0 conflicts / 0 failed tests / 5 of 6 accepted.
+- **Ограничения:** ScopeLock не может статически доказать, что пользователь доверил project `.codex` layer. Поэтому Codex hook confidence не апгрейдится до `live-verified` в обычном preflight; это честный degraded signal, не продуктовая слабость.
+- **Следующий шаг:** Step 5 - demo/video + pilot на реальном репозитории design partner; не добавлять новую инфраструктуру до реакции пользователя.
 <!-- TASK #0044 END -->

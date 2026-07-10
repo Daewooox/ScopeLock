@@ -69,6 +69,18 @@ Important doc-backed hook facts:
 - Current docs explicitly say `PreToolUse` is incomplete for some shell paths, so
   ScopeLock must model observed confidence, not a blanket hard-enforcement claim.
 
+Follow-up Step 3b (2026-07-10):
+
+- A dedicated external Codex fixture captured the real native `apply_patch`
+  `PreToolUse` event shape.
+- With trusted/bypassed hook trust, Codex denied 3/3 forbidden `apply_patch`
+  mutations before write.
+- Without hook trust bypass, the same project-local hook did not run and the
+  mutation applied.
+- Therefore the Codex adapter is viable, but static preflight still reports
+  hook confidence as `degraded` because project trust cannot be verified from
+  files alone.
+
 ## Commands Run
 
 ### skills CLI
