@@ -40,7 +40,20 @@ Zod report schema, duplicate/traversal reject, hookConfidence-заготовка
 `agents/hash.ts` (SHA-256 raw bytes + детерминированный skill-dir digest), `agents/preflight.ts`
 (`runAgentPreflight` → typed report: presence/symlink/parity, required=violation/optional=warn).
 15 тестов зелёные; core 70/70, cli 19/19, mcp 3/3, typecheck чист; `check-drift` под контрактом = 0.
-CLI/MCP не тронуты. **Следующий шаг: Step 2 — CLI `scopelock agents preflight` только отдельным контрактом.**
+CLI/MCP не тронуты.
+
+**Step 2 (production) ЗАВЕРШЁН** под контрактом `agent-env-preflight-cli-step2`.
+Добавлена `scopelock agents preflight --manifest <path> [--target <id>] [--json]` -
+тонкая обёртка над core: читает + Zod-валидирует манифест, опциональный
+`--target` фильтрует с проверкой (`UNKNOWN_TARGET`), вызывает `runAgentPreflight`,
+Zod-валидирует итоговый отчёт перед выводом. Human-вывод даёт per-target
+status/rules/skills и per-violation `severity`/`detail`/`fix` (конкретная
+`ruler`/`skills --copy` команда - ничего не выполняется). Exit `1` при
+violations, `2` при операционных ошибках. +8 тестов (all-pass, missing-required,
+missing-optional=warn, `--target`-фильтр, unknown-target, missing-manifest,
+invalid-schema). core 70/70 (не менялся), cli **26/26 (+8)**, mcp 3/3, typecheck
+чист, `check-drift`=0. **Следующий шаг: Step 3 — harness capability refresh +
+Codex hook adapter (live/config probe), только отдельным контрактом.**
 <!-- TASK #0044 END -->
 
 ## Текущий фокус

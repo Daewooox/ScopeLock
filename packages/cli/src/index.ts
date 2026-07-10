@@ -12,6 +12,7 @@ import { hookGateCommand } from "./commands/hook.js";
 import { contractNewCommand } from "./commands/contract-new.js";
 import { planParallelCommand } from "./commands/plan-parallel.js";
 import { manifestCommand } from "./commands/manifest.js";
+import { agentsPreflightCommand } from "./commands/agents-preflight.js";
 import { runPlanCommand } from "./commands/run-plan.js";
 import {
   hooksInstallCommand,
@@ -163,6 +164,19 @@ program
       },
       command: Command,
     ) => run(() => runPlanCommand(options), jsonOf(command)),
+  );
+
+const agents = program.command("agents").description("agent environment attestation");
+
+agents
+  .command("preflight")
+  .description("verify agent rules/skills are physically present and consistent before dispatch (read-only)")
+  .requiredOption("--manifest <path>", "path to an agent workspace manifest JSON file")
+  .option("--target <id>", "restrict the check to this target (repeatable)", collect, [])
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (options: { manifest: string; target: string[] }, command: Command) =>
+      run(() => agentsPreflightCommand(options), jsonOf(command)),
   );
 
 const hook = program.command("hook").description("internal hook entrypoints");

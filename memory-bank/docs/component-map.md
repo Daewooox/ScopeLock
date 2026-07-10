@@ -85,6 +85,7 @@
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
 | `packages/cli/src/commands/run-plan.ts` | Thin dispatcher: waves, commands, drift, bounded receipt artifacts |
+| `packages/cli/src/commands/agents-preflight.ts` | Thin CLI over `runAgentPreflight`; human fix hints, exit 0/1/2 |
 | `packages/cli/src/commands/manifest.ts` | Print deterministic tracked-file repo manifest |
 | `packages/mcp/src/index.ts` | Stdio bootstrap for the narrow ScopeLock MCP server |
 | `packages/mcp/src/tools.ts` | MCP adapters for plan_parallel, scopes_conflict, check_drift |
