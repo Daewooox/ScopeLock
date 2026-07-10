@@ -87,8 +87,9 @@
 | `docs/parallel-workflow.md` | Guide: running N agents in parallel via plan-parallel (real commands/output) |
 | `examples/parallel/` | Reproducible 4-task plan-parallel example (draft contracts, one-command repro) |
 | `benchmarks/coordination/run-benchmark.mjs` | Deterministic multi-agent coordination benchmark harness |
-| `benchmarks/coordination/run-codex-real-agent-benchmark.mjs` | Real Codex CLI K-run coordination benchmark harness |
+| `benchmarks/coordination/run-codex-real-agent-benchmark.mjs` | Real Codex K-run benchmark incl. thin dispatcher dogfood |
 | `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs` | Zero-run smoke test for real-agent harness |
+| `memory-bank/plans/scopelock-run-dogfood.md` | K=3 dispatcher dogfood evidence and SA decision |
 
 ---
 

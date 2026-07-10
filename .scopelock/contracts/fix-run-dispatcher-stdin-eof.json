@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-run-dispatcher-stdin-eof",
+  "task": "Fix dispatcher child stdin hang found by dogfood",
+  "createdAt": "2026-07-10T08:39:09.457Z",
+  "baseline": {
+    "headSha": "7b8ccff345676d9257faa489e8a772de154bdc1d",
+    "branch": "main",
+    "capturedAt": "2026-07-10T08:39:09.545Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.mjs",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs",
+      "memory-bank/plans/scopelock-run-dogfood.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/docs/component-map.md",
+      ".scopelock/contracts/fix-run-dispatcher-stdin-eof.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/mcp/**",
+      "README.md",
+      ".github/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

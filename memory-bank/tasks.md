@@ -1263,3 +1263,48 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] `check-drift`: 0 violations.
 - [ ] GitHub Actions Windows Node 22/24 после push.
 <!-- TASK #0040 END -->
+
+<!-- TASK #0041 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: done
+-->
+## Задача #0041 - Real-agent `scopelock run --plan` dogfood K=3
+
+- **Описание:** Проверить thin dispatcher end to end на реальных Codex agents: task contracts, run-level contract, dry-run schedule, waves, defer, tests, drift и receipt.
+- **Уровень сложности:** Level 3 validation/build.
+- **Статус:** DONE; GO для thin dispatcher/receipt concept.
+- **Контракты:** `scopelock-run-dogfood-k3`, затем defect-fix contract `fix-run-dispatcher-stdin-eof`, baseline `7b8ccff`.
+
+### Артефакты
+- `benchmarks/coordination/run-codex-real-agent-benchmark.mjs`: новый режим `scopelock_run`.
+- `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs`: zero-run mode smoke.
+- `packages/cli/src/commands/run-plan.ts`: child stdin fix.
+- `packages/cli/src/cli.test.ts`: EOF regression test.
+- `memory-bank/plans/scopelock-run-dogfood.md`: SA report and decision.
+
+### K=3 result
+- 0 scope violations.
+- 0 unresolved conflicts.
+- 2 detected/prevented hazards.
+- 0 failed tests.
+- 5/6 accepted; `t4-tax-9` intentionally deferred.
+- Avg wall-clock 58.1s; avg parallel factor 2.12x.
+- Avg receipt size 30.1 KB; final drift `ok` in all runs.
+
+### Decision
+- GO: retain thin dispatcher as Flight Control/receipt layer.
+- No Codex preset yet; raw argv is sufficient as machine-generated plan data.
+- No daemon/retries/worktrees/sessions/cloud/LLM planner.
+- Before unattended external use, evaluate per-task timeout/progress and bounded/redacted receipt output.
+- Next product step: one-command demo + 5 Stage 0 interviews.
+
+### DoD
+- [x] Dry-run schedule equals dispatcher receipt schedule in K=3.
+- [x] Real Codex tasks execute by waves.
+- [x] Write-write task is deferred; read-write reader runs after writer.
+- [x] Tests/drift/acceptance metrics captured.
+- [x] Reproducible stdin hang fixed with regression test.
+- [x] Memory Bank report written.
+- [x] Full repo checks pass; commit and push prepared.
+<!-- TASK #0041 END -->

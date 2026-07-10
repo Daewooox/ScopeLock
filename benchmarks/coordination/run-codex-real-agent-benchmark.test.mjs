@@ -15,3 +15,15 @@ test("real-agent benchmark supports a zero-run smoke mode", () => {
   assert.deepEqual(result.results, []);
   assert.deepEqual(result.summary, []);
 });
+
+test("real-agent benchmark accepts the scopelock_run mode without launching agents", () => {
+  const output = execFileSync(
+    "node",
+    [scriptPath, "--runs", "0", "--modes", "scopelock_run"],
+    { encoding: "utf8" },
+  );
+  const result = JSON.parse(output);
+
+  assert.deepEqual(result.modes, ["scopelock_run"]);
+  assert.deepEqual(result.results, []);
+});

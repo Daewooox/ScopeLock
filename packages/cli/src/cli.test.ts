@@ -584,6 +584,46 @@ describe("run", () => {
     }
   });
 
+  it("closes child stdin so non-interactive commands receive EOF", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "stdin.json"), "stdin", ["stdin-eof.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "stdin-eof-demo",
+          tasks: [
+            {
+              id: "stdin",
+              contract: "stdin.json",
+              command: [
+                process.execPath,
+                "-e",
+                "process.stdin.resume();process.stdin.on('end',()=>require('node:fs').writeFileSync('stdin-eof.txt','ok'))",
+              ],
+            },
+          ],
+        }),
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        [CLI, "--json", "run", "--plan", "plan.json", "--no-check-drift"],
+        { cwd: dir, encoding: "utf8", input: "", timeout: 2_000 },
+      );
+
+      assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+      assert.equal(await readFile(join(dir, "stdin-eof.txt"), "utf8"), "ok");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("defers one side of a write-write conflict before dispatch", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "scopelock-run-dogfood-k3",
+  "task": "Dogfood scopelock run with real Codex agents",
+  "createdAt": "2026-07-10T08:32:30.248Z",
+  "baseline": {
+    "headSha": "7b8ccff345676d9257faa489e8a772de154bdc1d",
+    "branch": "main",
+    "capturedAt": "2026-07-10T08:32:30.336Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "benchmarks/coordination/run-codex-real-agent-benchmark.mjs",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs",
+      "memory-bank/plans/scopelock-run-dogfood.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/docs/component-map.md",
+      ".scopelock/contracts/scopelock-run-dogfood-k3.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md",
+      ".github/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
