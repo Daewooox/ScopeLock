@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "walletassignment-demo-plan",
+  "task": "Plan WalletAssignment demo for ScopeLock",
+  "createdAt": "2026-07-10T20:59:04.744Z",
+  "baseline": {
+    "headSha": "a7bea24c98919d24f0b23b786927a64b7e506e9a",
+    "branch": "main",
+    "capturedAt": "2026-07-10T20:59:04.838Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/walletassignment-demo-plan.json",
+      "memory-bank/plans/walletassignment-demo-plan.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "benchmarks/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

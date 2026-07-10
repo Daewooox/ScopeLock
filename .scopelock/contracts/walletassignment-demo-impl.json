@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "walletassignment-demo-impl",
+  "task": "Implement WalletAssignment demo harness",
+  "createdAt": "2026-07-10T21:17:56.408Z",
+  "baseline": {
+    "headSha": "a7bea24c98919d24f0b23b786927a64b7e506e9a",
+    "branch": "main",
+    "capturedAt": "2026-07-10T21:17:56.501Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/walletassignment-demo-plan.json",
+      ".scopelock/contracts/walletassignment-demo-impl.json",
+      "package.json",
+      "benchmarks/coordination/run-wallet-demo.mjs",
+      "benchmarks/coordination/run-wallet-demo.test.mjs",
+      "memory-bank/plans/walletassignment-demo-plan.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      "memory-bank/docs/component-map.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

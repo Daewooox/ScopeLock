@@ -90,6 +90,15 @@ benchmark tests 7/7, live Codex-format hook smoke, `check-drift`=0,
 end-to-end flight-control: missing skill blocks in strict, fix → preflight
 pass/warn, safe waves, Codex apply_patch deny/live-verify, receipt v3 с
 environment provenance.
+
+**WalletAssignment demo Track B РЕАЛИЗОВАН**: добавлен `pnpm demo:wallet`.
+Команда пробует клонировать `Daewooox/WalletAssignment`, а для тестов/записи без
+сети имеет `--offline-fixture`. Сценарий: baseline `swift test` → missing skill
+strict block → skill fix + `agents preflight` → safe waves
+`[wallet-core-rules] -> [wallet-concurrency-tests, wallet-docs-demo]` → Codex
+`Package.swift` hook deny → final `swift test` → final `check-drift` → receipt v3.
+Проверено на real GitHub clone: все шаги PASS. Решение сохраняется: не строить
+generic importer/runner/UI; это узкий demo harness для design-partner показа.
 <!-- TASK #0044 END -->
 
 ## Текущий фокус

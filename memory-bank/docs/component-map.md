@@ -103,6 +103,8 @@
 | `benchmarks/coordination/run-flight-control-demo.mjs` | One-command deterministic Flight Control demo |
 | `benchmarks/coordination/run-pilot-demo.mjs` | Pilot demo: env block, safe waves, Codex deny, receipt v3 |
 | `benchmarks/coordination/run-pilot-demo.test.mjs` | Regression test for pilot demo storyline |
+| `benchmarks/coordination/run-wallet-demo.mjs` | WalletAssignment real-repo demo harness |
+| `benchmarks/coordination/run-wallet-demo.test.mjs` | Smoke test for WalletAssignment demo |
 | `memory-bank/plans/scopelock-run-dogfood.md` | K=3 dispatcher dogfood evidence and SA decision |
 | `memory-bank/plans/flight-control-demo-receipt-baseline.md` | Demo and full-receipt K=3 baseline evidence |
 | `memory-bank/plans/agent-environment-preflight-step3b-step4.md` | Codex hook live spike + run receipt environment integration |

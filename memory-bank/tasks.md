@@ -1387,8 +1387,8 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   интегрировать и строить в ScopeLock; подготовить пошаговый план для менее
   опытного разработчика/агента.
 - **Уровень сложности:** Level 3 product/architecture plan.
-- **Статус:** RESEARCH + PLAN + Steps 0-5a завершены; следующий шаг video script
-  + design-partner pilot.
+- **Статус:** RESEARCH + PLAN + Steps 0-5c завершены; следующий шаг video script
+  + design-partner pilot на `pnpm demo:wallet`.
 - **Контракты:** `agent-environment-preflight-memory-bank`,
   `agent-environment-preflight-handoff-docs`, `agent-env-step0-spike` и active
   `agent-env-step0-spike-docs`, baseline `9d9f0e1`.
@@ -1419,6 +1419,8 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   apply_patch hook evidence + run receipt environment integration.
 - `memory-bank/plans/agent-environment-preflight-step5-pilot-demo.md` -
   one-command pilot demo + Codex hook live verification evidence.
+- `memory-bank/plans/walletassignment-demo-plan.md` - detailed demo plan for
+  `Daewooox/WalletAssignment` as real compact repo Track B.
 
 ### Следующий делегируемый шаг
 - Step 5b: записать короткий demo/video script и провести design-partner pilot.
@@ -1426,6 +1428,8 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   missing required skill block → fix → safe waves → Codex `apply_patch` hook deny
   → receipt v3. Для trust gap использовать `scopelock hooks verify --target codex`
   как live evidence; без passed verification Codex остаётся `degraded`.
+- Следующий шаг: записать короткий video script и показать `pnpm demo:wallet`
+  как real-repo proof; `pnpm demo:pilot` оставить deterministic fallback.
 
 ### DoD текущей planning-задачи
 - [x] Research conclusions сохранены в product/tech context.
@@ -1436,6 +1440,8 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   `plans/agent-environment-preflight-spike-verdict.md`.
 - [x] Steps 1-4 реализованы и проверены под отдельными контрактами.
 - [x] Step 5a реализован: one-command pilot demo + Codex hook live verification.
+- [x] Step 5b demo plan для WalletAssignment записан.
+- [x] Step 5c реализован: `pnpm demo:wallet` real-repo demo harness.
 
 ### Step 1 (production) - read-only preflight core - DONE
 
@@ -1508,4 +1514,25 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Codex trust gap decision:** не угадывать project trust из файлов. Проверять живым harmless probe: если forbidden `apply_patch` не мутировал файл и вывел ScopeLock denial, записывать live evidence; иначе confidence degraded и понятный detail/fix.
 - **Тесты/проверки:** `pnpm typecheck`; `pnpm build`; `pnpm -r test` → core 79/79, cli 31/31, mcp 3/3; `pnpm exec node --test benchmarks/coordination/*.test.mjs` → 8/8; `pnpm demo:pilot -- --output-dir .scopelock/reports/pilot-demo` → PASS all steps; `node packages/cli/dist/index.js check-drift --json` → 0 violations; `git diff --check` clean.
 - **Следующий шаг:** сделать видео/demo script поверх `pnpm demo:pilot`, отдельно показать `hooks verify --target codex` на trusted Codex repo, затем провести 1 design-partner pilot.
+
+### Step 5b (planning) - WalletAssignment real-repo demo plan - DONE
+
+- **Контракт:** `walletassignment-demo-plan` (docs-only; forbidden `packages/**`, `benchmarks/**`).
+- **Repo candidate:** `Daewooox/WalletAssignment` подходит как compact real repo: Swift package, понятный wallet domain, реальные инварианты (`nonce`, replay, duplicate transaction, actor serialization), `swift test` локально зелёный (15 tests).
+- **Решение:** держать два трека:
+  - Track A: `pnpm demo:pilot` как deterministic recording fallback.
+  - Track B: будущий `pnpm demo:wallet` как real-repo proof.
+- **План записан:** `memory-bank/plans/walletassignment-demo-plan.md`.
+- **Следующий делегируемый шаг:** реализовать `benchmarks/coordination/run-wallet-demo.mjs` + `pnpm demo:wallet` + smoke test with graceful skip when `swift` unavailable. Не строить generic importer, UI, новый runner abstraction или live-agent dependency.
+
+### Step 5c (production/demo) - WalletAssignment demo harness - DONE
+
+- **Контракт:** `walletassignment-demo-impl` (implementation scope: wallet demo harness/test, root script, Memory Bank; forbidden `packages/**`).
+- **Реализовано:**
+  - `package.json` - `pnpm demo:wallet`.
+  - `benchmarks/coordination/run-wallet-demo.mjs` - узкий demo harness: clone `Daewooox/WalletAssignment` by default, `--source-dir`, `--clone-url`, `--offline-fixture`, graceful blocked summary when Swift unavailable or baseline `swift test` fails.
+  - `benchmarks/coordination/run-wallet-demo.test.mjs` - smoke test; skips gracefully if Swift unavailable/baseline unsupported.
+- **Сценарий:** baseline `swift test` → missing required skill blocks strict `scopelock run --plan` → add `.agents/skills/wallet-domain-review/SKILL.md` → `agents preflight` pass → `plan-parallel --include-read-hazards` gives `[wallet-core-rules] -> [wallet-concurrency-tests, wallet-docs-demo]` → synthetic Codex `apply_patch` touching forbidden `Package.swift` is denied → final `scopelock run --plan` → final `swift test` pass → final `check-drift` pass → receipt v3.
+- **Проверки:** `node benchmarks/coordination/run-wallet-demo.mjs --offline-fixture --output-dir .scopelock/reports/wallet-demo` PASS all steps; `pnpm demo:wallet -- --output-dir .scopelock/reports/wallet-demo-live` cloned real GitHub repo and PASS all steps.
+- **Следующий шаг:** video script/recording. Показывать `demo:wallet` как реальный repo proof, `demo:pilot` как stable fallback. Не добавлять generic importer/runner/UI до реакции design partner.
 <!-- TASK #0044 END -->
