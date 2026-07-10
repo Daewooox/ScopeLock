@@ -8,8 +8,10 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm --filter @scopelock/core build && pnpm -r typecheck"
+    "test": "pnpm -r test && node --test benchmarks/coordination/*.test.mjs",
+    "typecheck": "pnpm --filter @scopelock/core build && pnpm -r typecheck",
+    "demo:flight-control": "pnpm build && node benchmarks/coordination/run-flight-control-demo.mjs",
+    "benchmark:receipt": "pnpm build && node benchmarks/coordination/run-codex-real-agent-benchmark.mjs --runs 3 --modes scopelock_run --output-dir .scopelock/reports/receipt-baseline"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
