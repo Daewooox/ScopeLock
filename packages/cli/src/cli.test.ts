@@ -537,6 +537,42 @@ describe("agents preflight", () => {
       assert.equal(body.data.report.summary.status, "pass");
       assert.equal(body.data.report.summary.violationsCount, 0);
       assert.equal(body.data.report.targets.length, 3);
+
+      const claude = body.data.report.targets.find((t: { id: string }) => t.id === "claude");
+      const cursor = body.data.report.targets.find((t: { id: string }) => t.id === "cursor");
+      const codex = body.data.report.targets.find((t: { id: string }) => t.id === "codex");
+      assert.equal(claude.hook.capabilities.confidence, "documented");
+      assert.equal(claude.hook.capabilities.canDeny, true);
+      assert.equal(cursor.hook.capabilities.canDeny, false);
+      // codex: no dedicated hook adapter yet, always degraded (see capabilities.ts)
+      assert.equal(codex.hook.capabilities.confidence, "degraded");
+      assert.equal(codex.hook.installed, false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reflects a real installed claude hook entry as installed=true, confidence=documented", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      assert.equal(runCli(dir, ["hooks", "install", "--target", "claude", "--local"]).status, 0);
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["claude"],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      const claude = body.data.report.targets[0];
+      assert.equal(claude.hook.installed, true);
+      assert.equal(claude.hook.capabilities.confidence, "documented");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

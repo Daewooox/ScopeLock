@@ -9,6 +9,7 @@ import type {
 } from "../schemas/agent-workspace.js";
 import { AGENT_ENVIRONMENT_PREFLIGHT_REPORT_SCHEMA_VERSION } from "../schemas/agent-workspace.js";
 import { hashFileBytes, hashSkillDir } from "./hash.js";
+import { probeHookConfig } from "./hook-probe.js";
 import { ruleTargetPaths, skillTargetDirs } from "./locations.js";
 import { resolveRepoPath } from "./paths.js";
 
@@ -195,6 +196,7 @@ export function runAgentPreflight(input: {
       ruleResults,
       skillResults,
       violations,
+      hook: probeHookConfig(repoRoot, target),
     };
   });
 

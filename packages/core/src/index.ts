@@ -33,3 +33,5 @@ export * from "./agents/paths.js";
 export * from "./agents/locations.js";
 export * from "./agents/hash.js";
 export * from "./agents/preflight.js";
+export * from "./agents/hook-probe.js";
+export * from "./harness/capabilities.js";
