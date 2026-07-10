@@ -141,8 +141,12 @@ async function runCommand(cwd: string, task: RunTask): Promise<TaskRun> {
   const command = task.command;
   return new Promise((resolve) => {
     const child = Array.isArray(command)
-      ? spawn(command[0] as string, command.slice(1), { cwd, shell: false })
-      : spawn(command, [], { cwd, shell: true });
+      ? spawn(command[0] as string, command.slice(1), {
+          cwd,
+          shell: false,
+          stdio: ["ignore", "pipe", "pipe"],
+        })
+      : spawn(command, [], { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => {

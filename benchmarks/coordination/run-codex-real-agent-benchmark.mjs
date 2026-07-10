@@ -143,7 +143,7 @@ const taskSpecs = [
   },
 ];
 
-function writeContracts(root) {
+function writeContracts(root, mode) {
   sh(root, "node", [scopelockCli, "init"]);
   write(root, ".scopelock/config.json", JSON.stringify({ schemaVersion: 1, mode: "strict" }, null, 2));
   const contracts = [];
@@ -170,8 +170,43 @@ function writeContracts(root) {
   write(root, "plan.json", JSON.stringify({
     schemaVersion: 1,
     planId: "codex-real-agent-benchmark",
-    tasks: taskSpecs.map((task, index) => ({ id: task.id, contract: contracts[index] })),
+    tasks: taskSpecs.map((task, index) => ({
+      id: task.id,
+      contract: contracts[index],
+      ...(mode === "scopelock_run"
+        ? { command: [codexBin, ...codexArgs(root, task, "contracts_hooks_plan_parallel")] }
+        : {}),
+    })),
   }, null, 2));
+
+  if (mode === "scopelock_run") {
+    const runDraft = join(root, "dogfood-run.draft.json");
+    const planned = [...new Set(taskSpecs.flatMap((task) => task.planned))];
+    const draft = sh(root, "node", [
+      scopelockCli,
+      "contract",
+      "new",
+      "--id",
+      "dogfood-run",
+      "--task",
+      "Run real Codex tasks through the ScopeLock dispatcher",
+      ...planned.flatMap((glob) => ["--planned", glob]),
+      "--planned",
+      ".scopelock/contracts/dogfood-run.json",
+      "--agent",
+      "codex",
+      "--test",
+      "unit",
+      "--out",
+      runDraft,
+    ]);
+    if (draft.status !== 0) throw new Error(`run contract draft failed:\n${draft.stdout}\n${draft.stderr}`);
+
+    git(root, ["add", "."]);
+    git(root, ["commit", "-m", "scopelock run setup", "-q"]);
+    const approved = sh(root, "node", [scopelockCli, "approve", runDraft]);
+    if (approved.status !== 0) throw new Error(`run contract approve failed:\n${approved.stdout}\n${approved.stderr}`);
+  }
 }
 
 function planParallel(root) {
@@ -202,20 +237,24 @@ function promptFor(task, mode) {
   return `${prefix}${body}\nRun the smallest relevant node test command if you add tests. Keep the final answer short.`;
 }
 
+function codexArgs(root, task, mode) {
+  return [
+    "exec",
+    "-C",
+    root,
+    "--ephemeral",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--json",
+    promptFor(task, mode),
+  ];
+}
+
 function runCodexAgent(root, task, mode) {
   return new Promise((resolveRun) => {
     const startedAt = performance.now();
-    const child = spawn(codexBin, [
-      "exec",
-      "-C",
-      root,
-      "--ephemeral",
-      "--ignore-user-config",
-      "--ignore-rules",
-      "--dangerously-bypass-approvals-and-sandbox",
-      "--json",
-      promptFor(task, mode),
-    ], {
+    const child = spawn(codexBin, codexArgs(root, task, mode), {
       cwd: root,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -250,6 +289,28 @@ function parseUsage(stdout) {
   } catch {
     return null;
   }
+}
+
+function runScopeLockDispatcher(root) {
+  const result = sh(root, "node", [
+    scopelockCli,
+    "--json",
+    "run",
+    "--plan",
+    "plan.json",
+    "--receipt",
+    ".scopelock/reports/dogfood-run.json",
+  ]);
+  if (result.status > 1) {
+    throw new Error(`scopelock run failed:\n${result.stdout}\n${result.stderr}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    throw new Error(`scopelock run returned invalid JSON:\n${result.stdout}\n${result.stderr}`);
+  }
+  return { exitCode: result.status, receipt: parsed.data.receipt };
 }
 
 function runTests(root) {
@@ -310,9 +371,33 @@ async function runMode(mode, runIndex) {
   let detectedPreventedConflicts = 0;
   const startedAt = performance.now();
   try {
-    if (mode !== "without_scopelock") writeContracts(root);
+    if (mode !== "without_scopelock") writeContracts(root, mode);
     let agentRuns = [];
-    if (mode === "contracts_hooks_plan_parallel") {
+    let dispatcher = null;
+    let scheduleMatchesDryRun = null;
+    if (mode === "scopelock_run") {
+      const dryRunSchedule = planParallel(root);
+      dispatcher = runScopeLockDispatcher(root);
+      schedule = {
+        waves: dispatcher.receipt.waves,
+        conflicts: dispatcher.receipt.conflicts,
+        cycles: dispatcher.receipt.cycles,
+      };
+      scheduleMatchesDryRun =
+        JSON.stringify({ planId: dispatcher.receipt.planId, ...schedule }) ===
+        JSON.stringify(dryRunSchedule);
+      if (!scheduleMatchesDryRun) throw new Error("dispatcher schedule differs from plan-parallel dry-run");
+      deferred = new Set(dispatcher.receipt.deferredTasks);
+      detectedPreventedConflicts = dispatcher.receipt.conflicts.length;
+      agentRuns = dispatcher.receipt.taskRuns.map((task) => ({
+        taskId: task.id,
+        code: task.exitCode,
+        status: task.status,
+        durationMs: task.durationMs,
+        usage: parseUsage(task.stdout),
+        stderrTail: task.stderr.trim().split("\n").filter(Boolean).slice(-5),
+      }));
+    } else if (mode === "contracts_hooks_plan_parallel") {
       schedule = planParallel(root);
       for (const conflict of schedule.conflicts) {
         if (conflict.kind === "write-write") deferred.add([conflict.a, conflict.b].sort()[1]);
@@ -329,6 +414,12 @@ async function runMode(mode, runIndex) {
     const violations = scopeViolations(files);
     const tests = runTests(root);
     const runnableTasks = taskSpecs.filter((task) => !deferred.has(task.id));
+    const taskDurationSumMs = dispatcher
+      ? dispatcher.receipt.taskRuns.reduce((sum, task) => sum + task.durationMs, 0)
+      : null;
+    const receiptDurationMs = dispatcher
+      ? Date.parse(dispatcher.receipt.finishedAt) - Date.parse(dispatcher.receipt.startedAt)
+      : null;
     return {
       run: runIndex,
       mode,
@@ -347,6 +438,16 @@ async function runMode(mode, runIndex) {
       acceptedTasks: acceptedCount(root, runnableTasks),
       totalTasks: taskSpecs.length,
       wallClockMs: Math.round(performance.now() - startedAt),
+      dispatcherExitCode: dispatcher?.exitCode ?? null,
+      driftStatus: dispatcher?.receipt.drift?.status ?? null,
+      receiptSizeBytes: dispatcher ? Buffer.byteLength(JSON.stringify(dispatcher.receipt)) : null,
+      taskDurationSumMs,
+      receiptDurationMs,
+      parallelFactor:
+        taskDurationSumMs !== null && receiptDurationMs !== null && receiptDurationMs > 0
+          ? Number((taskDurationSumMs / receiptDurationMs).toFixed(2))
+          : null,
+      scheduleMatchesDryRun,
       changedFiles: files,
       agentRuns,
       schedule: schedule ? { waves: schedule.waves, conflicts: schedule.conflicts, cycles: schedule.cycles } : null,
@@ -365,6 +466,7 @@ function summarize(results) {
   }
   return [...byMode.entries()].map(([mode, rows]) => {
     const avg = (key) => Math.round(rows.reduce((sum, row) => sum + row[key], 0) / rows.length);
+    const avgOptional = (key) => rows.every((row) => typeof row[key] === "number") ? avg(key) : null;
     return {
       mode,
       runs: rows.length,
@@ -375,6 +477,12 @@ function summarize(results) {
       failedTestsAvg: avg("failedTests"),
       acceptedTasksAvg: `${avg("acceptedTasks")}/${taskSpecs.length}`,
       wallClockMsAvg: avg("wallClockMs"),
+      receiptSizeBytesAvg: avgOptional("receiptSizeBytes"),
+      taskDurationSumMsAvg: avgOptional("taskDurationSumMs"),
+      receiptDurationMsAvg: avgOptional("receiptDurationMs"),
+      parallelFactorAvg: rows.every((row) => typeof row.parallelFactor === "number")
+        ? Number((rows.reduce((sum, row) => sum + row.parallelFactor, 0) / rows.length).toFixed(2))
+        : null,
     };
   });
 }
