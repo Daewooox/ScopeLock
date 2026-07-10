@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import type { AgentId } from "../schemas/contract.js";
 import { hasScopeLockHooks, hooksConfigPath } from "../harness/hooks-merge.js";
 import { NOMINAL_HOOK_CAPABILITIES } from "../harness/capabilities.js";
-import type { HookCapabilities, HookConfigProbe } from "../schemas/agent-workspace.js";
+import {
+  hookVerificationStoreSchema,
+  type HookCapabilities,
+  type HookConfigProbe,
+} from "../schemas/agent-workspace.js";
+import { scopelockPaths } from "../storage/paths.js";
+import { hashFileBytes } from "./hash.js";
 import { resolveRepoPath } from "./paths.js";
 
 function readJsonObjectSync(absPath: string): Record<string, unknown> | null {
@@ -31,15 +37,31 @@ function existsSync(absPath: string): boolean {
   }
 }
 
+function hasCurrentLiveVerification(repoRoot: string, target: AgentId, hookConfigPath: string): boolean {
+  const storeRaw = readJsonObjectSync(scopelockPaths(repoRoot).hookVerificationsPath);
+  const store = hookVerificationStoreSchema.safeParse(storeRaw);
+  if (!store.success) return false;
+
+  let hookConfigDigest: string;
+  try {
+    hookConfigDigest = hashFileBytes(hookConfigPath);
+  } catch {
+    return false;
+  }
+
+  const latest = [...store.data.verifications]
+    .reverse()
+    .find((record) => record.target === target && record.hookConfigDigest === hookConfigDigest);
+  return latest?.result === "passed";
+}
+
 /**
  * Read-only, config-file-only probe (no process execution, no network - same
  * I/O posture as the rest of the preflight engine). Reports whether ScopeLock's
  * own hook entry is installed and whether the nominal capability claim should
- * be trusted "as documented" or downgraded to "degraded" for this repo.
- *
- * This NEVER upgrades a capability to "live-verified" - that requires actually
- * running the harness, which is an explicit, separate regression step (see
- * capabilities.ts), not something a fast pre-dispatch check should do.
+ * be trusted "as documented", downgraded to "degraded", or upgraded to
+ * "live-verified" only when a previous explicit harness verification matches
+ * the current hook config digest.
  */
 export function probeHookConfig(repoRoot: string, target: AgentId): HookConfigProbe {
   const nominal = NOMINAL_HOOK_CAPABILITIES[target];
@@ -50,12 +72,18 @@ export function probeHookConfig(repoRoot: string, target: AgentId): HookConfigPr
     const config = readJsonObjectSync(hooksJsonPath);
     const installed = config !== null && hasScopeLockHooks(config, target);
     const anyConfigPresent = installed || existsSync(configTomlPath);
-    const capabilities: HookCapabilities = { ...nominal, confidence: "degraded" };
+    const liveVerified = installed && hasCurrentLiveVerification(repoRoot, target, hooksJsonPath);
+    const capabilities: HookCapabilities = {
+      ...nominal,
+      confidence: liveVerified ? "live-verified" : "degraded",
+    };
     return {
       target,
       installed,
       capabilities,
-      detail: installed
+      detail: liveVerified
+        ? `ScopeLock codex hook entry was live-verified for the current ${hooksJsonPath} digest`
+        : installed
         ? `ScopeLock codex hook entry found at ${hooksJsonPath}; confidence remains degraded because project trust cannot be verified statically`
         : anyConfigPresent
           ? "a Codex hook config exists, but ScopeLock cannot confirm an installed trusted ScopeLock entry"

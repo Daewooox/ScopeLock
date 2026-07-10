@@ -17,6 +17,7 @@ import { runPlanCommand } from "./commands/run-plan.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
+  hooksVerifyCommand,
 } from "./commands/hooks.js";
 
 function collect(value: string, previous: string[]): string[] {
@@ -212,10 +213,23 @@ hooks
 
 hooks
   .command("uninstall")
-  .requiredOption("--target <id>", "hook target: claude or cursor")
+  .requiredOption("--target <id>", "hook target: claude, cursor, or codex")
   .option("--json", "print machine-readable JSON")
   .action((options: { target: string }, command: Command) =>
     run(() => hooksUninstallCommand(options), jsonOf(command)),
+  );
+
+hooks
+  .command("verify")
+  .requiredOption("--target <id>", "hook target: codex")
+  .option("--codex-bin <path>", "Codex executable to use for live verification", "codex")
+  .option("--timeout-ms <ms>", "verification timeout in milliseconds", (value) => Number(value), 90_000)
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      options: { target: string; codexBin: string; timeoutMs: number },
+      command: Command,
+    ) => run(() => hooksVerifyCommand(options), jsonOf(command)),
   );
 
 // Explicit "node" convention (argv[0]=runtime, argv[1]=script): commander

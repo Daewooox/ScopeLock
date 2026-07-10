@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -598,6 +598,68 @@ describe("agents preflight", () => {
       const codex = JSON.parse(res.stdout).data.report.targets[0];
       assert.equal(codex.hook.installed, true);
       assert.equal(codex.hook.capabilities.confidence, "degraded");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("hooks verify upgrades Codex confidence to live-verified for the current hook config", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const draftPath = join(tmpdir(), `sl-codex-verify-${Date.now()}.json`);
+      assert.equal(
+        runCli(dir, [
+          "contract",
+          "new",
+          "--task",
+          "codex verify",
+          "--planned",
+          "src/**",
+          "--out",
+          draftPath,
+        ]).status,
+        0,
+      );
+      assert.equal(runCli(dir, ["approve", draftPath]).status, 0);
+      assert.equal(runCli(dir, ["hooks", "install", "--target", "codex", "--mode", "strict", "--local"]).status, 0);
+
+      const fakeCodex = join(dir, process.platform === "win32" ? "fake-codex.cmd" : "fake-codex.mjs");
+      await writeFile(
+        fakeCodex,
+        process.platform === "win32"
+          ? "@echo off\r\necho Patch denied: ScopeLock forbidden path changed\r\n"
+          : "#!/usr/bin/env node\nprocess.stdout.write('Patch denied: ScopeLock forbidden path changed\\n');\n",
+      );
+      if (process.platform !== "win32") {
+        await chmod(fakeCodex, 0o755);
+      }
+
+      const verify = runCli(dir, [
+        "--json",
+        "hooks",
+        "verify",
+        "--target",
+        "codex",
+        "--codex-bin",
+        fakeCodex,
+      ]);
+      assert.equal(verify.status, 0, verify.stdout || verify.stderr);
+      assert.equal(JSON.parse(verify.stdout).data.confidence, "live-verified");
+
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["codex"],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+      const preflight = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(preflight.status, 0);
+      const codex = JSON.parse(preflight.stdout).data.report.targets[0];
+      assert.equal(codex.hook.capabilities.confidence, "live-verified");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

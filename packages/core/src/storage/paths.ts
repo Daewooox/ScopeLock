@@ -11,6 +11,7 @@ export type ScopelockPaths = {
   contractsDir: string;
   reportsDir: string;
   hooksDir: string;
+  hookVerificationsPath: string;
   activePath: string;
   gitignorePath: string;
 };
@@ -24,6 +25,7 @@ export function scopelockPaths(repoRoot: string): ScopelockPaths {
     contractsDir: join(dir, "contracts"),
     reportsDir: join(dir, "reports"),
     hooksDir: join(dir, "hooks"),
+    hookVerificationsPath: join(dir, "hook-verifications.json"),
     activePath: join(dir, "active"),
     gitignorePath: join(dir, ".gitignore"),
   };

@@ -119,6 +119,23 @@ export const hookConfigProbeSchema = z.object({
 });
 export type HookConfigProbe = z.infer<typeof hookConfigProbeSchema>;
 
+export const HOOK_VERIFICATION_STORE_SCHEMA_VERSION = 1;
+
+export const hookVerificationRecordSchema = z.object({
+  target: agentTargetSchema,
+  checkedAt: z.iso.datetime(),
+  hookConfigDigest: z.string().min(1),
+  result: z.enum(["passed", "failed"]),
+  detail: z.string().min(1),
+});
+export type HookVerificationRecord = z.infer<typeof hookVerificationRecordSchema>;
+
+export const hookVerificationStoreSchema = z.object({
+  schemaVersion: z.literal(HOOK_VERIFICATION_STORE_SCHEMA_VERSION),
+  verifications: z.array(hookVerificationRecordSchema),
+});
+export type HookVerificationStore = z.infer<typeof hookVerificationStoreSchema>;
+
 export const artifactCheckResultSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(["rule", "skill"]),
