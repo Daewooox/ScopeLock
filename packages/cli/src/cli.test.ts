@@ -497,6 +497,213 @@ describe("manifest", () => {
   });
 });
 
+describe("agents preflight", () => {
+  async function seedSkill(dir: string, relDir: string, content = "SKILL.md\n"): Promise<void> {
+    await mkdir(join(dir, relDir), { recursive: true });
+    await writeFile(join(dir, relDir, "SKILL.md"), content);
+  }
+
+  async function writeManifest(dir: string, manifest: unknown): Promise<string> {
+    const path = join(dir, "agents.json");
+    await writeFile(path, JSON.stringify(manifest));
+    return "agents.json";
+  }
+
+  it("passes when every target has a matching physical rule and skill", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "AGENTS.md"), "RULE\n");
+      await writeFile(join(dir, "CLAUDE.md"), "RULE\n");
+      await seedSkill(dir, ".agents/skills/review");
+      await seedSkill(dir, ".claude/skills/review");
+      await seedSkill(dir, ".cursor/skills/review");
+
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["claude", "cursor", "codex"],
+        rules: [{ id: "agents", path: "AGENTS.md", required: true }],
+        skills: [{ name: "review", path: ".agents/skills/review", required: true }],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      assert.equal(body.data.report.summary.status, "pass");
+      assert.equal(body.data.report.summary.violationsCount, 0);
+      assert.equal(body.data.report.targets.length, 3);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 1 and reports a violation when a required skill is missing for one target", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "AGENTS.md"), "RULE\n");
+      await seedSkill(dir, ".agents/skills/review");
+      // codex only ever resolves the shared .agents/skills path, so remove that.
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["codex"],
+        skills: [{ name: "review", path: ".agents/skills/review", required: true }],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+      await rm(join(dir, ".agents/skills/review"), { recursive: true, force: true });
+
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(res.status, 1);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "violations");
+      assert.equal(body.data.report.summary.status, "fail");
+      const violation = body.data.report.targets[0].violations[0];
+      assert.equal(violation.code, "missing_required_skill");
+      assert.equal(violation.target, "codex");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("treats a missing optional artifact as a warning, not a violation", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["codex"],
+        skills: [{ name: "review", path: ".agents/skills/review", required: false }],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.data.report.summary.status, "warn");
+      assert.equal(body.data.report.summary.violationsCount, 0);
+      assert.equal(body.data.report.targets[0].skillResults[0].status, "warn");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("--target filters the report to the requested targets", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "AGENTS.md"), "RULE\n");
+      await writeFile(join(dir, "CLAUDE.md"), "RULE\n");
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["claude", "cursor", "codex"],
+        rules: [{ id: "agents", path: "AGENTS.md", required: true }],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, [
+        "--json",
+        "agents",
+        "preflight",
+        "--manifest",
+        manifestPath,
+        "--target",
+        "claude",
+      ]);
+      assert.equal(res.status, 0);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.data.report.targets.length, 1);
+      assert.equal(body.data.report.targets[0].id, "claude");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 2 with UNKNOWN_TARGET for a target not declared in the manifest", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["claude"],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, [
+        "--json",
+        "agents",
+        "preflight",
+        "--manifest",
+        manifestPath,
+        "--target",
+        "codex",
+      ]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "UNKNOWN_TARGET");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 2 with MANIFEST_NOT_FOUND for a missing manifest file", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", "nope.json"]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "MANIFEST_NOT_FOUND");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 2 with INVALID_INPUT for a manifest that fails schema validation", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const manifestPath = await writeManifest(dir, {
+        schemaVersion: 1,
+        targets: ["not-a-real-target"],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      });
+
+      const res = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
+      assert.equal(res.status, 2);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "error");
+      assert.equal(body.error.code, "INVALID_INPUT");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("run", () => {
   async function writeContract(
     dir: string,

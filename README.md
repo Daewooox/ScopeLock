@@ -79,8 +79,21 @@ scopelock check-drift                          # exit 0 clean, 1 = violations
 | `scopelock check-drift [--base <sha>]` | Compare actual repo changes to the contract. |
 | `scopelock manifest` | Build a deterministic repo manifest from tracked git files. |
 | `scopelock plan-parallel <plan.json> [--include-read-hazards]` | Derive a parallel-safe schedule (waves) from a set of task contracts. |
+| `scopelock agents preflight --manifest <path> [--target <id>]` | Read-only check that each agent's declared rules/skills are physically present, not symlinks, and consistent before dispatch. |
 
 `--json` is available on every command for machine-readable output.
+
+`agents preflight` verifies an existing environment; it never installs or
+mutates anything. It reads a manifest (`{ schemaVersion, targets, rules,
+skills, policy }`) and, for each target, checks that required rules/skills
+resolve to a physical file (not a symlink, when `policy.requirePhysicalCopies`
+is set) and that their content matches the declared canonical artifact (when
+`policy.requireRuleParity`/`requireSkillParity` is set). Missing *optional*
+artifacts are informational (`warn`), never block dispatch; missing
+*required* artifacts, unwanted symlinks, and parity mismatches are
+violations - exit `1`, with a `fix` hint per violation pointing at the exact
+`ruler`/`skills --copy` command to run (nothing is auto-applied). Exit `2`
+for a missing/invalid manifest file or an unknown `--target`.
 
 `manifest` uses `git ls-files` and reports paths/metadata only: tracked files,
 detected project types, package managers, test paths, and risky paths. It does
