@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-env-step0-spike",
+  "task": "Run Agent Environment Preflight Step 0 buy-vs-build spike and record verdict",
+  "createdAt": "2026-07-10T16:33:15.091Z",
+  "baseline": {
+    "headSha": "9d9f0e1515fc2e7710df1ab7e7d54189f91c1d5c",
+    "branch": "main",
+    "capturedAt": "2026-07-10T16:33:15.174Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "memory-bank/plans/agent-environment-preflight-spike-verdict.md",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
