@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "flight-control-demo-receipt-baseline",
+  "task": "Build one-command Flight Control demo and measure current receipt baseline",
+  "createdAt": "2026-07-10T12:53:32.748Z",
+  "baseline": {
+    "headSha": "04db4e83e8095358cb3db780786d00dda81978f7",
+    "branch": "main",
+    "capturedAt": "2026-07-10T12:53:32.833Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "benchmarks/coordination/**",
+      "package.json",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/docs/component-map.md",
+      "memory-bank/plans/flight-control-demo-receipt-baseline.md",
+      ".scopelock/contracts/flight-control-demo-receipt-baseline.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/**",
+      "packages/cli/src/**",
+      "packages/mcp/src/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
