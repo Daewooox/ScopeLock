@@ -1,5 +1,6 @@
-import { mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { spawn } from "node:child_process";
 import {
   approvedContractSchema,
@@ -26,10 +27,21 @@ type RunPlanOptions = {
 
 type CommandSpec = string | string[];
 
+const COMMAND_PREVIEW_BYTES = 400;
+const OUTPUT_PREVIEW_BYTES = 400;
+
 type RunTask = {
   id: string;
   contract: string;
   command?: CommandSpec;
+};
+
+type OutputArtifact = {
+  path: string;
+  bytes: number;
+  sha256: string;
+  previewBytes: number;
+  truncated: boolean;
 };
 
 type TaskRun = {
@@ -40,6 +52,11 @@ type TaskRun = {
   durationMs: number;
   stdout: string;
   stderr: string;
+  outputArtifacts: {
+    command?: OutputArtifact;
+    stdout?: OutputArtifact;
+    stderr?: OutputArtifact;
+  };
 };
 
 async function readJsonFile(path: string, notFoundCode: string): Promise<unknown> {
@@ -125,7 +142,84 @@ function resolveReceiptPath(cwd: string, receipt: string | undefined): string {
   return join(scopelockPaths(cwd).reportsDir, `run-${stamp}.json`);
 }
 
-async function runCommand(cwd: string, task: RunTask): Promise<TaskRun> {
+function safeFilePart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "task";
+}
+
+function truncateUtf8(value: string, maxBytes: number): string {
+  let bytes = 0;
+  let result = "";
+  for (const char of value) {
+    const charBytes = Buffer.byteLength(char);
+    if (bytes + charBytes > maxBytes) break;
+    bytes += charBytes;
+    result += char;
+  }
+  return result;
+}
+
+async function persistOutput(
+  artifactDir: string,
+  taskId: string,
+  stream: "stdout" | "stderr",
+  value: string,
+): Promise<{ preview: string; artifact?: OutputArtifact }> {
+  if (value.length === 0) return { preview: "" };
+  const bytes = Buffer.byteLength(value);
+  const preview = truncateUtf8(value, OUTPUT_PREVIEW_BYTES);
+  const previewBytes = Buffer.byteLength(preview);
+  const filePath = join(artifactDir, `${safeFilePart(taskId)}.${stream}.txt`);
+  await mkdir(artifactDir, { recursive: true });
+  await writeFile(filePath, value, "utf8");
+  return {
+    preview,
+    artifact: {
+      path: filePath,
+      bytes,
+      sha256: createHash("sha256").update(value).digest("hex"),
+      previewBytes,
+      truncated: previewBytes < bytes,
+    },
+  };
+}
+
+function previewCommand(command: CommandSpec, maxBytes: number): CommandSpec {
+  if (typeof command === "string") return truncateUtf8(command, maxBytes);
+  let remaining = maxBytes;
+  return command.map((part) => {
+    const preview = truncateUtf8(part, Math.max(0, remaining));
+    remaining -= Buffer.byteLength(preview);
+    return preview;
+  });
+}
+
+async function persistCommand(
+  artifactDir: string,
+  taskId: string,
+  command: CommandSpec | null,
+): Promise<{ preview: CommandSpec | null; artifact?: OutputArtifact }> {
+  if (command === null) return { preview: null };
+  const raw = `${JSON.stringify(command, null, 2)}\n`;
+  const bytes = Buffer.byteLength(raw);
+  const preview = previewCommand(command, COMMAND_PREVIEW_BYTES);
+  const previewBytes = Buffer.byteLength(JSON.stringify(preview));
+  if (previewBytes >= bytes) return { preview };
+  const filePath = join(artifactDir, `${safeFilePart(taskId)}.command.json`);
+  await mkdir(artifactDir, { recursive: true });
+  await writeFile(filePath, raw, "utf8");
+  return {
+    preview,
+    artifact: {
+      path: filePath,
+      bytes,
+      sha256: createHash("sha256").update(raw).digest("hex"),
+      previewBytes,
+      truncated: true,
+    },
+  };
+}
+
+async function runCommand(cwd: string, artifactDir: string, task: RunTask): Promise<TaskRun> {
   const started = Date.now();
   if (!task.command) {
     return {
@@ -136,9 +230,11 @@ async function runCommand(cwd: string, task: RunTask): Promise<TaskRun> {
       durationMs: 0,
       stdout: "",
       stderr: "no command configured",
+      outputArtifacts: {},
     };
   }
   const command = task.command;
+  const persistedCommand = await persistCommand(artifactDir, task.id, command);
   return new Promise((resolve) => {
     const child = Array.isArray(command)
       ? spawn(command[0] as string, command.slice(1), {
@@ -155,15 +251,22 @@ async function runCommand(cwd: string, task: RunTask): Promise<TaskRun> {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.on("close", (code) => {
+    child.on("close", async (code) => {
+      const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout);
+      const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr);
       resolve({
         id: task.id,
         status: code === 0 ? "passed" : "failed",
-        command,
+        command: persistedCommand.preview,
         exitCode: code,
         durationMs: Date.now() - started,
-        stdout,
-        stderr,
+        stdout: persistedStdout.preview,
+        stderr: persistedStderr.preview,
+        outputArtifacts: {
+          ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+          ...(persistedStdout.artifact ? { stdout: persistedStdout.artifact } : {}),
+          ...(persistedStderr.artifact ? { stderr: persistedStderr.artifact } : {}),
+        },
       });
     });
   });
@@ -201,6 +304,8 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const { waves, cycles } = schedule(graph);
   const deferred = options.deferWriteConflicts === false ? [] : deferredWriteConflictTasks(graph.conflicts);
   const deferredSet = new Set(deferred);
+  const receiptPath = resolveReceiptPath(cwd, options.receipt);
+  const artifactDir = join(dirname(receiptPath), `${basename(receiptPath, ".json")}-artifacts`);
   const startedAt = new Date().toISOString();
   const taskRuns: TaskRun[] = [];
 
@@ -210,19 +315,23 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
         .filter((id) => !deferredSet.has(id))
         .map((id) => byId.get(id))
         .filter((task): task is RunTask => task !== undefined);
-      taskRuns.push(...(await Promise.all(runnable.map((task) => runCommand(cwd, task)))));
+      taskRuns.push(...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task)))));
     }
   }
 
   for (const id of deferred) {
+    const persistedCommand = await persistCommand(artifactDir, id, byId.get(id)?.command ?? null);
     taskRuns.push({
       id,
       status: "skipped",
-      command: byId.get(id)?.command ?? null,
+      command: persistedCommand.preview,
       exitCode: null,
       durationMs: 0,
       stdout: "",
       stderr: "deferred due to write-write conflict",
+      outputArtifacts: {
+        ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+      },
     });
   }
 
@@ -236,16 +345,27 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     }
   }
 
-  const receiptPath = resolveReceiptPath(cwd, options.receipt);
   const receipt = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     planId: plan.planId,
     startedAt,
     finishedAt: new Date().toISOString(),
+    limits: {
+      commandPreviewBytes: COMMAND_PREVIEW_BYTES,
+      outputPreviewBytes: OUTPUT_PREVIEW_BYTES,
+      rawOutputStorage: "local-artifacts",
+    },
+    artifactsDir: artifactDir,
     waves,
     conflicts: graph.conflicts,
     cycles,
     deferredTasks: deferred,
+    handoffSummary: {
+      passedTasks: taskRuns.filter((task) => task.status === "passed").map((task) => task.id).sort(),
+      failedTasks: taskRuns.filter((task) => task.status === "failed").map((task) => task.id).sort(),
+      skippedTasks: taskRuns.filter((task) => task.status === "skipped").map((task) => task.id).sort(),
+      driftStatus: drift?.status ?? "not_checked",
+    },
     taskRuns,
     drift,
   };

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { analyzeReceipt, summarizeAnalyses } from "./analyze-receipt.mjs";
 
 function receipt(stdout = "") {
@@ -43,6 +46,25 @@ test("extracts and aggregates Codex usage from the final turn event", () => {
     input_tokens: 24,
     output_tokens: 6,
   });
+});
+
+test("extracts usage from raw stdout artifact when receipt output is bounded", () => {
+  const dir = mkdtempSync(join(tmpdir(), "scopelock-receipt-artifact-"));
+  try {
+    const event = JSON.stringify({ type: "turn.completed", usage: { input_tokens: 7 } });
+    const artifactPath = join(dir, "t1.stdout.txt");
+    writeFileSync(artifactPath, `preview omitted\n${event}\n`);
+    const bounded = receipt("preview omitted");
+    bounded.schemaVersion = 2;
+    bounded.taskRuns[0].outputArtifacts = {
+      stdout: { path: artifactPath, bytes: 100, sha256: "x", previewBytes: 15, truncated: true },
+    };
+    const analysis = analyzeReceipt(bounded);
+    assert.deepEqual(analysis.usage, { input_tokens: 7 });
+    assert.equal(analysis.artifacts.stdout, 100);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("rejects objects without task runs", () => {

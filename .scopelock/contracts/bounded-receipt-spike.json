@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "bounded-receipt-spike",
+  "task": "bounded receipt spike",
+  "createdAt": "2026-07-10T14:22:49.564Z",
+  "baseline": {
+    "headSha": "7cc50606d17de27424d88116a9b11757e0acbfde",
+    "branch": "main",
+    "capturedAt": "2026-07-10T14:22:49.661Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "benchmarks/coordination/**",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/docs/component-map.md",
+      "memory-bank/plans/bounded-receipt-spike.md",
+      "README.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/**",
+      "packages/mcp/src/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

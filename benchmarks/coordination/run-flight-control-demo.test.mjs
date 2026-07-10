@@ -19,7 +19,7 @@ test("one-command demo exercises the dispatcher and produces stable evidence", a
     assert.equal(result.withScopeLock.failedTests, 0);
     assert.equal(result.withScopeLock.acceptedTasks, 5);
     assert.deepEqual(result.withScopeLock.deferredTasks, ["t4-tax-9"]);
-    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 1);
+    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 2);
   } finally {
     rmSync(outputDir, { recursive: true, force: true });
   }

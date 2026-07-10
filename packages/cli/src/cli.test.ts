@@ -584,6 +584,56 @@ describe("run", () => {
     }
   });
 
+  it("keeps raw command output in artifacts and bounds receipt previews", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "loud.json"), "loud", ["out.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "bounded-receipt-demo",
+          tasks: [
+            {
+              id: "loud",
+              contract: "loud.json",
+              command: [
+                process.execPath,
+                "-e",
+                "require('node:fs').writeFileSync('out.txt','ok');process.stdout.write('x'.repeat(3000))",
+              ],
+            },
+          ],
+        }),
+      );
+
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, [
+        "--json",
+        "run",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      const task = receipt.taskRuns[0];
+      assert.equal(receipt.schemaVersion, 2);
+      assert.equal(task.stdout.length, 400);
+      assert.equal(task.outputArtifacts.stdout.bytes, 3000);
+      assert.equal(task.outputArtifacts.stdout.truncated, true);
+      assert.equal(await readFile(task.outputArtifacts.stdout.path, "utf8"), "x".repeat(3000));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("closes child stdin so non-interactive commands receive EOF", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

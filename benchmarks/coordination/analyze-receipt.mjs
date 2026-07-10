@@ -24,6 +24,19 @@ function parseCodexUsage(stdout) {
   return null;
 }
 
+function readArtifactText(artifact) {
+  if (!artifact || typeof artifact.path !== "string") return "";
+  try {
+    return readFileSync(artifact.path, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function taskStreamText(task, stream) {
+  return readArtifactText(task.outputArtifacts?.[stream]) || String(task[stream] ?? "");
+}
+
 function mergeUsage(usages) {
   const total = {};
   for (const usage of usages.filter(Boolean)) {
@@ -42,8 +55,11 @@ export function analyzeReceipt(receipt, source = "<memory>") {
   const totalBytes = jsonBytes(receipt);
   const taskRunsBytes = jsonBytes(receipt.taskRuns);
   const commandBytes = sum(receipt.taskRuns.map((task) => jsonBytes(task.command ?? null)));
+  const commandArtifactBytes = sum(receipt.taskRuns.map((task) => task.outputArtifacts?.command?.bytes ?? 0));
   const stdoutBytes = sum(receipt.taskRuns.map((task) => jsonBytes(task.stdout ?? "")));
   const stderrBytes = sum(receipt.taskRuns.map((task) => jsonBytes(task.stderr ?? "")));
+  const stdoutArtifactBytes = sum(receipt.taskRuns.map((task) => task.outputArtifacts?.stdout?.bytes ?? 0));
+  const stderrArtifactBytes = sum(receipt.taskRuns.map((task) => task.outputArtifacts?.stderr?.bytes ?? 0));
   const taskMetadataBytes = taskRunsBytes - commandBytes - stdoutBytes - stderrBytes;
   const coordinationBytes = sum([
     jsonBytes(receipt.waves ?? []),
@@ -61,7 +77,10 @@ export function analyzeReceipt(receipt, source = "<memory>") {
     commandBytes: jsonBytes(task.command ?? null),
     stdoutBytes: jsonBytes(task.stdout ?? ""),
     stderrBytes: jsonBytes(task.stderr ?? ""),
-    usage: parseCodexUsage(task.stdout),
+    commandArtifactBytes: task.outputArtifacts?.command?.bytes ?? 0,
+    stdoutArtifactBytes: task.outputArtifacts?.stdout?.bytes ?? 0,
+    stderrArtifactBytes: task.outputArtifacts?.stderr?.bytes ?? 0,
+    usage: parseCodexUsage(taskStreamText(task, "stdout")),
   }));
 
   return {
@@ -78,6 +97,12 @@ export function analyzeReceipt(receipt, source = "<memory>") {
       coordination: coordinationBytes,
       drift: driftBytes,
       rootMetadata: rootMetadataBytes,
+    },
+    artifacts: {
+      commands: commandArtifactBytes,
+      stdout: stdoutArtifactBytes,
+      stderr: stderrArtifactBytes,
+      total: commandArtifactBytes + stdoutArtifactBytes + stderrArtifactBytes,
     },
     usage: mergeUsage(tasks.map((task) => task.usage)),
     largestTask: tasks.toSorted((a, b) => b.bytes - a.bytes)[0] ?? null,
