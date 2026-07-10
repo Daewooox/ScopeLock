@@ -83,12 +83,41 @@ export const artifactCheckStatusSchema = z.enum(["pass", "warn", "fail"]);
 export const targetStatusSchema = z.enum(["pass", "warn", "fail", "blocked"]);
 
 /**
- * Reserved for Step 3. The engine returns typed results today; hook capability
- * confidence is modeled here so a later live/config probe can populate it
- * without a schema break.
+ * Confidence in a hook capability claim: "documented" - nominal, from the
+ * host's documented hook format, not otherwise checked; "live-verified" - an
+ * actual harness run confirmed it (a separate, explicit regression step, not
+ * something a fast pre-dispatch probe does); "degraded" - the claim cannot be
+ * trusted for this repo (e.g. unverifiable trust state, undocumented event
+ * schema). A probe may only downgrade documented -> degraded, never invent
+ * live-verified.
  */
 export const hookConfidenceSchema = z.enum(["documented", "live-verified", "degraded"]);
 export type HookConfidence = z.infer<typeof hookConfidenceSchema>;
+
+/**
+ * Minimal hook capability model (Step 3), replacing the coarse
+ * `hooksSupport: deny|audit|none` assumption. `preToolUse`/`postToolUse`/
+ * `canDeny`/`canModifyInput` describe what the host's hook format is designed
+ * to do; `confidence` describes how much that claim should be trusted for a
+ * given repo right now (see `harness/capabilities.ts` for the nominal table
+ * and `agents/hook-probe.ts` for the config-based probe).
+ */
+export const hookCapabilitiesSchema = z.object({
+  preToolUse: z.boolean(),
+  postToolUse: z.boolean(),
+  canDeny: z.boolean(),
+  canModifyInput: z.boolean(),
+  confidence: hookConfidenceSchema,
+});
+export type HookCapabilities = z.infer<typeof hookCapabilitiesSchema>;
+
+export const hookConfigProbeSchema = z.object({
+  target: agentTargetSchema,
+  installed: z.boolean(),
+  capabilities: hookCapabilitiesSchema,
+  detail: z.string().min(1),
+});
+export type HookConfigProbe = z.infer<typeof hookConfigProbeSchema>;
 
 export const artifactCheckResultSchema = z.object({
   id: z.string().min(1),
@@ -123,6 +152,7 @@ export const targetPreflightReportSchema = z.object({
   ruleResults: z.array(artifactCheckResultSchema),
   skillResults: z.array(artifactCheckResultSchema),
   violations: z.array(agentEnvironmentViolationSchema),
+  hook: hookConfigProbeSchema,
 });
 export type TargetPreflightReport = z.infer<typeof targetPreflightReportSchema>;
 

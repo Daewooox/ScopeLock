@@ -11,6 +11,9 @@ import {
   hashFileBytes,
   isRepoRelativeSafe,
   toPosix,
+  probeHookConfig,
+  NOMINAL_HOOK_CAPABILITIES,
+  installHooks,
   type AgentWorkspaceManifest,
 } from "./index.js";
 
@@ -306,6 +309,83 @@ describe("runAgentPreflight", () => {
       assert.equal(claude?.violations[0]?.code, "rule_parity_mismatch");
       assert.equal(codex?.status, "pass");
       assert.equal(hashFileBytes(join(root, "AGENTS.md")).length, 64);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("hook capability model (Step 3)", () => {
+  it("never claims live-verified in the nominal table", () => {
+    for (const target of ["claude", "cursor", "codex"] as const) {
+      assert.notEqual(NOMINAL_HOOK_CAPABILITIES[target].confidence, "live-verified");
+    }
+  });
+
+  it("cursor is never nominally deny-capable (Step 0 could not live-probe it)", () => {
+    assert.equal(NOMINAL_HOOK_CAPABILITIES.cursor.canDeny, false);
+  });
+
+  it("claude/cursor stay 'documented' when no hook config is installed", () => {
+    const root = tempRepo();
+    try {
+      for (const target of ["claude", "cursor"] as const) {
+        const probe = probeHookConfig(root, target);
+        assert.equal(probe.installed, false);
+        assert.equal(probe.capabilities.confidence, "documented");
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("claude probe detects a real installed ScopeLock hook entry", async () => {
+    const root = tempRepo();
+    try {
+      await installHooks(root, "claude");
+      const probe = probeHookConfig(root, "claude");
+      assert.equal(probe.installed, true);
+      assert.equal(probe.capabilities.confidence, "documented");
+      assert.equal(probe.capabilities.canDeny, true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("codex is always degraded, regardless of any config file present", () => {
+    const root = tempRepo();
+    try {
+      // no config at all
+      const bare = probeHookConfig(root, "codex");
+      assert.equal(bare.capabilities.confidence, "degraded");
+      assert.equal(bare.installed, false);
+
+      // a config.toml exists, but ScopeLock still cannot confirm it is ours,
+      // well-formed, or effective (undocumented schema/event shape/trust state)
+      write(root, ".codex/config.toml", "[hooks]\n");
+      const withConfig = probeHookConfig(root, "codex");
+      assert.equal(withConfig.capabilities.confidence, "degraded");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("runAgentPreflight attaches a hook probe per target without affecting pass/fail status", () => {
+    const root = tempRepo();
+    try {
+      const manifest = agentWorkspaceManifestSchema.parse({
+        schemaVersion: 1,
+        targets: ["claude", "codex"],
+        policy: basePolicy,
+      });
+      const report = runAgentPreflight({ manifest, repoRoot: root, now: "2026-07-10T00:00:00.000Z" });
+      const claude = report.targets.find((t) => t.id === "claude");
+      const codex = report.targets.find((t) => t.id === "codex");
+      assert.equal(claude?.hook.target, "claude");
+      assert.equal(claude?.hook.capabilities.confidence, "documented");
+      assert.equal(codex?.hook.capabilities.confidence, "degraded");
+      // no manifest artifacts declared -> pass regardless of hook confidence
+      assert.equal(report.summary.status, "pass");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

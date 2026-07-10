@@ -9,6 +9,7 @@ import {
   type AgentTarget,
   type AgentWorkspaceManifest,
   type ArtifactCheckResult,
+  type HookConfigProbe,
   type TargetPreflightReport,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
@@ -56,10 +57,35 @@ function countPassing(results: ArtifactCheckResult[]): number {
   return results.filter((r) => r.status === "pass").length;
 }
 
+/**
+ * One-line summary of hook readiness. Never claims more than the probe found:
+ * "degraded" (e.g. codex today) is spelled out as unverified, not as a deny
+ * guarantee, so a reader does not mistake a documented format for a working
+ * enforcement layer in their repo.
+ */
+function humanHook(hook: HookConfigProbe): string {
+  const { capabilities } = hook;
+  const mode = capabilities.canDeny
+    ? "pre-write deny"
+    : capabilities.postToolUse
+      ? "post-write audit only"
+      : "no enforcement";
+  const trust =
+    capabilities.confidence === "degraded"
+      ? "degraded, unverified"
+      : capabilities.confidence === "live-verified"
+        ? "live-verified"
+        : "documented, not installed-checked live";
+  return `hook: ${mode} (${trust}${hook.installed ? ", installed" : ", not installed"})`;
+}
+
 function humanTarget(target: TargetPreflightReport): string {
   const rules = `rules ${countPassing(target.ruleResults)}/${target.ruleResults.length}`;
   const skills = `skills ${countPassing(target.skillResults)}/${target.skillResults.length}`;
-  const lines = [`${target.id}  status=${target.status}  ${rules}  ${skills}`];
+  const lines = [
+    `${target.id}  status=${target.status}  ${rules}  ${skills}`,
+    `  ${humanHook(target.hook)}`,
+  ];
   for (const violation of target.violations) {
     lines.push(
       `  ${violation.severity}  ${violation.code}  ${violation.detail}`,

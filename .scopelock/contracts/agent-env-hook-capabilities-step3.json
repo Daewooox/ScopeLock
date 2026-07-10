@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-env-hook-capabilities-step3",
+  "task": "Step 3a: hook capability model + config probe, wired into agents preflight report; defer Codex hook file adapter pending a live apply_patch event spike",
+  "createdAt": "2026-07-10T18:14:19.009Z",
+  "baseline": {
+    "headSha": "dcf6024904102d61ff784f058d50edb22cfecf0f",
+    "branch": "main",
+    "capturedAt": "2026-07-10T18:14:19.264Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/harness/capabilities.ts",
+      "packages/core/src/harness/registry.ts",
+      "packages/core/src/agents/hook-probe.ts",
+      "packages/core/src/agents/preflight.ts",
+      "packages/core/src/schemas/agent-workspace.ts",
+      "packages/core/src/agent-preflight.test.ts",
+      "packages/core/src/index.ts",
+      "packages/cli/src/commands/agents-preflight.ts",
+      "packages/cli/src/cli.test.ts",
+      "README.md",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/docs/component-map.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/drift/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/schedule/**",
+      "packages/core/src/harness/claude-hooks.ts",
+      "packages/core/src/harness/cursor-hooks.ts",
+      "packages/core/src/harness/hooks-merge.ts",
+      "packages/mcp/src/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

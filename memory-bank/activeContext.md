@@ -52,8 +52,30 @@ status/rules/skills и per-violation `severity`/`detail`/`fix` (конкретн
 violations, `2` при операционных ошибках. +8 тестов (all-pass, missing-required,
 missing-optional=warn, `--target`-фильтр, unknown-target, missing-manifest,
 invalid-schema). core 70/70 (не менялся), cli **26/26 (+8)**, mcp 3/3, typecheck
-чист, `check-drift`=0. **Следующий шаг: Step 3 — harness capability refresh +
-Codex hook adapter (live/config probe), только отдельным контрактом.**
+чист, `check-drift`=0.
+
+**Step 3a (production) ЗАВЕРШЁН** под контрактом `agent-env-hook-capabilities-step3`
+— **сужен** после доп. проверки официальных доков Codex: JSON-схема
+`.codex/hooks.json` НЕ задокументирована, `apply_patch` PreToolUse-событие
+НЕ поймано вживую (Step 0 пробовал только `Bash`), project-trust негде
+читаемо проверить статически. Строить hook-адаптер на угадывании = риск
+тихо-неработающего enforcement. Поэтому реализовано ТОЛЬКО подтверждённое:
+`harness/capabilities.ts` (номинальная `HookCapabilities` таблица, `confidence`
+всегда `"documented"`, никогда `"live-verified"` автоматически; cursor
+`canDeny: false` навсегда - Step 0 не смог его живо проверить), `agents/hook-probe.ts`
+(чтение конфиг-файлов, без process exec; codex **всегда** `degraded`),
+`TargetPreflightReport.hook` (аддитивное поле в Step 1/2 схеме), CLI human-вывод
+получил hook-строку. +6 core + 1 CLI тест. core **76/76 (+21 итого)**, cli **27/27**,
+mcp 3/3, typecheck чист, `check-drift`=0. Codex hook file adapter (install/uninstall,
+парсинг реального события) **сознательно отложен** до отдельного live-суб-спайка
+с настоящим Codex CLI. Побочная находка (не мой баг, не чинил): `hooks install`
+пишет файл, но всё равно репортит `NOT_INITIALIZED` без `scopelock init` первым.
+
+**Следующий шаг:** (a) Codex hook adapter live sub-spike (поймать реальное
+`apply_patch` PreToolUse событие, только тогда install/uninstall + `hook gate`
+парсинг под codex); (b) Step 4 - dispatcher + bounded receipt integration
+(gating по hook capability/parity в strict policy) - не начинать раньше (a)
+или без явного решения пропустить его.
 <!-- TASK #0044 END -->
 
 ## Текущий фокус

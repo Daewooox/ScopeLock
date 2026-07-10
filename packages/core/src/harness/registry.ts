@@ -24,7 +24,14 @@ export const HARNESSES = {
     id: "codex",
     label: "Codex CLI",
     docFile: "AGENTS.md",
-    hooksSupport: "none",
+    // Documented (not "none"): official docs confirm a PreToolUse hook
+    // mechanism and the Step 0 spike live-confirmed a deny for the Bash
+    // tool. See harness/capabilities.ts for the full nominal-vs-degraded
+    // capability model - a ScopeLock hook adapter for Codex is not yet
+    // implemented (undocumented hooks.json schema, unconfirmed apply_patch
+    // event shape), so this coarse field alone should not be read as "ready
+    // to enforce".
+    hooksSupport: "deny",
   },
 } as const satisfies Record<AgentId, HarnessAdapter>;
 

@@ -95,6 +95,18 @@ violations - exit `1`, with a `fix` hint per violation pointing at the exact
 `ruler`/`skills --copy` command to run (nothing is auto-applied). Exit `2`
 for a missing/invalid manifest file or an unknown `--target`.
 
+Each target also reports a `hook` capability probe: whether ScopeLock's own
+hook entry is installed, and a `confidence` of `documented` (nominal, from
+the host's documented hook format), `live-verified` (an actual harness run
+confirmed it - never set automatically), or `degraded` (the claim can't be
+trusted for this repo). Claude and Cursor read their real config files;
+Codex is always reported `degraded` today because its `hooks.json` schema
+and the file-editing (`apply_patch`) hook event shape are undocumented and
+unconfirmed by a live probe - see
+`memory-bank/plans/agent-environment-preflight-spike-verdict.md`. This
+capability probe is informational in this release; it does not (yet) block
+dispatch on its own.
+
 `manifest` uses `git ls-files` and reports paths/metadata only: tracked files,
 detected project types, package managers, test paths, and risky paths. It does
 not read or send source file contents.
