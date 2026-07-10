@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-windows-manifest-root-assertion",
+  "task": "Fix Windows manifest root path assertion",
+  "createdAt": "2026-07-10T07:51:58.743Z",
+  "baseline": {
+    "headSha": "4cdab29606205a32e646f2475249c42a5ec1e528",
+    "branch": "main",
+    "capturedAt": "2026-07-10T07:51:58.832Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/manifest.test.ts",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md",
+      ".scopelock/contracts/fix-windows-manifest-root-assertion.json"
+    ],
+    "forbiddenPathPatterns": [],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

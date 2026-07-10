@@ -1235,3 +1235,31 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - [x] Receipt written and exposed in JSON output.
 - [x] CLI tests pass: 17/17.
 <!-- TASK #0039 END -->
+
+<!-- TASK #0040 BEGIN
+     Owner: codex
+     Started: 2026-07-10
+     Status: done
+-->
+## Задача #0040 — Fix Windows CI manifest root assertion
+
+- **Описание:** Исправить Windows-only падение core tests в GitHub Actions после добавления repo manifest builder.
+- **Уровень сложности:** Level 1 bug fix.
+- **Статус:** DONE; ожидается подтверждение remote Windows matrix после push.
+- **Контракт:** `fix-windows-manifest-root-assertion` approved at `4cdab29`.
+
+### Root cause
+- Git for Windows возвращает repo root с `/`, а `fs.realpath` использует native `\\`.
+- Тест сравнивал эти эквивалентные пути как сырые строки и падал только на Windows.
+- Production behavior корректен; исправлена платформенно-зависимая assertion.
+
+### Изменение
+- `packages/core/src/manifest.test.ts`: обе стороны root comparison нормализуются через `path.resolve`.
+
+### Проверки
+- [x] `pnpm -r build`.
+- [x] `pnpm -r test`: core 55/55, CLI 17/17, MCP 3/3.
+- [x] `pnpm typecheck`.
+- [x] `check-drift`: 0 violations.
+- [ ] GitHub Actions Windows Node 22/24 после push.
+<!-- TASK #0040 END -->

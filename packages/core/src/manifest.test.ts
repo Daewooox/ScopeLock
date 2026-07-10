@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { buildRepoManifest } from "./index.js";
 
 function git(cwd: string, args: string[]): string {
@@ -41,7 +41,7 @@ describe("repo manifest builder", () => {
 
       const manifest = buildRepoManifest(root);
 
-      assert.equal(manifest.root, await realpath(root));
+      assert.equal(resolve(manifest.root), resolve(await realpath(root)));
       assert.match(manifest.headSha ?? "", /^[a-f0-9]{40}$/);
       assert.deepEqual(manifest.packageManagers, ["pnpm"]);
       assert.deepEqual(manifest.projectTypes, ["backend", "frontend"]);
