@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { analyzeReceipt } from "./analyze-receipt.mjs";
 
 const benchmarkDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(benchmarkDir, "../..");
@@ -25,6 +26,8 @@ const modes = option("--modes", "without_scopelock,contracts_hooks,contracts_hoo
   .map((mode) => mode.trim())
   .filter(Boolean);
 const timeoutMs = Number(option("--timeout-ms", "240000"));
+const outputOption = option("--output-dir", "");
+const outputDir = outputOption ? resolve(repoRoot, outputOption) : null;
 
 function sh(cwd, command, args, input = "") {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", input });
@@ -420,6 +423,16 @@ async function runMode(mode, runIndex) {
     const receiptDurationMs = dispatcher
       ? Date.parse(dispatcher.receipt.finishedAt) - Date.parse(dispatcher.receipt.startedAt)
       : null;
+    let receiptPath = null;
+    let receiptAnalysis = null;
+    if (dispatcher) {
+      receiptAnalysis = analyzeReceipt(dispatcher.receipt, `run-${runIndex}-${mode}.receipt.json`);
+      if (outputDir) {
+        mkdirSync(outputDir, { recursive: true });
+        receiptPath = join(outputDir, `run-${runIndex}-${mode}.receipt.json`);
+        writeFileSync(receiptPath, `${JSON.stringify(dispatcher.receipt, null, 2)}\n`, "utf8");
+      }
+    }
     return {
       run: runIndex,
       mode,
@@ -441,6 +454,8 @@ async function runMode(mode, runIndex) {
       dispatcherExitCode: dispatcher?.exitCode ?? null,
       driftStatus: dispatcher?.receipt.drift?.status ?? null,
       receiptSizeBytes: dispatcher ? Buffer.byteLength(JSON.stringify(dispatcher.receipt)) : null,
+      receiptPath,
+      receiptAnalysis,
       taskDurationSumMs,
       receiptDurationMs,
       parallelFactor:
@@ -494,11 +509,26 @@ for (let runIndex = 1; runIndex <= runs; runIndex += 1) {
   }
 }
 
-process.stdout.write(`${JSON.stringify({
+const payload = {
   generatedAt: new Date().toISOString(),
   note: "Real Codex CLI pilot. Claude/Cursor were not available in PATH on this machine.",
+  environment: {
+    gitSha: git(repoRoot, ["rev-parse", "HEAD"]),
+    platform: process.platform,
+    arch: process.arch,
+    node: process.version,
+    codex: sh(repoRoot, codexBin, ["--version"]).stdout.trim() || null,
+  },
   runs,
   modes,
   summary: summarize(results),
   results,
-}, null, 2)}\n`);
+};
+
+if (outputDir) {
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(join(outputDir, "summary.json"), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  writeFileSync(join(outputDir, "environment.json"), `${JSON.stringify(payload.environment, null, 2)}\n`, "utf8");
+}
+
+process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
