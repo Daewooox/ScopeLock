@@ -198,7 +198,7 @@ async function runDemo(argv) {
     let dispatcherOutput = "";
     try {
       dispatcherOutput = sh(controlledRoot, process.execPath, [
-        scopelockCli, "--json", "run", "--plan", "plan.json", "--receipt", ".scopelock/reports/demo-receipt.json",
+        scopelockCli, "--json", "run", "--yes", "--plan", "plan.json", "--receipt", ".scopelock/reports/demo-receipt.json",
       ]);
     } catch (error) {
       if (!error.stdout || error.status !== 1) throw error;

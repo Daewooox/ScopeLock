@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import {
   agentEnvironmentPreflightReportSchema,
@@ -20,6 +20,9 @@ import {
   type EnforcementMode,
   type ScopeConflict,
   type TaskScope,
+  getActiveContractId,
+  loadContract,
+  verifyApprovalSeal,
 } from "@scopelock/core";
 import { readFile } from "node:fs/promises";
 import { checkDriftCommand } from "./check-drift.js";
@@ -31,12 +34,31 @@ type RunPlanOptions = {
   deferWriteConflicts?: boolean;
   checkDrift?: boolean;
   receipt?: string;
+  allowShell?: boolean;
+  yes?: boolean;
+  timeoutMs?: number;
+  storeRawOutput?: boolean;
 };
 
 type CommandSpec = string | string[];
 
 const COMMAND_PREVIEW_BYTES = 400;
 const OUTPUT_PREVIEW_BYTES = 400;
+const DEFAULT_TASK_TIMEOUT_MS = 15 * 60_000;
+const MAX_CAPTURE_BYTES = 1024 * 1024;
+
+function redactSecrets(value: string): string {
+  return value
+    .replace(/\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{16,}|AKIA[0-9A-Z]{16})\b/g, "[REDACTED]")
+    .replace(/\b(OPENAI_API_KEY|ANTHROPIC_API_KEY|NPM_TOKEN|GITHUB_TOKEN)\s*[:=]\s*\S+/gi, "$1=[REDACTED]")
+    .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/g, "$1[REDACTED]@");
+}
+
+function appendCaptured(current: string, chunk: Buffer): string {
+  const remaining = MAX_CAPTURE_BYTES - Buffer.byteLength(current);
+  if (remaining <= 0) return current;
+  return current + truncateUtf8(chunk.toString(), remaining);
+}
 
 type RunTask = {
   id: string;
@@ -131,7 +153,8 @@ function parseRunTasks(planRaw: unknown): RunTask[] {
       !(
         Array.isArray(candidate.command) &&
         candidate.command.length > 0 &&
-        candidate.command.every((part) => typeof part === "string")
+        candidate.command.every((part) => typeof part === "string") &&
+        candidate.command[0]?.length > 0
       )
     ) {
       throw new CliError(
@@ -234,20 +257,23 @@ async function persistOutput(
   taskId: string,
   stream: "stdout" | "stderr",
   value: string,
+  storeRaw: boolean,
 ): Promise<{ preview: string; artifact?: OutputArtifact }> {
   if (value.length === 0) return { preview: "" };
-  const bytes = Buffer.byteLength(value);
-  const preview = truncateUtf8(value, OUTPUT_PREVIEW_BYTES);
+  const safeValue = redactSecrets(value);
+  const bytes = Buffer.byteLength(safeValue);
+  const preview = truncateUtf8(safeValue, OUTPUT_PREVIEW_BYTES);
   const previewBytes = Buffer.byteLength(preview);
+  if (!storeRaw) return { preview };
   const filePath = join(artifactDir, `${safeFilePart(taskId)}.${stream}.txt`);
-  await mkdir(artifactDir, { recursive: true });
-  await writeFile(filePath, value, "utf8");
+  await mkdir(artifactDir, { recursive: true, mode: 0o700 });
+  await writeFile(filePath, safeValue, { encoding: "utf8", mode: 0o600 });
   return {
     preview,
     artifact: {
       path: filePath,
       bytes,
-      sha256: createHash("sha256").update(value).digest("hex"),
+      sha256: createHash("sha256").update(safeValue).digest("hex"),
       previewBytes,
       truncated: previewBytes < bytes,
     },
@@ -255,10 +281,10 @@ async function persistOutput(
 }
 
 function previewCommand(command: CommandSpec, maxBytes: number): CommandSpec {
-  if (typeof command === "string") return truncateUtf8(command, maxBytes);
+  if (typeof command === "string") return truncateUtf8(redactSecrets(command), maxBytes);
   let remaining = maxBytes;
   return command.map((part) => {
-    const preview = truncateUtf8(part, Math.max(0, remaining));
+    const preview = truncateUtf8(redactSecrets(part), Math.max(0, remaining));
     remaining -= Buffer.byteLength(preview);
     return preview;
   });
@@ -268,16 +294,18 @@ async function persistCommand(
   artifactDir: string,
   taskId: string,
   command: CommandSpec | null,
+  storeRaw: boolean,
 ): Promise<{ preview: CommandSpec | null; artifact?: OutputArtifact }> {
   if (command === null) return { preview: null };
-  const raw = `${JSON.stringify(command, null, 2)}\n`;
+  const safeCommand = typeof command === "string" ? redactSecrets(command) : command.map(redactSecrets);
+  const raw = `${JSON.stringify(safeCommand, null, 2)}\n`;
   const bytes = Buffer.byteLength(raw);
   const preview = previewCommand(command, COMMAND_PREVIEW_BYTES);
   const previewBytes = Buffer.byteLength(JSON.stringify(preview));
-  if (previewBytes >= bytes) return { preview };
+  if (!storeRaw || previewBytes >= bytes) return { preview };
   const filePath = join(artifactDir, `${safeFilePart(taskId)}.command.json`);
-  await mkdir(artifactDir, { recursive: true });
-  await writeFile(filePath, raw, "utf8");
+  await mkdir(artifactDir, { recursive: true, mode: 0o700 });
+  await writeFile(filePath, raw, { encoding: "utf8", mode: 0o600 });
   return {
     preview,
     artifact: {
@@ -290,7 +318,13 @@ async function persistCommand(
   };
 }
 
-async function runCommand(cwd: string, artifactDir: string, task: RunTask): Promise<TaskRun> {
+async function runCommand(
+  cwd: string,
+  artifactDir: string,
+  task: RunTask,
+  timeoutMs: number,
+  storeRawOutput: boolean,
+): Promise<TaskRun> {
   const started = Date.now();
   if (!task.command) {
     return {
@@ -305,8 +339,14 @@ async function runCommand(cwd: string, artifactDir: string, task: RunTask): Prom
     };
   }
   const command = task.command;
-  const persistedCommand = await persistCommand(artifactDir, task.id, command);
-  return new Promise((resolve) => {
+  const persistedCommand = await persistCommand(artifactDir, task.id, command, storeRawOutput);
+  return new Promise((finish) => {
+    let settled = false;
+    const finishOnce = (result: TaskRun) => {
+      if (settled) return;
+      settled = true;
+      finish(result);
+    };
     const child = Array.isArray(command)
       ? spawn(command[0] as string, command.slice(1), {
           cwd,
@@ -316,16 +356,40 @@ async function runCommand(cwd: string, artifactDir: string, task: RunTask): Prom
       : spawn(command, [], { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeoutMs);
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      stdout = appendCaptured(stdout, chunk);
     });
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      stderr = appendCaptured(stderr, chunk);
+    });
+    child.on("error", async (error) => {
+      clearTimeout(timer);
+      const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", error.message, storeRawOutput);
+      finishOnce({
+        id: task.id,
+        status: "failed",
+        command: persistedCommand.preview,
+        exitCode: null,
+        durationMs: Date.now() - started,
+        stdout: "",
+        stderr: persistedStderr.preview,
+        outputArtifacts: {
+          ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+          ...(persistedStderr.artifact ? { stderr: persistedStderr.artifact } : {}),
+        },
+      });
     });
     child.on("close", async (code) => {
-      const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout);
-      const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr);
-      resolve({
+      clearTimeout(timer);
+      if (timedOut) stderr += `${stderr.length > 0 ? "\n" : ""}task timed out after ${timeoutMs}ms`;
+      const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
+      const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
+      finishOnce({
         id: task.id,
         status: code === 0 ? "passed" : "failed",
         command: persistedCommand.preview,
@@ -365,6 +429,41 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const plan = schedulePlanSchema.parse(planRaw);
   const runTasks = parseRunTasks(planRaw);
   const byId = new Map(runTasks.map((task) => [task.id, task]));
+  const executableTasks = runTasks.filter((task) => task.command !== undefined);
+  if (executableTasks.length > 0 && options.yes !== true) {
+    throw new CliError(
+      "PLAN_CONFIRMATION_REQUIRED",
+      "plan commands execute with your user privileges; review the plan and pass --yes to run it",
+    );
+  }
+  const shellTasks = executableTasks.filter((task) => typeof task.command === "string");
+  if (shellTasks.length > 0 && options.allowShell !== true) {
+    throw new CliError(
+      "SHELL_COMMAND_NOT_ALLOWED",
+      `string shell commands require --allow-shell (tasks: ${shellTasks.map((task) => task.id).join(", ")})`,
+    );
+  }
+  const activeId = await getActiveContractId(scopelockPaths(cwd));
+  if (activeId === null) {
+    throw new CliError("NO_ACTIVE_CONTRACT", "scopelock run requires an active approved contract");
+  }
+  const activeContract = await loadContract(scopelockPaths(cwd), activeId);
+  const approvalIntegrity = await verifyApprovalSeal(cwd, activeContract);
+  if (!approvalIntegrity.ok) {
+    throw new CliError("APPROVAL_INTEGRITY_ERROR", approvalIntegrity.detail);
+  }
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TASK_TIMEOUT_MS;
+  const storeRawOutput = options.storeRawOutput === true;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new CliError("INVALID_TIMEOUT", "--timeout-ms must be a positive integer");
+  }
+  const planPath = isAbsolute(options.plan) ? options.plan : resolve(cwd, options.plan);
+  const contractDigests = Object.fromEntries(
+    runTasks.map((task) => {
+      const path = isAbsolute(task.contract) ? task.contract : resolve(cwd, task.contract);
+      return [task.id, { path: task.contract, sha256: hashFileBytes(path) }];
+    }),
+  );
 
   const scopes: TaskScope[] = [];
   for (const task of plan.tasks) {
@@ -384,7 +483,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
 
   if (blockedByEnvironment) {
     for (const task of runTasks) {
-      const persistedCommand = await persistCommand(artifactDir, task.id, task.command ?? null);
+      const persistedCommand = await persistCommand(artifactDir, task.id, task.command ?? null, storeRawOutput);
       taskRuns.push({
         id: task.id,
         status: "skipped",
@@ -404,12 +503,14 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
         .filter((id) => !deferredSet.has(id))
         .map((id) => byId.get(id))
         .filter((task): task is RunTask => task !== undefined);
-      taskRuns.push(...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task)))));
+      taskRuns.push(
+        ...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task, timeoutMs, storeRawOutput)))),
+      );
     }
   }
 
   for (const id of deferred) {
-    const persistedCommand = await persistCommand(artifactDir, id, byId.get(id)?.command ?? null);
+    const persistedCommand = await persistCommand(artifactDir, id, byId.get(id)?.command ?? null, storeRawOutput);
     taskRuns.push({
       id,
       status: "skipped",
@@ -435,17 +536,25 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
 
   const receipt = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     planId: plan.planId,
     startedAt,
     finishedAt: new Date().toISOString(),
     limits: {
       commandPreviewBytes: COMMAND_PREVIEW_BYTES,
       outputPreviewBytes: OUTPUT_PREVIEW_BYTES,
-      rawOutputStorage: "local-artifacts",
+      rawOutputStorage: storeRawOutput ? "local-redacted-artifacts" : "disabled",
+      maxCapturedBytesPerStream: MAX_CAPTURE_BYTES,
+      taskTimeoutMs: timeoutMs,
+    },
+    inputs: {
+      plan: { path: options.plan, sha256: hashFileBytes(planPath) },
+      contracts: contractDigests,
+      shellAllowed: options.allowShell === true,
     },
     artifactsDir: artifactDir,
     environment,
+    approvalIntegrity,
     blockedByEnvironment,
     waves,
     conflicts: graph.conflicts,

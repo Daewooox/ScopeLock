@@ -129,6 +129,7 @@ function runPilot(argv) {
     const blocked = run(root, [
       "--json",
       "run",
+      "--yes",
       "--plan",
       "plan.json",
       "--receipt",
@@ -142,6 +143,7 @@ function runPilot(argv) {
     const fixed = run(root, [
       "--json",
       "run",
+      "--yes",
       "--plan",
       "plan.json",
       "--receipt",

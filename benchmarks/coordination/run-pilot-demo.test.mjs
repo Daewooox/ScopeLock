@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runPilot } from "./run-pilot-demo.mjs";
 
-test("pilot demo shows block, fix, safe waves, hook deny, and receipt v3", () => {
+test("pilot demo shows block, fix, safe waves, hook deny, and receipt v4", () => {
   const outputDir = mkdtempSync(join(tmpdir(), "scopelock-pilot-demo-test-"));
   try {
     const result = runPilot(["--quiet", "--output-dir", outputDir]);
@@ -13,7 +13,7 @@ test("pilot demo shows block, fix, safe waves, hook deny, and receipt v3", () =>
     assert.equal(result.steps.fixedRunPassed, true);
     assert.deepEqual(result.steps.safeWaves, [["pilot-writer"], ["pilot-reader"]]);
     assert.equal(result.steps.hookDenied, true);
-    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 3);
+    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 4);
   } finally {
     rmSync(outputDir, { recursive: true, force: true });
   }

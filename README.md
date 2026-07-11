@@ -83,6 +83,11 @@ scopelock check-drift                          # exit 0 clean, 1 = violations
 
 `--json` is available on every command for machine-readable output.
 
+`scopelock run --plan <plan.json>` is intentionally explicit: a plan with
+commands requires `--yes`, and string shell commands require `--allow-shell`.
+Receipts store redacted bounded previews by default; raw redacted artifacts are
+written only with `--store-raw-output`.
+
 `agents preflight` verifies an existing environment; it never installs or
 mutates anything. It reads a manifest (`{ schemaVersion, targets, rules,
 skills, policy }`) and, for each target, checks that required rules/skills

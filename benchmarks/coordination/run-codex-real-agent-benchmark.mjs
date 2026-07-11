@@ -299,6 +299,7 @@ function runScopeLockDispatcher(root) {
     scopelockCli,
     "--json",
     "run",
+    "--yes",
     "--plan",
     "plan.json",
     "--receipt",

@@ -155,6 +155,10 @@ program
   .option("--no-defer-write-conflicts", "run write-write conflicts instead of deferring one side")
   .option("--no-check-drift", "skip the final check-drift receipt step")
   .option("--receipt <path>", "write receipt to a custom path")
+  .option("--yes", "confirm that reviewed plan commands may execute with current user privileges")
+  .option("--allow-shell", "allow string commands to run through the platform shell")
+  .option("--timeout-ms <ms>", "per-task timeout in milliseconds", (value) => Number(value), 900_000)
+  .option("--store-raw-output", "store redacted command/stdout/stderr artifacts locally")
   .option("--json", "print machine-readable JSON")
   .action(
     (
@@ -164,6 +168,10 @@ program
         deferWriteConflicts?: boolean;
         checkDrift?: boolean;
         receipt?: string;
+        yes?: boolean;
+        allowShell?: boolean;
+        timeoutMs?: number;
+        storeRawOutput?: boolean;
       },
       command: Command,
     ) => run(() => runPlanCommand(options), jsonOf(command)),
