@@ -1535,4 +1535,11 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Сценарий:** baseline `swift test` → missing required skill blocks strict `scopelock run --plan` → add `.agents/skills/wallet-domain-review/SKILL.md` → `agents preflight` pass → `plan-parallel --include-read-hazards` gives `[wallet-core-rules] -> [wallet-concurrency-tests, wallet-docs-demo]` → synthetic Codex `apply_patch` touching forbidden `Package.swift` is denied → final `scopelock run --plan` → final `swift test` pass → final `check-drift` pass → receipt v3.
 - **Проверки:** `node benchmarks/coordination/run-wallet-demo.mjs --offline-fixture --output-dir .scopelock/reports/wallet-demo` PASS all steps; `pnpm demo:wallet -- --output-dir .scopelock/reports/wallet-demo-live` cloned real GitHub repo and PASS all steps.
 - **Следующий шаг:** video script/recording. Показывать `demo:wallet` как реальный repo proof, `demo:pilot` как stable fallback. Не добавлять generic importer/runner/UI до реакции design partner.
+
+### Step 5d (demo UX polish) - keep-fixture manual replay - DONE
+
+- **Контракт:** `wallet-demo-keep-fixture-ux` (demo harness/test + Memory Bank only; forbidden `packages/**`).
+- **Реализовано:** `pnpm demo:wallet -- --keep-fixture` теперь печатает `Fixture kept:` и готовый блок команд для ручного повтора без глобального бинаря `scopelock`: `SCOPELOCK_CLI=<repo>/packages/cli/dist/index.js` + `node "$SCOPELOCK_CLI" ...`.
+- **JSON evidence:** `summary.json` получил `manualCommands`, чтобы запись/документация могли брать те же команды без парсинга human output.
+- **Зачем:** закрывает UX-провал из ручной попытки `scopelock run ...` в клонированном `WalletAssignment`, где у пользователя нет глобально установленной команды и нет подготовленных `.scopelock` артефактов.
 <!-- TASK #0044 END -->

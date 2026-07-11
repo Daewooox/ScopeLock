@@ -48,6 +48,35 @@ function runCli(root, args, input = "") {
   return run(root, process.execPath, [cli, ...args], input);
 }
 
+function shellQuote(value) {
+  return `"${String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function manualReplayCommands(root) {
+  return [
+    `cd ${shellQuote(root)}`,
+    `SCOPELOCK_CLI=${shellQuote(cli)}`,
+    `node "$SCOPELOCK_CLI" agents preflight --manifest .scopelock/agents.json`,
+    `node "$SCOPELOCK_CLI" plan-parallel plan.json --include-read-hazards`,
+    `node "$SCOPELOCK_CLI" run --plan plan.json --receipt .scopelock/reports/manual-rerun.json --no-check-drift`,
+    `node "$SCOPELOCK_CLI" check-drift`,
+    "swift test",
+  ];
+}
+
+function keepFixtureHint(root) {
+  return [
+    "",
+    `Fixture kept: ${root}`,
+    "Manual replay without global `scopelock` install:",
+    ...manualReplayCommands(root).map((command) => `  ${command}`),
+    "",
+    "Already generated evidence:",
+    "  .scopelock/reports/wallet-blocked.json",
+    "  .scopelock/reports/wallet-final.json",
+  ];
+}
+
 function mustRun(root, command, args, input = "") {
   const result = run(root, command, args, input);
   if (result.status !== 0) {
@@ -529,6 +558,7 @@ function blockedSummary(root, outputDir, source, reason, detail, keepFixture) {
       finalDriftClean: false,
       receiptSchemaVersion: null,
     },
+    manualCommands: keepFixture ? manualReplayCommands(root) : [],
   };
   mkdirSync(outputDir, { recursive: true });
   writeFileSync(join(outputDir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
@@ -593,6 +623,7 @@ function runWalletDemo(argv) {
       source,
       blocked: false,
       fixture: keepFixture ? root : null,
+      manualCommands: keepFixture ? manualReplayCommands(root) : [],
       steps: {
         swiftAvailable: true,
         baselineTestsPassed: baseline.status === 0,
@@ -629,6 +660,7 @@ function runWalletDemo(argv) {
         `6. final swift test: ${summary.steps.finalSwiftTestsPassed ? "PASS" : "FAIL"}`,
         `7. final check-drift: ${summary.steps.finalDriftClean ? "PASS" : "FAIL"}`,
         `8. receipt v${summary.steps.receiptSchemaVersion}: ${join(outputDir, "receipt.json")}`,
+        ...(keepFixture ? keepFixtureHint(root) : []),
       ].join("\n") + "\n");
     }
     return summary;

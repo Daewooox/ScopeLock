@@ -99,6 +99,11 @@ strict block → skill fix + `agents preflight` → safe waves
 `Package.swift` hook deny → final `swift test` → final `check-drift` → receipt v3.
 Проверено на real GitHub clone: все шаги PASS. Решение сохраняется: не строить
 generic importer/runner/UI; это узкий demo harness для design-partner показа.
+
+**WalletAssignment demo UX polish:** `pnpm demo:wallet -- --keep-fixture` теперь
+пишет путь к сохранённому fixture и точные manual replay команды через локальный
+`node packages/cli/dist/index.js`, чтобы ручной флоу не зависел от глобально
+установленного `scopelock`. Summary JSON также содержит `manualCommands`.
 <!-- TASK #0044 END -->
 
 ## Текущий фокус
