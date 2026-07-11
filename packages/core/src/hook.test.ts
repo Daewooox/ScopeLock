@@ -203,6 +203,29 @@ describe("hook gate", () => {
     }
   });
 
+  it("denies on a seal mismatch even when the tampered config claims warn mode (M0.9)", async () => {
+    // Adversarial scenario: an attacker who can write .scopelock/config.json
+    // downgrades mode from strict to warn as part of the same tamper that
+    // breaks the approval seal. If the gate used that (already-tampered)
+    // mode to decide deny-vs-noop on the resulting seal failure, the one
+    // check meant to catch this exact tamper would be neutered by it.
+    const strict = await makeScopelockRepo("strict");
+    try {
+      const config = JSON.parse(await readFile(strict.paths.configPath, "utf8"));
+      config.mode = "warn";
+      await writeJsonAtomic(strict.paths.configPath, config);
+
+      const result = await evaluateHookGate({
+        cwd: strict.root,
+        rawInput: JSON.stringify({ tool_input: { file_path: "src/outside/file.ts" } }),
+      });
+      assert.equal(result.reason, "approval-integrity");
+      assert.equal(result.decision, "deny");
+    } finally {
+      await rm(strict.root, { recursive: true, force: true });
+    }
+  });
+
   it("records a hook-errors line and denies when a strict active contract is corrupt", async () => {
     const root = await mkdtemp(join(tmpdir(), "scopelock-hook-"));
     const paths = scopelockPaths(root);

@@ -1600,6 +1600,36 @@ Runtime enforcement подтверждён в обоих реальных UI, н
   `check-drift` имеет 0 outside-scope violations; остаются expected high-risk
   warnings по `.github/workflows/*` и `pnpm-lock.yaml`, т.к. CI/security и
   publish dependency metadata изменены намеренно.
-- **Осталось:** M0.9 adversarial review + npm publish/OIDC/tarball smoke перед
-  публичной beta; сейчас можно идти к логическим коммитам M0.1-M0.8.
+- **M0.9 adversarial review (2026-07-12):** ручной adversarial pass по
+  M0.1-M0.8 diff, PoC-driven (каждая находка воспроизведена в disposable
+  scratch-репо до и после фикса).
+  - **Finding 1 (fail-open bypass):** `hook/gate.ts` при провале approval seal
+    решал deny/noop через `mode === "strict" ? deny : noop"`, а `mode`
+    читался из того же `.scopelock/config.json`, который атакующий мог менять
+    в рамках того же tamper, что ломал seal - downgrade `strict` → `warn`
+    маскировал бы своё же обнаружение. Исправлено: seal mismatch теперь всегда
+    `deny`, независимо от `mode`. Тест:
+    `packages/core/src/hook.test.ts` - "denies on a seal mismatch even when
+    the tampered config claims warn mode (M0.9)".
+  - **Finding 2 (`--allow-shell` bypass):** `run-plan.ts` проверял только
+    string-form команды (`typeof command === "string"`); argv-массив вида
+    `["sh", "-c", "..."]` исполняется через тот же интерпретатор, но обходил
+    gate. Исправлено: добавлена детекция shell-интерпретатора по basename
+    (`sh`, `bash`, `zsh`, `cmd`, `powershell`, ...) с inline-command флагом
+    (`-c`/`/c`/`-Command`) в argv-массиве. Тест: `packages/cli/src/cli.test.ts`
+    - "rejects an argv-array shell invocation (sh -c ...) as a shell command
+    too (M0.9)".
+  - **Проверено:** `pnpm --filter @scopelock/core build` + `node --test
+    packages/core/dist/hook.test.js` (12/12), `pnpm --filter @scopelock/cli
+    build` + `node --test packages/cli/dist/cli.test.js` (34/34, run suite
+    9/9). `THREAT-MODEL.md` обновлён (seal-mismatch mode-independence,
+    argv-array shell detection).
+  - **Backlog (не исправлено, low-confidence, без PoC):** возможный
+    path-normalization gap в `isSelfProtected`/`classifyPath` - non-canonical
+    сегменты вида `.scopelock/./contracts/x.json` или `//` могут обходить
+    буквальный `startsWith(".scopelock/contracts/")`/glob match, т.к.
+    `relativeHookPath` нормализует только backslashes, не `./`/`//`. Требует
+    отдельной PoC-верификации перед фиксом.
+- **Осталось:** npm publish/OIDC/tarball smoke перед публичной beta; коммит
+  M0.9 фиксов поверх существующих 8 коммитов M0.1-M0.8.
 <!-- TASK #0045 END -->

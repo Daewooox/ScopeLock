@@ -5,27 +5,34 @@
      Started: 2026-07-11T22:30Z
      Status: build
 -->
-## Текущий следующий шаг - Security M0 implemented, M0.9 review next
+## Текущий следующий шаг - M0.9 adversarial review done, npm publish smoke next
 
-Security M0.1-M0.8 реализованы в рабочем дереве под контрактом
-`security-m0-trustworthy-beta`: confined contract ids/paths, explicit `run`
-trust gates, approval integrity seal, удалён unsafe Codex verification bypass,
-strict fail-closed hook semantics, receipt v4 redaction/private artifacts, MCP
-pinned repo root, CI supply-chain hardening и public security docs.
+Security M0.1-M0.8 закоммичены (8 логических коммитов). M0.9 adversarial
+review проведён вручную, PoC-driven, поверх этого diff.
 
-**Проверено:** `pnpm typecheck`, `pnpm build`, `pnpm test`, `pnpm audit --prod
---audit-level high`, `git diff --check`, `npm pack --dry-run`, `pnpm pack` и
-локальный tarball install smoke. Coordination demos обновлены на receipt v4 и
-проходят.
+**M0.9 находки (обе исправлены в рабочем дереве, под контрактом
+`security-m0.9-adversarial-fixes`):**
+- Finding 1: `hook/gate.ts` seal-mismatch решение зависело от потенциально
+  уже тронутого `mode` - fail-open bypass через downgrade `strict` → `warn` в
+  том же tamper. Исправлено: seal mismatch теперь безусловный `deny`.
+- Finding 2: `run-plan.ts` `--allow-shell` gate проверял только string-form
+  команды; argv-массив `["sh", "-c", ...]` обходил его. Исправлено: детекция
+  shell-интерпретатора по basename + inline-command флагу в argv-массиве.
+- Backlog (не PoC-подтверждено, не исправлено): возможный path-normalization
+  gap в `isSelfProtected` для `.scopelock/./contracts/...`/`//` сегментов.
+
+**Проверено:** `pnpm --filter @scopelock/core build` + hook.test.js (12/12),
+`pnpm --filter @scopelock/cli build` + cli.test.js (34/34). `THREAT-MODEL.md`
+обновлён под обе находки.
 
 **Self-dogfood:** `check-drift` после reseal не показывает outside-scope
 violations. Остались expected high-risk warnings по `.github/workflows/*` и
 `pnpm-lock.yaml` - это намеренные CI/security + publish metadata изменения и
 требуют human review перед коммитом.
 
-**Дальше:** разнести M0.1-M0.9 локальные результаты на логические коммиты или
-сначала настроить npm OIDC/trusted publishing. До публичной beta ещё нужен
-tarball smoke на clean Linux/macOS/Windows runners и human review CI workflows.
+**Дальше:** закоммитить M0.9 фиксы, прогнать полный `pnpm -r build`/`pnpm
+test`/`check-drift --json` под `security-m0.9-adversarial-fixes`, затем
+npm publish/OIDC/tarball smoke перед публичной beta.
 <!-- TASK #0045 END -->
 
 <!-- TASK #0044 BEGIN

@@ -872,6 +872,44 @@ describe("run", () => {
     }
   });
 
+  it("rejects an argv-array shell invocation (sh -c ...) as a shell command too (M0.9)", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "trust-gate-argv-shell",
+          tasks: [{ id: "a", contract: "a.json", command: ["sh", "-c", "echo unsafe > a.txt"] }],
+        }),
+      );
+
+      const noShellOptIn = runCli(dir, ["--json", "run", "--yes", "--plan", "plan.json", "--no-check-drift"]);
+      assert.equal(noShellOptIn.status, 2);
+      assert.equal(JSON.parse(noShellOptIn.stdout).error.code, "SHELL_COMMAND_NOT_ALLOWED");
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+
+      const withShellOptIn = runCli(dir, [
+        "--json",
+        "run",
+        "--yes",
+        "--allow-shell",
+        "--plan",
+        "plan.json",
+        "--no-check-drift",
+      ]);
+      assert.equal(withShellOptIn.status, 0, withShellOptIn.stdout || withShellOptIn.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "unsafe\n");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("runs command tasks by waves and writes a receipt", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

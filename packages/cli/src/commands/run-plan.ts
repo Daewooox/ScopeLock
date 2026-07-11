@@ -42,6 +42,49 @@ type RunPlanOptions = {
 
 type CommandSpec = string | string[];
 
+/**
+ * Interpreter basenames that execute an inline command string just like
+ * `shell: true` would - an argv array of the form `["sh", "-c", "..."]` is
+ * not meaningfully safer than the string form `--allow-shell` gates. Matching
+ * on basename (case-insensitive, extension-stripped) so `/bin/sh`,
+ * `C:\Windows\System32\cmd.exe`, etc. are all caught, not just a bare name.
+ */
+const SHELL_INTERPRETER_BASENAMES = new Set([
+  "sh",
+  "bash",
+  "zsh",
+  "dash",
+  "ksh",
+  "csh",
+  "tcsh",
+  "cmd",
+  "powershell",
+  "pwsh",
+]);
+
+/** `-c`, `/c`, `-Command`, `/Command`, ... - the "run this string" flag, whatever the shell family calls it. */
+const SHELL_INLINE_COMMAND_FLAG = /^[-/](c|command)$/i;
+
+function stripExeSuffix(name: string): string {
+  return name.toLowerCase().endsWith(".exe") ? name.slice(0, -4) : name;
+}
+
+/**
+ * True when `command` will execute through a shell one way or another: the
+ * string form (always spawned with `shell: true`, see runCommand below), or
+ * an argv array whose first element is a known shell interpreter invoked
+ * with its inline-command flag - `--allow-shell` must gate both, or it gates
+ * nothing a moderately careful plan author can't trivially route around.
+ */
+function usesShellInterpreter(command: CommandSpec): boolean {
+  if (typeof command === "string") return true;
+  const first = command[0];
+  if (typeof first !== "string") return false;
+  const name = stripExeSuffix(basename(first));
+  if (!SHELL_INTERPRETER_BASENAMES.has(name)) return false;
+  return command.slice(1).some((arg) => SHELL_INLINE_COMMAND_FLAG.test(arg));
+}
+
 const COMMAND_PREVIEW_BYTES = 400;
 const OUTPUT_PREVIEW_BYTES = 400;
 const DEFAULT_TASK_TIMEOUT_MS = 15 * 60_000;
@@ -436,11 +479,13 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       "plan commands execute with your user privileges; review the plan and pass --yes to run it",
     );
   }
-  const shellTasks = executableTasks.filter((task) => typeof task.command === "string");
+  const shellTasks = executableTasks.filter(
+    (task) => task.command !== undefined && usesShellInterpreter(task.command),
+  );
   if (shellTasks.length > 0 && options.allowShell !== true) {
     throw new CliError(
       "SHELL_COMMAND_NOT_ALLOWED",
-      `string shell commands require --allow-shell (tasks: ${shellTasks.map((task) => task.id).join(", ")})`,
+      `commands that run through a shell require --allow-shell (tasks: ${shellTasks.map((task) => task.id).join(", ")})`,
     );
   }
   const activeId = await getActiveContractId(scopelockPaths(cwd));
