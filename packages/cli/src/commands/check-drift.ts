@@ -9,6 +9,7 @@ import {
   scopelockConfigSchema,
   scopelockPaths,
   writeJsonAtomic,
+  verifyApprovalSeal,
 } from "@scopelock/core";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -69,6 +70,10 @@ export async function checkDriftCommand(options: {
   }
 
   const contract = await loadContract(paths, activeId);
+  const seal = await verifyApprovalSeal(root, contract);
+  if (!seal.ok) {
+    throw new CliError("APPROVAL_INTEGRITY_ERROR", seal.detail);
+  }
   const baselineSha = options.base ?? contract.baseline?.headSha ?? null;
   if (baselineSha === null) {
     throw new CliError(

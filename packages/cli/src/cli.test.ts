@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { chmod, mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { approvedContractSchema, writeApprovalSeal } from "@scopelock/core";
 import { shouldUseShellForCodexProbe } from "./commands/hooks.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
@@ -117,6 +118,7 @@ describe("cli end-to-end", () => {
       const contract = JSON.parse(await readFile(activePath, "utf8"));
       contract.baseline.headSha = "0".repeat(40);
       await writeFile(activePath, JSON.stringify(contract));
+      await writeApprovalSeal(dir, approvedContractSchema.parse(contract));
 
       const res = runCli(dir, ["--json", "check-drift"]);
       assert.equal(res.status, 2);
@@ -164,6 +166,7 @@ describe("cli end-to-end", () => {
       const createdAt = contract.createdAt;
       contract.baseline.headSha = "0".repeat(40);
       await writeFile(activePath, JSON.stringify(contract));
+      await writeApprovalSeal(dir, approvedContractSchema.parse(contract));
 
       // Broken.
       assert.equal(runCli(dir, ["--json", "check-drift"]).status, 2);

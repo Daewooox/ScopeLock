@@ -7,6 +7,7 @@ import {
   loadContract,
   saveContract,
   scopelockPaths,
+  writeApprovalSeal,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
 
@@ -72,12 +73,14 @@ export async function rebaselineCommand(
     },
   });
   const savedPath = await saveContract(paths, rebaselined);
+  const sealPath = await writeApprovalSeal(root, rebaselined);
 
   return {
     data: {
       contractId: id,
       baseline: rebaselined.baseline,
       path: savedPath,
+      sealPath,
     },
     human: `rebaselined ${id} to ${sha}`,
     exitCode: 0,

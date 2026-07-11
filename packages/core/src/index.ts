@@ -5,6 +5,7 @@ export * from "./schemas/config.js";
 export * from "./storage/paths.js";
 export * from "./storage/atomic.js";
 export * from "./storage/contracts.js";
+export * from "./storage/seal.js";
 export * from "./git/exec.js";
 export * from "./git/repo.js";
 export * from "./git/status.js";
