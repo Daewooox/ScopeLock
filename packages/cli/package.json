@@ -11,7 +11,11 @@
     "scopelock": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist/commands",
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/run.d.ts",
+    "dist/run.js"
   ],
   "repository": {
     "type": "git",
@@ -28,7 +32,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@scopelock/core": "workspace:*",
+    "@scopelock/core": "workspace:^",
     "commander": "^14.0.0"
   },
   "devDependencies": {

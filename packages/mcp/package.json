@@ -19,7 +19,10 @@
     }
   },
   "files": [
-    "dist"
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/tools.d.ts",
+    "dist/tools.js"
   ],
   "repository": {
     "type": "git",
@@ -37,7 +40,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@scopelock/core": "workspace:*",
+    "@scopelock/core": "workspace:^",
     "zod": "^4.4.3"
   }
 }
