@@ -30,9 +30,23 @@ violations. Остались expected high-risk warnings по `.github/workflows
 `pnpm-lock.yaml` - это намеренные CI/security + publish metadata изменения и
 требуют human review перед коммитом.
 
-**Дальше:** закоммитить M0.9 фиксы, прогнать полный `pnpm -r build`/`pnpm
-test`/`check-drift --json` под `security-m0.9-adversarial-fixes`, затем
-npm publish/OIDC/tarball smoke перед публичной beta.
+**Дальше:** npm publish/OIDC/tarball smoke перед публичной beta.
+
+**2026-07-12 обновление - репо публичное, CI и git flow готовы:**
+M0.9 фиксы закоммичены и запушены (`225a4b1`). Репозиторий переведён в
+public (решение: open-core, MIT остаётся - см. обсуждение в сессии). Это
+разблокировало бесплатный CodeQL code scanning (был вынужденный
+`upload: false` workaround, пока репо было private). Заодно найдены и
+починены реальные CI-баги, не связанные с M0: `codeql.yml` не хватало
+`actions: read`; `secret-scan.yml` (`gitleaks-action`) требовал `env:
+GITHUB_TOKEN` и `pull-requests: read`. Детали и текущее состояние permissions
+- `memory-bank/techContext.md` → раздел 13, «Security CI».
+
+`main` теперь защищён GitHub Ruleset (`protect-main`, squash-only merge,
+обязательные чеки, no direct push - см. `techContext.md` → «Git workflow and
+branch protection», и правило в `docs/agent-onboarding.md` → Шаг 2). Все 6
+готовых Dependabot PR смержены этим флоу; PR с TypeScript 5.9.3→7.0.2 закрыт
+без мержа (ломает резолв типов Node, реальная несовместимость, не CI-баг).
 <!-- TASK #0045 END -->
 
 <!-- TASK #0044 BEGIN

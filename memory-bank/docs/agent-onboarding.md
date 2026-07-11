@@ -35,6 +35,15 @@ bounded run receipts. Стек: TypeScript, pnpm monorepo (`packages/core` +
 - **Дисциплина контракта ScopeLock (главное):** в репозитории активен guardrail.
   Прежде чем менять `packages/**`, заведи и заапрувь контракт с нужным scope.
   strict ради обхода не отключать - дожимай workflow. Это dogfood: проверяем продукт на себе.
+- **Git flow (с 2026-07-12): `main` защищён GitHub Ruleset, прямой push запрещён
+  всем, включая владельца и агентов.** Работать только так: `git checkout -b
+  <branch>` → коммиты → `git push -u origin <branch>` → `gh pr create` →
+  дождаться зелёных обязательных чеков (`analyze`, `gitleaks`, все 6 вариантов
+  `test (os, node)`) → `gh pr merge --squash --delete-branch`. Approvals не
+  требуются (solo maintainer), но сам PR обязателен - `git push origin main`
+  будет отклонён GitHub. Merge commit и rebase merge отключены на уровне
+  репозитория - доступен только squash. Подробности и мотивация:
+  `memory-bank/techContext.md` → раздел 13, «Git workflow and branch protection».
 
 ## Шаг 3. Собери и убедись, что всё зелёное
 
