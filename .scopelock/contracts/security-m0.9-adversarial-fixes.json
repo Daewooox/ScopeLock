@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "security-m0.9-adversarial-fixes",
+  "task": "M0.9 adversarial review fixes: seal-failure must deny independent of tampered mode; close --allow-shell argv-array bypass",
+  "createdAt": "2026-07-11T21:30:03.478Z",
+  "baseline": {
+    "headSha": "d08c30366b3d9c51d4d285c8e8412e8fa7d5394e",
+    "branch": "main",
+    "capturedAt": "2026-07-11T21:30:03.569Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/hook/gate.ts",
+      "packages/core/src/hook.test.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "THREAT-MODEL.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/storage/**",
+      "packages/mcp/src/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

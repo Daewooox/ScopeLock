@@ -213,7 +213,29 @@ export async function evaluateHookGate(input: {
     }
     const contract = await loadContract(paths, activeId);
     const seal = await verifyApprovalSeal(root, contract);
-    if (!seal.ok) throw new Error(seal.detail);
+    if (!seal.ok) {
+      // Deny unconditionally, independent of `mode`: a seal mismatch means
+      // the config that `mode` itself was just read from may be exactly what
+      // was tampered with. Falling back to "mode === strict ? deny : noop"
+      // here would let an attacker who edits .scopelock/config.json (mode:
+      // strict -> warn) alongside their real target also silently defeat
+      // detection of that same edit - the one signal designed to catch
+      // config tampering would be neutered by the tampered config's own
+      // claimed mode. This is intentionally NOT gated on mode, unlike the
+      // self-protected/symlink-escape checks below, which only guard a
+      // specific edit and don't undermine trust in `mode` itself.
+      await appendHookError(paths, {
+        ts: input.now ?? new Date().toISOString(),
+        path: rawPaths[0] ?? null,
+        error: seal.detail,
+      });
+      return {
+        decision: "deny",
+        reason: "approval-integrity",
+        path: rawPaths[0] ?? null,
+        message: `ScopeLock: ${seal.detail}; refusing mutation`,
+      };
+    }
     for (const rawPath of rawPaths) {
       const path = relativeHookPath(root, rawPath);
       if (isSelfProtected(path)) {

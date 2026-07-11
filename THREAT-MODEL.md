@@ -6,8 +6,14 @@
 - Agent edits to forbidden files when a supported pre-write hook is active.
 - Multi-agent write/write and read/write hazards before dispatch.
 - Silent mutation of approved contracts, config, and ScopeLock-owned hook
-  entries through a local approval integrity seal.
+  entries through a local approval integrity seal. A seal mismatch always
+  denies, regardless of the enforcement mode the (possibly tampered) config
+  claims - otherwise an attacker could downgrade `mode` to `warn` as part of
+  the same edit that breaks the seal and defeat detection of that edit.
 - Receipt secret leakage by default, using redacted bounded previews.
+- `--allow-shell` gating covers both string-form commands and argv-array
+  invocations of a shell interpreter with an inline-command flag (e.g.
+  `["sh", "-c", "..."]`, `["cmd", "/c", "..."]`), not just literal strings.
 
 ## What ScopeLock Does Not Protect
 
