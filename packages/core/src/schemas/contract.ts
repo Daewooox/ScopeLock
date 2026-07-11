@@ -45,6 +45,7 @@ export const contractBaselineSchema = z.object({
 export const contractScopeSchema = z.object({
   plannedPathPatterns: z.array(pathPatternSchema).default([]),
   forbiddenPathPatterns: z.array(pathPatternSchema).default([]),
+  allowAllPaths: z.boolean().default(false),
   // Advisory, optional (M5): paths this task reads but does not write. Used
   // only by the scope-algebra scheduler's read-write hazard mode; absent on
   // older contracts, which default to no declared reads (F1-only behavior).

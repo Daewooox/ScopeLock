@@ -47,6 +47,7 @@ function contract(id: string, planned: string[], baseline: string | null = null)
     scope: {
       plannedPathPatterns: planned,
       forbiddenPathPatterns: [],
+      allowAllPaths: false,
       readPathPatterns: [],
     },
     nodes: [],

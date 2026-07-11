@@ -23,7 +23,8 @@ export function classifyPath(
   ) {
     return "forbidden";
   }
-  if (scope.plannedPathPatterns.length === 0) return "planned";
+  if (scope.allowAllPaths) return "planned";
+  if (scope.plannedPathPatterns.length === 0) return "outside";
   return matchesAny(file.path, scope.plannedPathPatterns)
     ? "planned"
     : "outside";

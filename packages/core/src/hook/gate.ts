@@ -1,4 +1,4 @@
-import { access, appendFile, mkdir, readFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { z } from "zod";
 import {
@@ -6,6 +6,7 @@ import {
   loadContract,
 } from "../storage/contracts.js";
 import { scopelockPaths } from "../storage/paths.js";
+import { verifyApprovalSeal } from "../storage/seal.js";
 import { scopelockConfigSchema, type EnforcementMode } from "../schemas/config.js";
 import type { ChangedFile } from "../schemas/drift.js";
 import { classifyPath } from "../rules/path-rules.js";
@@ -79,6 +80,38 @@ function relativeHookPath(repoRoot: string, path: string): string {
   return (isAbsolute(path) ? relative(repoRoot, path) : path).replaceAll("\\", "/");
 }
 
+function isOutside(root: string, candidate: string): boolean {
+  const rel = relative(root, candidate);
+  return rel === ".." || rel.startsWith("../") || rel.startsWith("..\\") || isAbsolute(rel);
+}
+
+async function escapesThroughSymlink(repoRoot: string, hookPath: string): Promise<boolean> {
+  const root = await realpath(repoRoot);
+  let candidate = resolve(repoRoot, hookPath);
+  if (isOutside(resolve(repoRoot), candidate)) return true;
+
+  for (;;) {
+    try {
+      return isOutside(root, await realpath(candidate));
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) return true;
+      const parent = dirname(candidate);
+      if (parent === candidate) return true;
+      candidate = parent;
+    }
+  }
+}
+
+function isSelfProtected(path: string): boolean {
+  return (
+    path === ".scopelock/config.json" ||
+    path.startsWith(".scopelock/contracts/") ||
+    path === ".claude/settings.json" ||
+    path === ".cursor/hooks.json" ||
+    path === ".codex/hooks.json"
+  );
+}
+
 function hookFile(path: string): ChangedFile {
   return {
     path,
@@ -136,32 +169,65 @@ export async function evaluateHookGate(input: {
   forceAudit?: boolean;
   now?: string;
 }): Promise<HookGateResult> {
-  const rawPaths = pathsFromInput(input.rawInput);
-  if (rawPaths.length === 0) {
-    return { decision: "noop", reason: "invalid-input", path: null, message: null };
-  }
-
   const root = await findScopelockRoot(input.cwd);
   if (root === null) {
-    return { decision: "noop", reason: "no-scopelock-root", path: rawPaths[0] ?? null, message: null };
+    return { decision: "noop", reason: "no-scopelock-root", path: null, message: null };
   }
 
   const paths = scopelockPaths(root);
-  const activeId = await getActiveContractId(paths);
-  if (activeId === null) {
+  let mode: EnforcementMode;
+  try {
+    mode = input.forceAudit === true ? "warn" : await loadMode(paths);
+  } catch (error) {
+    await appendHookError(paths, {
+      ts: input.now ?? new Date().toISOString(),
+      path: null,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
-      decision: "noop",
-      reason: "no-active-contract",
-      path: rawPaths[0] ?? null,
-      message: null,
+      decision: "deny",
+      reason: "config-error",
+      path: null,
+      message: "ScopeLock: configuration is invalid; refusing mutation",
     };
   }
 
+  const rawPaths = pathsFromInput(input.rawInput);
+  if (rawPaths.length === 0) {
+    return mode === "strict"
+      ? { decision: "deny", reason: "invalid-input", path: null, message: "ScopeLock: invalid hook input; refusing mutation" }
+      : { decision: "noop", reason: "invalid-input", path: null, message: null };
+  }
+
   try {
+    const activeId = await getActiveContractId(paths);
+    if (activeId === null) {
+      return mode === "strict"
+        ? {
+            decision: "deny",
+            reason: "no-active-contract",
+            path: rawPaths[0] ?? null,
+            message: "ScopeLock: strict mode has no active approved contract",
+          }
+        : { decision: "noop", reason: "no-active-contract", path: rawPaths[0] ?? null, message: null };
+    }
     const contract = await loadContract(paths, activeId);
-    const mode = input.forceAudit === true ? "warn" : await loadMode(paths);
+    const seal = await verifyApprovalSeal(root, contract);
+    if (!seal.ok) throw new Error(seal.detail);
     for (const rawPath of rawPaths) {
       const path = relativeHookPath(root, rawPath);
+      if (isSelfProtected(path)) {
+        const message = `ScopeLock: protected guardrail path changed: ${path}`;
+        if (mode === "strict") return { decision: "deny", reason: "self-protected", path, message };
+        await appendAudit(paths, { ts: input.now ?? new Date().toISOString(), path, verdict: "warn", reason: "self-protected" });
+        return { decision: "warn", reason: "self-protected", path, message };
+      }
+      if (await escapesThroughSymlink(root, path)) {
+        const message = `ScopeLock: path escapes repository through a symlink: ${path}`;
+        if (mode === "strict") return { decision: "deny", reason: "symlink-escape", path, message };
+        await appendAudit(paths, { ts: input.now ?? new Date().toISOString(), path, verdict: "warn", reason: "symlink-escape" });
+        return { decision: "warn", reason: "symlink-escape", path, message };
+      }
       const verdict = classifyPath(hookFile(path), contract.scope);
       if (verdict === "planned") continue;
 
@@ -189,6 +255,13 @@ export async function evaluateHookGate(input: {
       path: rawPaths[0] ?? null,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { decision: "noop", reason: "gate-error", path: rawPaths[0] ?? null, message: null };
+    return mode === "strict"
+      ? {
+          decision: "deny",
+          reason: "gate-error",
+          path: rawPaths[0] ?? null,
+          message: "ScopeLock: guardrail integrity check failed; refusing mutation",
+        }
+      : { decision: "noop", reason: "gate-error", path: rawPaths[0] ?? null, message: null };
   }
 }
