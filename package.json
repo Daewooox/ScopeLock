@@ -16,7 +16,7 @@
     "benchmark:receipt": "pnpm build && node benchmarks/coordination/run-codex-real-agent-benchmark.mjs --runs 3 --modes scopelock_run --output-dir .scopelock/reports/receipt-baseline"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.1.1",
     "typescript": "^5.8.0"
   }
 }
