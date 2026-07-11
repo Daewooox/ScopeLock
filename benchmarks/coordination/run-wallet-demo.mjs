@@ -58,7 +58,7 @@ function manualReplayCommands(root) {
     `SCOPELOCK_CLI=${shellQuote(cli)}`,
     `node "$SCOPELOCK_CLI" agents preflight --manifest .scopelock/agents.json`,
     `node "$SCOPELOCK_CLI" plan-parallel plan.json --include-read-hazards`,
-    `node "$SCOPELOCK_CLI" run --plan plan.json --receipt .scopelock/reports/manual-rerun.json --no-check-drift`,
+    `node "$SCOPELOCK_CLI" run --yes --plan plan.json --receipt .scopelock/reports/manual-rerun.json --no-check-drift`,
     `node "$SCOPELOCK_CLI" check-drift`,
     "swift test",
   ];
@@ -595,7 +595,7 @@ function runWalletDemo(argv) {
 
     setupScopeLock(root);
     const blockedReceipt = join(root, ".scopelock/reports/wallet-blocked.json");
-    const blocked = runCli(root, ["--json", "run", "--plan", "plan.json", "--receipt", blockedReceipt, "--no-check-drift"]);
+    const blocked = runCli(root, ["--json", "run", "--yes", "--plan", "plan.json", "--receipt", blockedReceipt, "--no-check-drift"]);
     const blockedBody = JSON.parse(blocked.stdout);
 
     addWalletSkill(root);
@@ -613,7 +613,7 @@ function runWalletDemo(argv) {
     const hookBody = JSON.parse(hook.stdout);
 
     const finalReceipt = join(root, ".scopelock/reports/wallet-final.json");
-    const finalRun = runCli(root, ["--json", "run", "--plan", "plan.json", "--receipt", finalReceipt, "--no-check-drift"]);
+    const finalRun = runCli(root, ["--json", "run", "--yes", "--plan", "plan.json", "--receipt", finalReceipt, "--no-check-drift"]);
     const finalBody = JSON.parse(finalRun.stdout);
     const finalTests = swiftTest(root);
     const drift = runCli(root, ["--json", "check-drift"]);

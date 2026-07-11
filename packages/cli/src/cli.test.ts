@@ -838,7 +838,39 @@ describe("run", () => {
       file,
     ]);
     assert.equal(res.status, 0, res.stderr);
+    const approved = runCli(dir, ["approve", file]);
+    assert.equal(approved.status, 0, approved.stdout || approved.stderr);
   }
+
+  it("requires explicit confirmation and rejects shell strings by default", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "trust-gate",
+          tasks: [{ id: "a", contract: "a.json", command: "echo unsafe > a.txt" }],
+        }),
+      );
+
+      const unconfirmed = runCli(dir, ["--json", "run", "--plan", "plan.json", "--no-check-drift"]);
+      assert.equal(unconfirmed.status, 2);
+      assert.equal(JSON.parse(unconfirmed.stdout).error.code, "PLAN_CONFIRMATION_REQUIRED");
+
+      const noShellOptIn = runCli(dir, ["--json", "run", "--yes", "--plan", "plan.json", "--no-check-drift"]);
+      assert.equal(noShellOptIn.status, 2);
+      assert.equal(JSON.parse(noShellOptIn.stdout).error.code, "SHELL_COMMAND_NOT_ALLOWED");
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   it("runs command tasks by waves and writes a receipt", async (t) => {
     const dir = await makeRepo();
@@ -881,10 +913,12 @@ describe("run", () => {
       const res = runCli(dir, [
         "--json",
         "run",
+        "--yes",
         "--plan",
         "plan.json",
         "--receipt",
         receiptPath,
+        "--store-raw-output",
         "--no-check-drift",
       ]);
       assert.equal(res.status, 0, res.stdout || res.stderr);
@@ -899,6 +933,8 @@ describe("run", () => {
       assert.deepEqual(receipt.deferredTasks, []);
       assert.equal(receipt.taskRuns.length, 2);
       assert.ok(receipt.taskRuns.every((task: { status: string }) => task.status === "passed"));
+      assert.match(receipt.inputs.plan.sha256, /^[a-f0-9]{64}$/);
+      assert.match(receipt.inputs.contracts.a.sha256, /^[a-f0-9]{64}$/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -935,20 +971,57 @@ describe("run", () => {
       const res = runCli(dir, [
         "--json",
         "run",
+        "--yes",
         "--plan",
         "plan.json",
         "--receipt",
         receiptPath,
+        "--store-raw-output",
         "--no-check-drift",
       ]);
       assert.equal(res.status, 0, res.stdout || res.stderr);
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
       const task = receipt.taskRuns[0];
-      assert.equal(receipt.schemaVersion, 3);
+      assert.equal(receipt.schemaVersion, 4);
       assert.equal(task.stdout.length, 400);
       assert.equal(task.outputArtifacts.stdout.bytes, 3000);
       assert.equal(task.outputArtifacts.stdout.truncated, true);
       assert.equal(await readFile(task.outputArtifacts.stdout.path, "utf8"), "x".repeat(3000));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts secrets and does not store raw output by default", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "secret.json"), "secret", ["out.txt"]);
+      const fakeSecret = `sk-${"a".repeat(24)}`;
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "redaction-demo",
+          tasks: [{
+            id: "secret",
+            contract: "secret.json",
+            command: [process.execPath, "-e", `process.stdout.write('${fakeSecret}')`],
+          }],
+        }),
+      );
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, ["--json", "run", "--yes", "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift"]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      const raw = await readFile(receiptPath, "utf8");
+      assert.doesNotMatch(raw, new RegExp(fakeSecret));
+      const receipt = JSON.parse(raw);
+      assert.match(receipt.taskRuns[0].stdout, /REDACTED/);
+      assert.deepEqual(receipt.taskRuns[0].outputArtifacts, {});
+      assert.equal(receipt.limits.rawOutputStorage, "disabled");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -992,6 +1065,7 @@ describe("run", () => {
       const res = runCli(dir, [
         "--json",
         "run",
+        "--yes",
         "--plan",
         "plan.json",
         "--receipt",
@@ -1046,6 +1120,7 @@ describe("run", () => {
       const res = runCli(dir, [
         "--json",
         "run",
+        "--yes",
         "--plan",
         "plan.json",
         "--receipt",
@@ -1092,7 +1167,7 @@ describe("run", () => {
 
       const result = spawnSync(
         process.execPath,
-        [CLI, "--json", "run", "--plan", "plan.json", "--no-check-drift"],
+        [CLI, "--json", "run", "--yes", "--plan", "plan.json", "--no-check-drift"],
         { cwd: dir, encoding: "utf8", input: "", timeout: 2_000 },
       );
 
@@ -1144,6 +1219,7 @@ describe("run", () => {
       const res = runCli(dir, [
         "--json",
         "run",
+        "--yes",
         "--plan",
         "plan.json",
         "--receipt",
