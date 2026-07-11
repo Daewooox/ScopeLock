@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
@@ -9,6 +9,7 @@ import {
   saveContract,
   scopelockPaths,
   setActiveContractId,
+  writeApprovalSeal,
   type ApprovedContract,
 } from "@scopelock/core";
 import { checkDriftTool, planParallelTool, scopesConflictTool } from "./tools.js";
@@ -71,7 +72,6 @@ test("plan_parallel schedules language-agnostic contract scopes", async () => {
   );
 
   const independent = await planParallelTool({
-    repoRoot: root,
     plan: {
       schemaVersion: 1,
       planId: "independent",
@@ -80,12 +80,11 @@ test("plan_parallel schedules language-agnostic contract scopes", async () => {
         { id: "ts", contract: "ts.json" },
       ],
     },
-  });
+  }, root);
   assert.deepEqual(independent.waves, [["config-json", "ts"]]);
   assert.deepEqual(independent.conflicts, []);
 
   const conflicted = await planParallelTool({
-    repoRoot: root,
     plan: {
       schemaVersion: 1,
       planId: "conflicted",
@@ -94,10 +93,52 @@ test("plan_parallel schedules language-agnostic contract scopes", async () => {
         { id: "config-json", contract: "config-json.json" },
       ],
     },
-  });
+  }, root);
   assert.deepEqual(conflicted.waves, [["config-all"], ["config-json"]]);
   assert.equal(conflicted.conflicts[0]?.kind, "write-write");
   assert.equal(conflicted.conflicts[0]?.witness, "config/.json");
+});
+
+test("plan_parallel rejects contract paths outside the pinned repo root", async () => {
+  const root = await makeRepo();
+  const other = await mkdtemp(join(tmpdir(), "scopelock-mcp-other-"));
+  const outside = join(other, "outside.json");
+  await writeFile(outside, JSON.stringify(contract("outside", ["x/**"]), null, 2));
+
+  await assert.rejects(
+    planParallelTool({
+      plan: {
+        schemaVersion: 1,
+        planId: "absolute",
+        tasks: [{ id: "outside", contract: outside }],
+      },
+    }, root),
+    /relative/,
+  );
+
+  await assert.rejects(
+    planParallelTool({
+      plan: {
+        schemaVersion: 1,
+        planId: "traversal",
+        tasks: [{ id: "outside", contract: "../outside.json" }],
+      },
+    }, root),
+    /escapes/,
+  );
+
+  const linkPath = join(root, "linked-contract.json");
+  await symlink(outside, linkPath);
+  await assert.rejects(
+    planParallelTool({
+      plan: {
+        schemaVersion: 1,
+        planId: "symlink",
+        tasks: [{ id: "outside", contract: "linked-contract.json" }],
+      },
+    }, root),
+    /outside/,
+  );
 });
 
 test("scopes_conflict returns a boolean and witness detail", () => {
@@ -114,11 +155,13 @@ test("check_drift reports violations for the active contract", async () => {
   const root = await makeRepo();
   const paths = scopelockPaths(root);
   const baseline = headSha(root);
-  await saveContract(paths, contract("active", ["src/**"], baseline));
+  const activeContract = contract("active", ["src/**"], baseline);
+  await saveContract(paths, activeContract);
   await setActiveContractId(paths, "active");
+  await writeApprovalSeal(root, activeContract);
 
   await writeFile(join(root, "config.json"), "{\"ok\":false}\n");
-  const result = await checkDriftTool({ repoRoot: root });
+  const result = await checkDriftTool({}, root);
 
   assert.equal(result.ok, false);
   assert.equal(result.report.contractId, "active");

@@ -178,6 +178,9 @@ When a ScopeLock contract is injected into an agent prompt, the final
 instruction tells the agent to call `check_drift` before finishing and resolve
 any violations.
 
+MCP tools are pinned to the repository where the server starts. Tool inputs do
+not accept `repoRoot`; absolute and escaping contract paths are rejected.
+
 ### `--local`
 
 Editor hooks call `scopelock` by default, which assumes it is on `PATH`.

@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { readFile, realpath } from "node:fs/promises";
+import { realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   approvedContractSchema,
@@ -16,6 +17,7 @@ import {
   scopelockConfigSchema,
   scopelockPaths,
   scopesConflict,
+  verifyApprovalSeal,
   writeJsonAtomic,
   type ApprovedContract,
   type SchedulePlan,
@@ -35,7 +37,6 @@ const taskScopeInputSchema = z.object({
 });
 
 const planParallelInputSchema = {
-  repoRoot: z.string().min(1).optional(),
   plan: z.unknown().describe("A ScopeLock schedule plan JSON object."),
   includeReadHazards: z.boolean().optional().default(false),
 };
@@ -46,7 +47,6 @@ const scopesConflictInputSchema = {
 };
 
 const checkDriftInputSchema = {
-  repoRoot: z.string().min(1).optional(),
   base: z.string().min(1).optional(),
 };
 
@@ -58,7 +58,15 @@ function jsonContent(value: unknown) {
 }
 
 function resolveFromRoot(repoRoot: string, path: string): string {
-  return isAbsolute(path) ? path : resolve(repoRoot, path);
+  if (isAbsolute(path)) {
+    throw new Error("contract paths must be relative to the MCP server repo root");
+  }
+  const resolved = resolve(repoRoot, path);
+  const rel = relative(repoRoot, resolved);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error("contract path escapes the MCP server repo root");
+  }
+  return resolved;
 }
 
 async function readJsonFile(path: string): Promise<unknown> {
@@ -66,7 +74,12 @@ async function readJsonFile(path: string): Promise<unknown> {
 }
 
 async function loadTaskScope(repoRoot: string, task: SchedulePlan["tasks"][number]): Promise<TaskScope> {
-  const raw = await readJsonFile(resolveFromRoot(repoRoot, task.contract));
+  const contractPath = await realpath(resolveFromRoot(repoRoot, task.contract));
+  const rel = relative(repoRoot, contractPath);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error("contract path resolves outside the MCP server repo root");
+  }
+  const raw = await readJsonFile(contractPath);
   const contract = approvedContractSchema.parse(raw);
   return scopeFromContract(task.id, contract);
 }
@@ -95,17 +108,16 @@ async function loadConfig(paths: ReturnType<typeof scopelockPaths>) {
 function requireRepoRoot(candidate?: string): string {
   const root = findRepoRoot(candidate ?? process.cwd());
   if (root === null) {
-    throw new Error("ScopeLock MCP tools must run inside a git repository or receive repoRoot");
+    throw new Error("ScopeLock MCP tools must run inside a git repository");
   }
-  return root;
+  return realpathSync(root);
 }
 
 export async function planParallelTool(input: {
-  repoRoot?: string;
   plan: unknown;
   includeReadHazards?: boolean;
-}) {
-  const repoRoot = requireRepoRoot(input.repoRoot);
+}, serverRepoRoot?: string) {
+  const repoRoot = requireRepoRoot(serverRepoRoot);
   const plan = schedulePlanSchema.parse(input.plan);
   const scopes: TaskScope[] = [];
   for (const task of plan.tasks) {
@@ -132,8 +144,8 @@ export function scopesConflictTool(input: { a: TaskScope; b: TaskScope }) {
   };
 }
 
-export async function checkDriftTool(input: { repoRoot?: string; base?: string } = {}) {
-  const repoRoot = requireRepoRoot(input.repoRoot);
+export async function checkDriftTool(input: { base?: string } = {}, serverRepoRoot?: string) {
+  const repoRoot = requireRepoRoot(serverRepoRoot);
   const paths = scopelockPaths(repoRoot);
   const config = await loadConfig(paths);
   const activeId = await getActiveContractId(paths);
@@ -142,6 +154,10 @@ export async function checkDriftTool(input: { repoRoot?: string; base?: string }
   }
 
   const contract = await loadContract(paths, activeId);
+  const approvalIntegrity = await verifyApprovalSeal(repoRoot, contract);
+  if (!approvalIntegrity.ok) {
+    throw new Error(`approval integrity failed: ${approvalIntegrity.detail}`);
+  }
   const baselineSha = input.base ?? contract.baseline?.headSha ?? null;
   if (baselineSha === null) {
     throw new Error("active contract has no baseline; approve it with `scopelock approve <file>`");
@@ -174,7 +190,7 @@ export async function checkDriftTool(input: { repoRoot?: string; base?: string }
   };
 }
 
-export function createScopeLockMcpServer(): McpServer {
+export function createScopeLockMcpServer(repoRoot = requireRepoRoot()): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
 
   server.registerTool(
@@ -185,7 +201,7 @@ export function createScopeLockMcpServer(): McpServer {
         "Build a deterministic ScopeLock wave schedule from a plan JSON object and draft/approved contract files.",
       inputSchema: planParallelInputSchema,
     },
-    async (input) => jsonContent(await planParallelTool(input)),
+    async (input) => jsonContent(await planParallelTool(input, repoRoot)),
   );
 
   server.registerTool(
@@ -206,7 +222,7 @@ export function createScopeLockMcpServer(): McpServer {
         "Run ScopeLock drift verification for the active approved contract in a git repository.",
       inputSchema: checkDriftInputSchema,
     },
-    async (input) => jsonContent(await checkDriftTool(input)),
+    async (input) => jsonContent(await checkDriftTool(input, repoRoot)),
   );
 
   return server;
