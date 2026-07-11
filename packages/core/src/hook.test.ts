@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -20,6 +20,7 @@ import {
   scopelockPaths,
   setActiveContractId,
   writeJsonAtomic,
+  writeApprovalSeal,
   type ApprovedContract,
 } from "./index.js";
 
@@ -29,11 +30,16 @@ function contract(): ApprovedContract {
     id: "hook-contract",
     task: "Hook test",
     createdAt: "2026-07-05T00:00:00.000Z",
-    baseline: null,
+    baseline: {
+      headSha: "a".repeat(40),
+      branch: "main",
+      capturedAt: "2026-07-05T00:00:00.000Z",
+    },
     targetAgents: [],
     scope: {
       plannedPathPatterns: ["src/planned/**"],
       forbiddenPathPatterns: ["src/auth/**"],
+      allowAllPaths: false,
       readPathPatterns: [],
     },
     nodes: [],
@@ -53,6 +59,7 @@ async function makeScopelockRepo(mode: "warn" | "strict") {
   );
   await saveContract(paths, contract());
   await setActiveContractId(paths, "hook-contract");
+  await writeApprovalSeal(root, contract());
   return { root, paths };
 }
 
@@ -69,6 +76,28 @@ describe("hook gate", () => {
         (await evaluateHookGate({ cwd: root, rawInput: "not json" })).reason,
         "invalid-input",
       );
+      assert.equal(
+        (
+          await evaluateHookGate({
+            cwd: root,
+            rawInput: JSON.stringify({ tool_input: { file_path: "src/x.ts" } }),
+          })
+        ).reason,
+        "no-active-contract",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed on invalid input or missing contract in strict mode", async () => {
+    const root = await mkdtemp(join(tmpdir(), "scopelock-hook-strict-"));
+    try {
+      await writeJsonAtomic(
+        scopelockPaths(root).configPath,
+        scopelockConfigSchema.parse({ schemaVersion: CONFIG_SCHEMA_VERSION, mode: "strict" }),
+      );
+      assert.equal((await evaluateHookGate({ cwd: root, rawInput: "not json" })).decision, "deny");
       assert.equal(
         (
           await evaluateHookGate({
@@ -144,7 +173,37 @@ describe("hook gate", () => {
     }
   });
 
-  it("A1: records a hook-errors line and noops when the active contract is corrupt", async () => {
+  it("protects ScopeLock state and denies writes through symlinks that escape the repo", async (t) => {
+    const strict = await makeScopelockRepo("strict");
+    const outside = await mkdtemp(join(tmpdir(), "scopelock-hook-outside-"));
+    try {
+      const protectedResult = await evaluateHookGate({
+        cwd: strict.root,
+        rawInput: JSON.stringify({ tool_input: { file_path: ".scopelock/config.json" } }),
+      });
+      assert.equal(protectedResult.reason, "self-protected");
+      assert.equal(protectedResult.decision, "deny");
+
+      await mkdir(join(strict.root, "src", "planned"), { recursive: true });
+      try {
+        await symlink(outside, join(strict.root, "src", "planned", "external"), "dir");
+      } catch {
+        t.skip("filesystem cannot create symlinks");
+        return;
+      }
+      const escaped = await evaluateHookGate({
+        cwd: strict.root,
+        rawInput: JSON.stringify({ tool_input: { file_path: "src/planned/external/file.ts" } }),
+      });
+      assert.equal(escaped.reason, "symlink-escape");
+      assert.equal(escaped.decision, "deny");
+    } finally {
+      await rm(strict.root, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("records a hook-errors line and denies when a strict active contract is corrupt", async () => {
     const root = await mkdtemp(join(tmpdir(), "scopelock-hook-"));
     const paths = scopelockPaths(root);
     try {
@@ -162,7 +221,7 @@ describe("hook gate", () => {
         now: "2026-07-05T00:00:00.000Z",
       });
 
-      assert.equal(result.decision, "noop");
+      assert.equal(result.decision, "deny");
       assert.equal(result.reason, "gate-error");
       const log = await readFile(join(paths.reportsDir, "hook-errors.ndjson"), "utf8");
       assert.match(log, /"error"/);

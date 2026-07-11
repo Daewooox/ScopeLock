@@ -10,6 +10,30 @@ export function hashFileBytes(absPath: string): string {
   return createHash("sha256").update(readFileSync(absPath)).digest("hex");
 }
 
+export function skillDirContainsSymlink(absDir: string): boolean {
+  const stack = [absDir];
+  while (stack.length > 0) {
+    const dir = stack.pop() as string;
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const name of entries) {
+      const abs = join(dir, name);
+      try {
+        const st = lstatSync(abs);
+        if (st.isSymbolicLink()) return true;
+        if (st.isDirectory()) stack.push(abs);
+      } catch {
+        continue;
+      }
+    }
+  }
+  return false;
+}
+
 interface WalkedFile {
   /** POSIX path relative to the walked root, so the digest ignores OS separators. */
   relPosix: string;

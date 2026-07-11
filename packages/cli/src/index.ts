@@ -104,6 +104,7 @@ contract
   .requiredOption("--task <text>", "one-line description of the task")
   .option("--id <id>", "contract id (default: slug of task + date)")
   .option("--planned <glob>", "planned path glob (repeatable)", collect, [])
+  .option("--allow-all", "explicitly allow changes to every path not forbidden")
   .option("--forbidden <glob>", "forbidden path glob (repeatable)", collect, [])
   .option("--read <glob>", "read-only path glob, advisory (repeatable)", collect, [])
   .option("--agent <id>", "target agent: claude, codex, cursor (repeatable)", collect, [])
@@ -116,6 +117,7 @@ contract
         task: string;
         id?: string;
         planned: string[];
+        allowAll?: boolean;
         forbidden: string[];
         read: string[];
         agent: string[];

@@ -8,7 +8,7 @@ import type {
   TargetPreflightReport,
 } from "../schemas/agent-workspace.js";
 import { AGENT_ENVIRONMENT_PREFLIGHT_REPORT_SCHEMA_VERSION } from "../schemas/agent-workspace.js";
-import { hashFileBytes, hashSkillDir } from "./hash.js";
+import { hashFileBytes, hashSkillDir, skillDirContainsSymlink } from "./hash.js";
 import { probeHookConfig } from "./hook-probe.js";
 import { ruleTargetPaths, skillTargetDirs } from "./locations.js";
 import { resolveRepoPath } from "./paths.js";
@@ -59,6 +59,7 @@ interface ArtifactCheckInput {
   digestOf: (absPath: string) => string;
   requirePhysicalCopies: boolean;
   requireParity: boolean;
+  rejectNestedSymlinks?: boolean;
 }
 
 function checkArtifact(
@@ -86,7 +87,10 @@ function checkArtifact(
       // Missing optional artifact is informational, never fatal.
       status = "warn";
     }
-  } else if (input.requirePhysicalCopies && isSymlink) {
+  } else if (
+    input.requirePhysicalCopies &&
+    (isSymlink || (input.rejectNestedSymlinks === true && found !== null && skillDirContainsSymlink(found.resolvedPath)))
+  ) {
     status = "fail";
     violation = {
       target: input.target,
@@ -185,6 +189,7 @@ export function runAgentPreflight(input: {
         digestOf: hashSkillDir,
         requirePhysicalCopies,
         requireParity: requireSkillParity,
+        rejectNestedSymlinks: true,
       });
       skillResults.push(result);
       if (violation) violations.push(violation);

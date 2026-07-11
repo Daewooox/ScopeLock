@@ -25,6 +25,7 @@ export async function contractNewCommand(options: {
   task: string;
   id?: string;
   planned?: string[];
+  allowAll?: boolean;
   forbidden?: string[];
   read?: string[];
   agent?: string[];
@@ -33,6 +34,12 @@ export async function contractNewCommand(options: {
 }): Promise<CommandResult> {
   if (options.task.trim().length === 0) {
     throw new CliError("MISSING_TASK", "contract new requires a non-empty --task");
+  }
+  if ((options.planned?.length ?? 0) === 0 && options.allowAll !== true) {
+    throw new CliError(
+      "MISSING_SCOPE",
+      "contract new requires at least one --planned glob or explicit --allow-all",
+    );
   }
 
   const date = new Date();
@@ -48,6 +55,7 @@ export async function contractNewCommand(options: {
     scope: {
       plannedPathPatterns: options.planned ?? [],
       forbiddenPathPatterns: options.forbidden ?? [],
+      allowAllPaths: options.allowAll === true,
       readPathPatterns: options.read ?? [],
     },
     tests: (options.test ?? []).map((type) => ({ type, command: null, required: true })),

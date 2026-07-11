@@ -41,6 +41,7 @@ function contract(overrides: Partial<ApprovedContract> = {}): ApprovedContract {
     scope: {
       plannedPathPatterns: ["src/**"],
       forbiddenPathPatterns: ["src/auth/**"],
+      allowAllPaths: false,
       readPathPatterns: [],
     },
     nodes: [],
@@ -97,9 +98,9 @@ describe("rules and engine", () => {
     assert.equal(classifyPath(file, contract().scope), "forbidden");
   });
 
-  it("does not flag outside scope when planned patterns are empty", () => {
+  it("defaults an empty planned scope to deny-all unless explicitly unrestricted", () => {
     const c = contract({
-      scope: { plannedPathPatterns: [], forbiddenPathPatterns: [], readPathPatterns: [] },
+      scope: { plannedPathPatterns: [], forbiddenPathPatterns: [], readPathPatterns: [], allowAllPaths: false },
     });
     const file = {
       path: "anywhere/file.ts",
@@ -112,7 +113,8 @@ describe("rules and engine", () => {
       sizeBytes: 0,
     };
 
-    assert.equal(classifyPath(file, c.scope), "planned");
+    assert.equal(classifyPath(file, c.scope), "outside");
+    assert.equal(classifyPath(file, { ...c.scope, allowAllPaths: true }), "planned");
   });
 
   it("flags missing tests only when required tests exist and no test file changed", () => {
