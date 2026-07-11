@@ -440,6 +440,299 @@ Claude Code (вызвать оба tool из агентного цикла).
   `README.md`, `memory-bank/**`; forbidden - остальной `packages/core/**`,
   `packages/cli/**`.
 
+## Security M0 - Trustworthy beta release gate, 5-8 дней
+
+### Почему эта фаза обязательна сейчас
+
+ScopeLock уже выполняет команды, устанавливает hooks, читает agent configuration и
+создаёт receipts. Значит, продукт сам находится на security boundary. До внешнего
+beta нельзя добавлять новые execution surfaces, пока не закрыты найденные пути
+обхода и пока документация не отделяет реальные гарантии от best-effort checks.
+
+**Целевой threat model:** ScopeLock защищает от ошибочного scope drift,
+несогласованных действий нескольких агентов и случайного изменения trusted
+configuration. ScopeLock **не является OS sandbox** и не защищает от злонамеренного
+процесса, которому пользователь уже дал unrestricted shell с теми же правами.
+
+**Release gate:** Phase 6, npm publish и публичный design-partner pilot не начинать,
+пока M0.1-M0.8 не выполнены и M0.9 review не дал GO.
+
+### Не строить в M0
+
+- cloud control plane, daemon, accounts, RBAC или remote policy service;
+- собственную криптографическую PKI;
+- контейнерный orchestrator или кроссплатформенный OS sandbox;
+- generic secret manager;
+- подписанные receipts до подтверждения, что локального integrity seal недостаточно.
+
+### M0.1 - Безопасные identifiers и path containment (P0)
+
+**Цель:** ни один contract id, active id, receipt path или MCP contract path не
+должен неявно читать/писать за пределами разрешённого root.
+
+Изменения:
+
+- `packages/core/src/schemas/contract.ts`: добавить единый `contractIdSchema`
+  (`^[a-z0-9][a-z0-9._-]{0,63}$`) и применить его к `approvedContractSchema.id`;
+- `packages/core/src/storage/contracts.ts`: добавить containment helper на
+  `resolve()` + `relative()` и использовать его в save/load/exists call sites;
+- `packages/cli/src/commands/approve.ts`: проверять destination через core helper,
+  не собирать путь повторно через `join`;
+- active pointer с небезопасным id считать integrity error, а не `null`;
+- receipt path оставить user-selectable, но artifact directory обязан быть внутри
+  выбранной receipt directory и не проходить через symlinked parent;
+- MCP paths закрываются отдельно в M0.7.
+
+Обязательные тесты:
+
+- ids `../../config`, `a/b`, абсолютные POSIX/Windows paths, Unicode separators;
+- valid ids с `.`, `_`, `-`, длина 64; длина 65 отклоняется;
+- malicious active pointer не читает файл вне `contractsDir`;
+- symlinked parent не позволяет записать artifact за intended directory.
+
+DoD: все storage path operations используют один helper; `rg` не находит других
+`join(paths.contractsDir, ...)` с внешним id.
+
+### M0.2 - Явная модель доверия к plan и безопасный dispatcher (P0)
+
+**Цель:** клонированный `plan.json` не должен незаметно превращаться в shell script.
+
+Изменения:
+
+- argv array остаётся основным форматом и запускается только с `shell: false`;
+- string command отклоняется по умолчанию; совместимость доступна только через
+  явно названный `--allow-shell` с warning в human и JSON output;
+- перед dispatch receipt получает SHA-256 исходных bytes plan и всех contracts;
+- human mode до запуска печатает task id + executable + contract id;
+- non-interactive execution должно передать `--yes`; demo/benchmark scripts
+  обновляются явно, чтобы опасное действие было видно в call site;
+- добавить per-task timeout и graceful process-tree termination;
+- stdout/stderr писать streaming, с лимитом памяти; не накапливать unlimited string;
+- environment inheritance пока сохраняется для agent CLI compatibility, но это
+  явно документируется как trusted-plan boundary. `--clean-env` отложить до
+  отдельного compatibility spike.
+
+Обязательные тесты:
+
+- string command без `--allow-shell` не запускается;
+- shell metacharacters внутри argv остаются обычным аргументом;
+- plan digest меняется при одном изменённом byte;
+- timeout завершает child и даёт typed result;
+- бесконечный stdout не увеличивает память без границы;
+- Windows `.cmd` compatibility тестируется только в explicit shell mode.
+
+DoD: ни один default dispatcher path не использует `shell: true`; документация
+называет plan executable code и требует доверять его источнику.
+
+### M0.3 - Approval integrity seal и self-protection (P0/P1)
+
+**Цель:** approved contract не должен тихо меняться после approval.
+
+Минимальная архитектура:
+
+- создать user-local store вне repo:
+  `~/.local/state/scopelock/<sha256(realpath+git-common-dir)>/approval.json`
+  (Windows/macOS paths через стандартные platform locations);
+- directory mode `0700`, files `0600`; atomic write;
+- seal v1: repo fingerprint, contract id/digest, baseline SHA, config digest,
+  relevant hook config digests, approvedAt, ScopeLock version;
+- `approve` создаёт seal; `rebaseline` обновляет его только после успешной записи;
+- hook gate, `run`, `check-drift` и `agents preflight` проверяют seal до использования
+  trusted contract;
+- mismatch: strict = deny/block, warn = audit + degraded receipt;
+- hardcoded self-protected paths: active contract, `.scopelock/config.json`,
+  `.scopelock/contracts/**` и ScopeLock hook entries нельзя менять через agent edit
+  во время активного strict run независимо от user contract scope;
+- ручная maintenance-команда должна быть явной; не добавлять скрытый env bypass,
+  который сможет выставить сам агент.
+
+Ограничение зафиксировать в docs: seal защищает от repo-local mutation и даёт
+tamper evidence, но не от unrestricted same-user malicious shell. Для последнего
+нужен sandbox, которого в M0 нет.
+
+Обязательные тесты:
+
+- contract/config/hook byte mutation после approve;
+- stale/missing seal; moved repository; rebaseline update;
+- strict блокирует, warn деградирует;
+- foreign hook entries не включаются в ScopeLock-owned digest или сохраняются при
+  reinstall согласно выбранной canonicalization policy;
+- permissions проверяются на POSIX, Windows test проверяет отсутствие regression.
+
+### M0.4 - Безопасная Codex hook verification (P0)
+
+**Цель:** verification не должна запускать agent с отключёнными sandbox и approvals
+в пользовательском repository.
+
+Порядок:
+
+1. Сделать короткий compatibility spike доступных Codex CLI flags и событий.
+2. Удалить default использование `--dangerously-bypass-approvals-and-sandbox`.
+3. Probe запускать в одноразовом temp fixture с минимальными instructions,
+   sanitized environment, timeout и удалением fixture.
+4. Если невозможно доказать trust реального repo без unsafe mode, результат
+   остаётся `degraded`; это валидный исход, не повод возвращать bypass.
+5. `--codex-bin` резолвить как executable path. На Windows не передавать
+   пользовательскую строку в shell; `.cmd` shim обрабатывать через безопасный
+   platform-specific launcher или отклонять с actionable error.
+6. `live-verified` требует structured evidence, отсутствия mutation и записи
+   версии/пути/digest executable. Regex по словам `denied|ScopeLock` недостаточен.
+
+Kill criterion: если безопасный live probe невозможен, удалить команду verify из
+публичного UX и оставить config probe + honest degraded confidence.
+
+### M0.5 - Hook fail semantics, empty scope и filesystem escapes (P1)
+
+**Цель:** strict действительно означает deny при повреждённой trusted state.
+
+Изменения:
+
+- schema v2: пустой planned scope = deny-all; unrestricted contract возможен только
+  через явное поле/CLI flag `allowAllPaths: true`;
+- migration reader для v1 не должен молча менять смысл старых contracts; v1 с
+  пустым scope получает warning и требует re-approve;
+- malformed recognized mutation event, missing active contract при установленном
+  strict hook, invalid config/contract/seal = deny с reason code;
+- `no-scopelock-root` остаётся noop, чтобы global hook не ломал чужие directories;
+- warn/audit остаётся fail-open, но пишет hook error;
+- перед allow проверять realpath ближайшего существующего parent; запись через
+  symlink, выходящий из repo root, deny;
+- skill digest walker сообщает nested symlink violation вместо silent ignore;
+- hook coverage table фиксирует: Claude Edit/Write/MultiEdit, Codex apply_patch,
+  Cursor post-write audit; Bash/shell не объявлять pre-write protected.
+
+Обязательные reason codes и tests: `invalid_input`, `missing_active_contract`,
+`integrity_mismatch`, `gate_error`, `symlink_escape`, `outside_scope`, `forbidden`.
+
+### M0.6 - Privacy-safe receipts и audit data (P1)
+
+**Цель:** flight recorder не должен становиться хранилищем credentials.
+
+Изменения:
+
+- `.scopelock/reports` mode `0700`; receipt/artifacts `0600` на POSIX;
+- основной receipt хранит digest, byte counts, exit status и redacted bounded preview;
+- raw command/stdout/stderr выключены по умолчанию; включаются через
+  `--store-raw-output` с явным warning;
+- redaction до записи: известные token/key patterns, credential URL, common secret
+  environment names; redaction отмечается count-ом без сохранения исходного value;
+- абсолютные local paths в portable receipt заменить repo-relative, где возможно;
+- добавить max artifact bytes, retention guidance и `scopelock reports clean` только
+  после подтверждения реальной UX-потребности; в M0 достаточно documented cleanup;
+- receipt v4 schema валидируется перед записью; raw artifacts остаются gitignored;
+- честно назвать receipt tamper-evident only when seal/digest anchored; обычный local
+  JSON не называть криптографически подписанным доказательством.
+
+Тесты должны включать fake API keys в command/stdout/stderr и доказать, что secret
+bytes отсутствуют и в receipt, и в default artifacts.
+
+### M0.7 - MCP root confinement (P1)
+
+**Цель:** MCP client не может использовать ScopeLock как confused deputy для чтения
+или записи других repositories.
+
+Изменения:
+
+- server получает единственный root при старте (`--repo-root` или cwd) и canonicalizes
+  его через realpath + git root;
+- убрать `repoRoot` из public tool inputs;
+- absolute contract paths запрещены; relative path обязан оставаться внутри root;
+- `check_drift` пишет только в `.scopelock/reports` pinned root;
+- добавить read-only server mode; mutation tool отсутствует в M0;
+- tool errors не возвращают raw filesystem paths сверх необходимого.
+
+Тесты: second repo rejection, absolute path rejection, `../` traversal, symlink escape,
+valid worktree root, no report outside pinned root.
+
+### M0.8 - Supply chain и публичные trust artifacts (P1/P2)
+
+Repository:
+
+- `.github/workflows/test.yml`: `permissions: contents: read`, job timeout,
+  `persist-credentials: false`, official actions pinned на full commit SHA;
+- добавить dependency update automation, CodeQL и gitleaks/secret scan;
+- branch protection: required matrix checks, no direct force-push to release tags;
+- создать `SECURITY.md` (private disclosure + support window), `THREAT-MODEL.md`,
+  `PRIVACY.md`, security-boundaries section в README;
+- CI проверяет `pnpm audit --prod` и secret scan; audit failure policy начинается с
+  high/critical, чтобы не создать постоянно игнорируемый noisy gate.
+
+npm release:
+
+- Trusted Publishing/OIDC вместо long-lived npm token;
+- provenance enabled, package account 2FA, traditional automation tokens disabled;
+- protected GitHub environment с manual approval;
+- `npm pack --dry-run` allowlist, install smoke из tarball, затем publish;
+- SBOM/attestation расширять после первого публичного release, не строить вручную.
+
+### M0.9 - Финальный adversarial review и GO/NO-GO
+
+Перед GO выполнить на temp fixtures:
+
+- malicious contract id/path traversal;
+- modified approved contract/config/hook after seal;
+- untrusted plan с shell metacharacters и fake secrets;
+- malformed hook payload в strict и warn;
+- symlink escape из planned directory;
+- MCP попытка прочитать второй repo;
+- child timeout/output flood;
+- install tarball на чистых Linux/macOS/Windows runners.
+
+Общие проверки: `pnpm typecheck`, `pnpm build`, `pnpm test`, `pnpm audit --prod`,
+CodeQL, secret scan, `git diff --check`, live Wallet demo в safe mode.
+
+GO только если нет P0/P1 findings, docs совпадают с фактической harness coverage,
+а demo не требует unsafe bypass. Иначе beta остаётся private/informed pilot.
+
+### Рекомендуемый порядок коммитов
+
+1. `fix(core): confine contract identifiers and paths`
+2. `feat(core): seal approved contract integrity`
+3. `fix(cli): require explicit trust for executable plans`
+4. `fix(cli): isolate or remove unsafe Codex verification`
+5. `fix(core): harden strict hook failure semantics`
+6. `feat(cli): redact and protect receipt artifacts`
+7. `fix(mcp): pin server access to one repository`
+8. `ci: harden supply chain and add security scans`
+9. `docs: publish threat model privacy and security policy`
+
+Каждый коммит должен быть independently green и не смешивать schema migration,
+process execution и CI changes.
+
+### Implementation status 2026-07-11
+
+M0.1-M0.8 implemented in the working tree under contract
+`security-m0-trustworthy-beta`.
+
+- M0.1: contract ids and contract storage paths are confined.
+- M0.2: executable plans require explicit `--yes`; shell strings require
+  `--allow-shell`; inputs are hashed in receipt.
+- M0.3: approval integrity seal lives in user-local state and is checked by
+  `run`, `check-drift`, hook gate and MCP drift.
+- M0.4: unsafe Codex sandbox/approval bypass was removed from `hooks verify`.
+- M0.5: strict hook paths fail closed and reject ScopeLock-state edits and
+  symlink escapes.
+- M0.6: receipt v4 stores redacted bounded previews by default; raw redacted
+  artifacts require `--store-raw-output`.
+- M0.7: MCP tools are pinned to one repo root and reject absolute/traversal/
+  symlink-escaping contract paths.
+- M0.8: CI has read-only permissions, timeouts, pinned official actions,
+  audit high gate, Dependabot, CodeQL, Gitleaks, and public security docs.
+
+Verified: `pnpm typecheck`, `pnpm build`, `pnpm test`, `pnpm audit --prod
+--audit-level high`, `git diff --check`, `npm pack --dry-run`, `pnpm pack`
+tarballs, and local tarball install smoke. `check-drift` has no outside-scope
+violations after reseal; high-risk warnings for `.github/workflows/*` and
+`pnpm-lock.yaml` are expected because CI/security and publish dependency
+metadata changed.
+
+Release-pack finding fixed: package `files` allowlists now exclude compiled
+test artifacts. Internal dependencies use `workspace:^`; `pnpm pack` transforms
+them to `^0.1.0` in tarballs.
+
+Remaining gate: npm trusted publishing/OIDC plus tarball install smoke on clean
+Linux/macOS/Windows runners before public beta.
+
 ## Phase 6 - Mermaid + mobile templates, 2-4 дня
 
 - `schemas/template.ts`: `{ schemaVersion, id, projectTypes[], risks[], requiredTests[],
@@ -478,6 +771,7 @@ LICENSE (текущий проект использует MIT), CHANGELOG.
 | 5 Narrow MCP server | **DONE + live Codex validated** (#0034) | - |
 | Thin run dispatcher + bounded receipt | **DONE** (#0039-#0043) | - |
 | Agent Environment Preflight | **NEXT: Step 0 buy-vs-build only** (#0044) | 1 session |
+| **Security M0 trust hardening** | **NEXT / beta release gate** (#0045) | 5-8 д |
 | 6 Mermaid + templates | | 2-4 д |
 | 7 npm + security CI | | 1-2 д |
 

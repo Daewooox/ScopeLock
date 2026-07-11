@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "security-m0-trustworthy-beta",
+  "task": "Security M0 trustworthy beta release gate",
+  "createdAt": "2026-07-11T19:09:02.700Z",
+  "baseline": {
+    "headSha": "50ddc9dd74e83c57d9be40dcbe690fbb6822eea0",
+    "branch": "main",
+    "capturedAt": "2026-07-11T19:50:01.775Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/**",
+      "packages/cli/**",
+      "packages/mcp/**",
+      ".github/**",
+      "README.md",
+      "SECURITY.md",
+      "THREAT-MODEL.md",
+      "PRIVACY.md",
+      "benchmarks/coordination/**",
+      "pnpm-lock.yaml",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

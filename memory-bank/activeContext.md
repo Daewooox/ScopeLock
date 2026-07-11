@@ -1,5 +1,33 @@
 # Активный контекст
 
+<!-- TASK #0045 BEGIN
+     Owner: codex
+     Started: 2026-07-11T22:30Z
+     Status: build
+-->
+## Текущий следующий шаг - Security M0 implemented, M0.9 review next
+
+Security M0.1-M0.8 реализованы в рабочем дереве под контрактом
+`security-m0-trustworthy-beta`: confined contract ids/paths, explicit `run`
+trust gates, approval integrity seal, удалён unsafe Codex verification bypass,
+strict fail-closed hook semantics, receipt v4 redaction/private artifacts, MCP
+pinned repo root, CI supply-chain hardening и public security docs.
+
+**Проверено:** `pnpm typecheck`, `pnpm build`, `pnpm test`, `pnpm audit --prod
+--audit-level high`, `git diff --check`, `npm pack --dry-run`, `pnpm pack` и
+локальный tarball install smoke. Coordination demos обновлены на receipt v4 и
+проходят.
+
+**Self-dogfood:** `check-drift` после reseal не показывает outside-scope
+violations. Остались expected high-risk warnings по `.github/workflows/*` и
+`pnpm-lock.yaml` - это намеренные CI/security + publish metadata изменения и
+требуют human review перед коммитом.
+
+**Дальше:** разнести M0.1-M0.9 локальные результаты на логические коммиты или
+сначала настроить npm OIDC/trusted publishing. До публичной beta ещё нужен
+tarball smoke на clean Linux/macOS/Windows runners и human review CI workflows.
+<!-- TASK #0045 END -->
+
 <!-- TASK #0044 BEGIN
      Owner: codex
      Started: 2026-07-10T16:23Z

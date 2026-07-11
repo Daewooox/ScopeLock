@@ -434,7 +434,7 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 <!-- TASK #0017 BEGIN
      Owner: cursor-agent
      Started: 2026-07-07T20:45Z
-     Status: plan
+     Status: build
 -->
 ## Задача #0017 — PLAN: реализация scope-algebra scheduler (Идея A)
 
@@ -1549,3 +1549,57 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Root cause:** `hooks verify` запускал `codexBin` через Node `spawn(..., shell:false)`. На Windows `codex`/fake-codex часто является `.cmd` shim, который так не исполняется стабильно, поэтому падал CLI test `hooks verify upgrades Codex confidence...`.
 - **Реализовано:** Codex probe на Windows запускается через shell; macOS/Linux остаются на direct spawn. Добавлен regression-test `shouldUseShellForCodexProbe("win32") === true`.
 <!-- TASK #0044 END -->
+
+<!-- TASK #0045 BEGIN
+     Owner: codex
+     Started: 2026-07-11T22:30Z
+     Status: plan
+-->
+## Задача #0045 - Security M0: trustworthy beta release gate
+
+- **Описание:** провести security hardening ScopeLock перед внешним beta: закрыть
+  path traversal, executable-plan trust, unsafe Codex verification, mutable
+  approval state, strict fail-open, receipt secret leakage, MCP root escape и
+  supply-chain gaps.
+- **Уровень:** L4 / system security.
+- **Источник:** Security Solution Architect review текущего core/CLI/MCP/CI от
+  2026-07-11. Локальный `pnpm audit --prod`: 0 известных vulnerabilities среди
+  98 production dependencies; это snapshot, а не security guarantee.
+- **Основной план:** `memory-bank/plans/scopelock-implementation-plan.md`, раздел
+  `Security M0 - Trustworthy beta release gate` (M0.1-M0.9).
+- **Ключевая граница:** ScopeLock - deterministic guardrail и flight recorder,
+  но не OS sandbox против malicious same-user process.
+- **Приоритет:** блокирует Phase 6, npm publish и публичный design-partner beta.
+- **Реализовано 2026-07-11:**
+  - M0.1: safe contract ids, confined contract storage paths, unsafe active pointer
+    becomes integrity error.
+  - M0.2: `run --plan` requires `--yes`; shell strings require `--allow-shell`;
+    receipt stores plan/contract SHA-256 and task timeout.
+  - M0.3: user-local approval integrity seal; `approve`/`rebaseline` write seal;
+    `run`, `check-drift`, hook gate and MCP drift verify seal.
+  - M0.4: unsafe Codex live verify removed; `hooks verify --target codex`
+    returns honest unavailable/degraded instead of bypassing sandbox/approvals.
+  - M0.5: strict hooks fail closed on corrupt/missing trusted state, protect
+    ScopeLock-owned state, default empty scope to deny-all unless `--allow-all`,
+    and deny symlink escapes.
+  - M0.6: receipt v4 redacts secrets, stores bounded previews by default, raw
+    redacted artifacts require `--store-raw-output`; private POSIX file modes.
+  - M0.7: MCP tools no longer accept public `repoRoot`; contract paths are
+    relative to pinned root and reject absolute/traversal/symlink escapes.
+  - M0.8: CI permissions/timeouts, pinned Actions SHAs, `pnpm audit --prod
+    --audit-level high`, Dependabot, CodeQL, Gitleaks, SECURITY/THREAT/PRIVACY
+    docs and README security boundary.
+- **Проверено:** `pnpm typecheck`, `pnpm build`, `pnpm test` (core 83/83, CLI
+  33/33, MCP 4/4, coordination 9/9), `pnpm audit --prod --audit-level high`,
+  `git diff --check`, `npm pack --dry-run`, `pnpm pack` tarballs, local tarball
+  install smoke.
+- **Release pack hardening:** package `files` allowlists exclude compiled test
+  artifacts; `workspace:^` dependencies are transformed by `pnpm pack` to
+  `^0.1.0` in tarballs.
+- **Self-dogfood:** active contract `security-m0-trustworthy-beta` resealed.
+  `check-drift` имеет 0 outside-scope violations; остаются expected high-risk
+  warnings по `.github/workflows/*` и `pnpm-lock.yaml`, т.к. CI/security и
+  publish dependency metadata изменены намеренно.
+- **Осталось:** M0.9 adversarial review + npm publish/OIDC/tarball smoke перед
+  публичной beta; сейчас можно идти к логическим коммитам M0.1-M0.8.
+<!-- TASK #0045 END -->

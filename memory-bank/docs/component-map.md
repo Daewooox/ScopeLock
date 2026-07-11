@@ -45,6 +45,7 @@
 | `packages/core/src/storage/paths.ts` | Layout `.scopelock/` incl. contracts/reports/hook-verifications paths |
 | `packages/core/src/storage/atomic.ts` | writeJsonAtomic (temp + rename) |
 | `packages/core/src/storage/contracts.ts` | save/load contract, active-pointer |
+| `packages/core/src/storage/seal.ts` | User-local approval integrity seal and verification |
 | `packages/core/src/git/exec.ts` | runGit sync-обёртка |
 | `packages/core/src/git/repo.ts` | findRepoRoot, headSha, currentBranch, gitVersion, commitExists |
 | `packages/core/src/git/status.ts` | Parser git status porcelain v2 -z |
@@ -87,13 +88,16 @@
 | `packages/cli/src/commands/hooks.ts` | Install/uninstall hook configs; verify Codex hook live behavior |
 | `packages/cli/src/commands/contract-new.ts` | Deterministic contract scaffolder (planned/forbidden/read globs, agents, tests) |
 | `packages/cli/src/commands/plan-parallel.ts` | Load plan+contracts, build schedule, print waves/conflicts + cycles; `--include-read-hazards` enables F2, exit 1 on cycles |
-| `packages/cli/src/commands/run-plan.ts` | Thin dispatcher: waves, commands, env preflight, bounded receipt artifacts |
+| `packages/cli/src/commands/run-plan.ts` | Thin dispatcher: trusted commands, env preflight, redacted receipt v4 |
 | `packages/cli/src/commands/agents-preflight.ts` | Thin CLI over `runAgentPreflight`; human fix hints, exit 0/1/2 |
 | `packages/cli/src/commands/manifest.ts` | Print deterministic tracked-file repo manifest |
 | `packages/mcp/src/index.ts` | Stdio bootstrap for the narrow ScopeLock MCP server |
-| `packages/mcp/src/tools.ts` | MCP adapters for plan_parallel, scopes_conflict, check_drift |
+| `packages/mcp/src/tools.ts` | MCP adapters pinned to one repo root |
 | `packages/mcp/src/tools.test.ts` | MCP tool unit tests over scheduler and drift behavior |
-| `.github/workflows/test.yml` | CI: pnpm install, typecheck, build, test |
+| `.github/workflows/test.yml` | CI: pinned actions, typecheck/build/test/audit |
+| `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript security scan |
+| `.github/workflows/secret-scan.yml` | Gitleaks secret scan |
+| `.github/dependabot.yml` | Weekly dependency and GitHub Actions updates |
 | `docs/parallel-workflow.md` | Guide: running N agents in parallel via plan-parallel (real commands/output) |
 | `examples/parallel/` | Reproducible 4-task plan-parallel example (draft contracts, one-command repro) |
 | `benchmarks/coordination/run-benchmark.mjs` | Deterministic multi-agent coordination benchmark harness |
@@ -101,7 +105,7 @@
 | `benchmarks/coordination/run-codex-real-agent-benchmark.test.mjs` | Zero-run smoke test for real-agent harness |
 | `benchmarks/coordination/analyze-receipt.mjs` | Measure receipt/artifact bytes and Codex usage |
 | `benchmarks/coordination/run-flight-control-demo.mjs` | One-command deterministic Flight Control demo |
-| `benchmarks/coordination/run-pilot-demo.mjs` | Pilot demo: env block, safe waves, Codex deny, receipt v3 |
+| `benchmarks/coordination/run-pilot-demo.mjs` | Pilot demo: env block, safe waves, Codex deny, receipt v4 |
 | `benchmarks/coordination/run-pilot-demo.test.mjs` | Regression test for pilot demo storyline |
 | `benchmarks/coordination/run-wallet-demo.mjs` | WalletAssignment real-repo demo harness |
 | `benchmarks/coordination/run-wallet-demo.test.mjs` | Smoke test for WalletAssignment demo |
