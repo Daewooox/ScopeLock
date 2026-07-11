@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
   actions: read
 
 jobs:
@@ -20,18 +21,7 @@ jobs:
       - uses: github/codeql-action/init@1ad29ea4a422cce9a242a9fae469541dcd08addc # v4
         with:
           languages: javascript-typescript
-      # SARIF upload to the code-scanning API requires GitHub Advanced
-      # Security, which isn't available on this private repo. Run the
-      # analysis and keep the SARIF as a downloadable artifact instead of
-      # uploading it; revisit `upload: true` if the repo goes public or
-      # GHAS becomes available.
+      # The repo is now public, so code-scanning upload (GitHub Advanced
+      # Security) is available for free; upload results to the Security
+      # tab instead of the artifact-only fallback used while private.
       - uses: github/codeql-action/analyze@1ad29ea4a422cce9a242a9fae469541dcd08addc # v4
-        with:
-          upload: false
-          output: sarif-results
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: codeql-sarif
-          path: sarif-results
-          retention-days: 14
