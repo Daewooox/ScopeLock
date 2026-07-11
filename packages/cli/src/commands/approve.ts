@@ -1,13 +1,14 @@
 import { access, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   approvedContractSchema,
   currentBranch,
+  contractFilePath,
   findRepoRoot,
   headSha,
   saveContract,
   scopelockPaths,
   setActiveContractId,
+  writeApprovalSeal,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
 
@@ -52,7 +53,7 @@ export async function approveCommand(
   });
 
   const paths = scopelockPaths(root);
-  if (await exists(join(paths.contractsDir, `${stamped.id}.json`))) {
+  if (await exists(contractFilePath(paths, stamped.id))) {
     throw new CliError(
       "CONTRACT_ID_EXISTS",
       `contract id already exists: ${stamped.id}`,
@@ -63,6 +64,7 @@ export async function approveCommand(
   if (options.activate) {
     await setActiveContractId(paths, stamped.id);
   }
+  const sealPath = await writeApprovalSeal(root, stamped);
 
   return {
     data: {
@@ -70,6 +72,7 @@ export async function approveCommand(
       baseline: stamped.baseline,
       active: options.activate,
       path: savedPath,
+      sealPath,
     },
     human: `approved ${stamped.id} at ${sha}${options.activate ? " (active)" : ""}`,
     exitCode: 0,
