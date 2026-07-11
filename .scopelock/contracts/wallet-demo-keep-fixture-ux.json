@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "wallet-demo-keep-fixture-ux",
+  "task": "Improve WalletAssignment demo keep-fixture manual replay UX",
+  "createdAt": "2026-07-11T08:21:10.697Z",
+  "baseline": {
+    "headSha": "5869e7b585f8cd19e464ec785ceca2274a598554",
+    "branch": "main",
+    "capturedAt": "2026-07-11T08:21:10.784Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/wallet-demo-keep-fixture-ux.json",
+      "benchmarks/coordination/run-wallet-demo.mjs",
+      "benchmarks/coordination/run-wallet-demo.test.mjs",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "README.md"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
