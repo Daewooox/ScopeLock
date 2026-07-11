@@ -1,11 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   DEFAULT_DEGRADED_FILE_THRESHOLD,
   approvedContractSchema,
+  contractFilePath,
+  contractIdSchema,
   driftReportSchema,
   formatZodError,
   repoManifestSchema,
@@ -47,6 +49,14 @@ describe("review follow-ups A4/A5", () => {
 });
 
 describe("ScopeLock schemas", () => {
+  it("accepts filesystem-safe contract ids and rejects traversal", () => {
+    for (const id of ["a", "contract-1", "phase3.5_test", "a".repeat(64)]) {
+      assert.equal(contractIdSchema.parse(id), id);
+    }
+    for (const id of ["../config", "a/b", "/tmp/x", "C:\\tmp\\x", "UPPER", "a".repeat(65)]) {
+      assert.equal(contractIdSchema.safeParse(id).success, false, id);
+    }
+  });
   it("parses the minimum approved contract with null baseline", () => {
     const parsed = approvedContractSchema.parse({
       schemaVersion: 1,
@@ -155,6 +165,21 @@ describe("ScopeLock schemas", () => {
 });
 
 describe("storage", () => {
+  it("keeps contract paths inside the contracts directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-contract-path-"));
+    try {
+      const paths = scopelockPaths(dir);
+      assert.equal(contractFilePath(paths, "safe-id"), join(paths.contractsDir, "safe-id.json"));
+      assert.throws(() => contractFilePath(paths, "../../escape"));
+
+      await mkdir(paths.dir, { recursive: true });
+      await writeFile(paths.activePath, JSON.stringify("../../escape"));
+      const { getActiveContractId } = await import("./storage/contracts.js");
+      await assert.rejects(() => getActiveContractId(paths));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
   it("computes the .scopelock layout from a repo root", () => {
     const paths = scopelockPaths("/repo");
     assert.equal(paths.configPath, join("/repo", ".scopelock", "config.json"));

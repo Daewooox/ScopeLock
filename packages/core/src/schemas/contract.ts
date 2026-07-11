@@ -2,6 +2,13 @@ import { z } from "zod";
 
 export const CONTRACT_SCHEMA_VERSION = 1;
 
+export const contractIdSchema = z
+  .string()
+  .regex(
+    /^[a-z0-9][a-z0-9._-]{0,63}$/,
+    "contract id must be 1-64 lowercase ASCII characters: letters, digits, dot, underscore, or hyphen",
+  );
+
 export const riskLevelSchema = z.enum(["low", "medium", "high"]);
 export const agentIdSchema = z.enum(["claude", "codex", "cursor"]);
 
@@ -68,7 +75,7 @@ export const requiredTestSchema = z.object({
 
 export const approvedContractSchema = z.object({
   schemaVersion: z.literal(CONTRACT_SCHEMA_VERSION),
-  id: z.string().min(1),
+  id: contractIdSchema,
   task: z.string().min(1),
   createdAt: z.iso.datetime(),
   baseline: contractBaselineSchema.nullable().default(null),
