@@ -2,11 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { chmod, mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { approvedContractSchema, writeApprovalSeal } from "@scopelock/core";
-import { shouldUseShellForCodexProbe } from "./commands/hooks.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -607,7 +606,7 @@ describe("agents preflight", () => {
     }
   });
 
-  it("hooks verify upgrades Codex confidence to live-verified for the current hook config", async (t) => {
+  it("hooks verify refuses to disable Codex sandbox and leaves confidence degraded", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
       t.skip("git init failed");
@@ -632,28 +631,15 @@ describe("agents preflight", () => {
       assert.equal(runCli(dir, ["approve", draftPath]).status, 0);
       assert.equal(runCli(dir, ["hooks", "install", "--target", "codex", "--mode", "strict", "--local"]).status, 0);
 
-      const fakeCodex = join(dir, process.platform === "win32" ? "fake-codex.cmd" : "fake-codex.mjs");
-      await writeFile(
-        fakeCodex,
-        process.platform === "win32"
-          ? "@echo off\r\necho Patch denied: ScopeLock forbidden path changed\r\n"
-          : "#!/usr/bin/env node\nprocess.stdout.write('Patch denied: ScopeLock forbidden path changed\\n');\n",
-      );
-      if (process.platform !== "win32") {
-        await chmod(fakeCodex, 0o755);
-      }
-
       const verify = runCli(dir, [
         "--json",
         "hooks",
         "verify",
         "--target",
         "codex",
-        "--codex-bin",
-        fakeCodex,
       ]);
-      assert.equal(verify.status, 0, verify.stdout || verify.stderr);
-      assert.equal(JSON.parse(verify.stdout).data.confidence, "live-verified");
+      assert.equal(verify.status, 2, verify.stdout || verify.stderr);
+      assert.equal(JSON.parse(verify.stdout).error.code, "HOOK_VERIFY_UNAVAILABLE");
 
       const manifestPath = await writeManifest(dir, {
         schemaVersion: 1,
@@ -663,16 +649,10 @@ describe("agents preflight", () => {
       const preflight = runCli(dir, ["--json", "agents", "preflight", "--manifest", manifestPath]);
       assert.equal(preflight.status, 0);
       const codex = JSON.parse(preflight.stdout).data.report.targets[0];
-      assert.equal(codex.hook.capabilities.confidence, "live-verified");
+      assert.equal(codex.hook.capabilities.confidence, "degraded");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
-  });
-
-  it("runs Codex hook verification through a shell on Windows so .cmd shims work", () => {
-    assert.equal(shouldUseShellForCodexProbe("win32"), true);
-    assert.equal(shouldUseShellForCodexProbe("darwin"), false);
-    assert.equal(shouldUseShellForCodexProbe("linux"), false);
   });
 
   it("exits 1 and reports a violation when a required skill is missing for one target", async (t) => {
