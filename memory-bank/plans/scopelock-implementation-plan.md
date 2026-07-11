@@ -733,6 +733,31 @@ them to `^0.1.0` in tarballs.
 Remaining gate: npm trusted publishing/OIDC plus tarball install smoke on clean
 Linux/macOS/Windows runners before public beta.
 
+### M0.9 status 2026-07-12
+
+Manual, PoC-driven adversarial review completed over the M0.1-M0.8 diff.
+Two fail-closed bypasses found and fixed (see `2026-07-11` risk register
+entries and `THREAT-MODEL.md`):
+
+- Seal-mismatch handling in `hook/gate.ts` no longer depends on `mode`
+  (a tampered config could downgrade `strict` -> `warn` in the same edit
+  that broke the seal and mask its own detection).
+- `run-plan.ts` `--allow-shell` gate now also matches argv-array shell
+  invocations (`["sh", "-c", ...]`), not just string-form commands.
+
+Both closed with regression tests (`hook.test.ts`, `cli.test.ts`); full
+workspace build/test green (core 84/84, cli 34/34, mcp 4/4, coordination
+9/9); `check-drift` 0 violations under `security-m0.9-adversarial-fixes`.
+Committed as `225a4b1`, pushed to `main`.
+
+One low-confidence, not-PoC-verified item stays open in the backlog: a
+possible path-normalization gap in `isSelfProtected`/`classifyPath` for
+non-canonical segments (`./`, `//`) - needs its own PoC before it counts as
+a finding.
+
+Remaining before public beta: npm trusted publishing/OIDC and tarball
+install smoke on clean Linux/macOS/Windows runners (unchanged from M0.8).
+
 ## Phase 6 - Mermaid + mobile templates, 2-4 дня
 
 - `schemas/template.ts`: `{ schemaVersion, id, projectTypes[], risks[], requiredTests[],
