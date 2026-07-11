@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@scopelock/core": "workspace:^",
-    "commander": "^14.0.0"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"
