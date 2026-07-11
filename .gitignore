@@ -2,8 +2,19 @@ node_modules/
 dist/
 *.tsbuildinfo
 .pnpm-store/
+.DS_Store
 
 # ScopeLock: contracts and config are shared, committed artifacts.
 # Per-machine working state (reports/, active) is ignored via .scopelock/.gitignore.
 .scopelock/reports/
 .scopelock/active
+# One-off spike/experiment contracts from internal milestones; useful locally
+# for history but only meaningful alongside memory-bank/, so not committed.
+.scopelock/experiments/
+
+# Maintainer's local working notes (task history, decision logs): not meant
+# for a public audience, kept locally only. See AGENTS.md.
+memory-bank/
+
+# Local, machine-specific Claude Code permission overrides.
+.claude/settings.local.json

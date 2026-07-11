@@ -107,10 +107,8 @@ confirmed it - never set automatically), or `degraded` (the claim can't be
 trusted for this repo). Claude and Cursor read their real config files;
 Codex is always reported `degraded` today because its `hooks.json` schema
 and the file-editing (`apply_patch`) hook event shape are undocumented and
-unconfirmed by a live probe - see
-`memory-bank/plans/agent-environment-preflight-spike-verdict.md`. This
-capability probe is informational in this release; it does not (yet) block
-dispatch on its own.
+unconfirmed by a live probe. This capability probe is informational in this
+release; it does not (yet) block dispatch on its own.
 
 `manifest` uses `git ls-files` and reports paths/metadata only: tracked files,
 detected project types, package managers, test paths, and risky paths. It does
