@@ -257,6 +257,47 @@ Minimum GitHub Actions:
 - CodeQL;
 - gitleaks or equivalent secret scan.
 
+CodeQL SARIF upload needs GitHub Advanced Security, which is free for public
+repos but unavailable on a private personal repo - `codeql.yml` briefly ran
+with `upload: false` + artifact fallback while the repo was private, reverted
+to `upload: true` once it went public (2026-07-12). `codeql.yml` needs
+`permissions: actions: read` (an internal codeql-action API call 403s
+without it) in addition to `security-events: write`. `secret-scan.yml`'s
+`gitleaks-action` needs `env: GITHUB_TOKEN` and `permissions:
+pull-requests: read` to list a PR's commits - without either it fails red on
+every PR even though no secret was found.
+
+### Git workflow and branch protection
+
+Repo went public and `main` is protected by a GitHub **Ruleset** (2026-07-12,
+not legacy branch protection - see
+[About rulesets](https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)).
+Ruleset `protect-main` (id `18816875`) enforces on `refs/heads/main`:
+
+- `pull_request` - required, `required_approving_review_count: 0` (solo
+  maintainer - a PR is still mandatory, just no second reviewer is required),
+  `allowed_merge_methods: ["squash"]`.
+- `required_status_checks` (strict - branch must be up to date with `main`):
+  `analyze` (CodeQL job), `gitleaks` (secret-scan job), and all 6 `test (os,
+  node)` matrix jobs.
+- `non_fast_forward` - no force-push to `main`.
+- `deletion` - `main` cannot be deleted.
+- `bypass_actors`: `RepositoryRole: admin`, `bypass_mode: always` - the repo
+  owner can override in an emergency; nobody else can.
+
+Repo-level merge settings: `allow_squash_merge: true`,
+`allow_merge_commit: false`, `allow_rebase_merge: false`,
+`delete_branch_on_merge: true` - squash is the only available method, feature
+branches are deleted automatically after merge.
+
+**Consequence for every agent (including this one): no direct `git push
+origin main`, ever.** Workflow is `git checkout -b <branch>` → commits →
+`git push -u origin <branch>` → `gh pr create` → wait for the required
+checks to go green → `gh pr merge --squash --delete-branch`. Dependabot PRs
+follow the same gate; if a PR's base falls behind `main` after another merge,
+`gh api repos/<owner>/<repo>/pulls/<n>/update-branch -X PUT` re-syncs it
+before the checks can pass again.
+
 ---
 
 ## 14. Agent Environment Compatibility
