@@ -93,39 +93,50 @@ function runCodexProbe(input: {
   probePath: string;
   timeoutMs: number;
 }): Promise<{ exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }> {
-  const prompt = [
-    "Use native apply_patch exactly once to add this file:",
-    input.probePath,
-    "with content SCOPELOCK_CODEX_VERIFY_SHOULD_NOT_EXIST.",
-    "Do not use shell commands or another edit method. Stop after the patch attempt.",
-  ].join(" ");
+  const args = [
+    "exec",
+    "--ephemeral",
+    "--json",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "-C",
+    input.root,
+    [
+      "Use native apply_patch exactly once to add this file:",
+      input.probePath,
+      "with content SCOPELOCK_CODEX_VERIFY_SHOULD_NOT_EXIST.",
+      "Do not use shell commands or another edit method. Stop after the patch attempt.",
+    ].join(" "),
+  ];
 
+  const child = spawn(input.codexBin, args, {
+    cwd: input.root,
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: shouldUseShellForCodexProbe(process.platform),
+  });
+  return collectCodexProbe(child, input.timeoutMs);
+}
+
+export function shouldUseShellForCodexProbe(platform: NodeJS.Platform): boolean {
+  return platform === "win32";
+}
+
+function collectCodexProbe(
+  child: ReturnType<typeof spawn>,
+  timeoutMs: number,
+): Promise<{ exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }> {
   return new Promise((resolve) => {
-    const child = spawn(
-      input.codexBin,
-      [
-        "exec",
-        "--ephemeral",
-        "--json",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "-C",
-        input.root,
-        prompt,
-      ],
-      { cwd: input.root, stdio: ["ignore", "pipe", "pipe"] },
-    );
     let stdout = "";
     let stderr = "";
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
-    }, input.timeoutMs);
+    }, timeoutMs);
 
-    child.stdout.on("data", (chunk) => {
+    child.stdout?.on("data", (chunk) => {
       stdout += chunk.toString();
     });
-    child.stderr.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       stderr += chunk.toString();
     });
     child.on("error", (error) => {
