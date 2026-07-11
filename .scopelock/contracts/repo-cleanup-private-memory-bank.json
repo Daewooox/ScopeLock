@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "repo-cleanup-private-memory-bank",
+  "task": "Untrack memory-bank and stale scopelock experiments from public repo",
+  "createdAt": "2026-07-11T23:33:20.955Z",
+  "baseline": {
+    "headSha": "edb203e307a5413009acb7c496611fb06bb67b77",
+    "branch": "main",
+    "capturedAt": "2026-07-11T23:33:21.035Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "memory-bank/**",
+      ".scopelock/experiments/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

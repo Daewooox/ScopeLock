@@ -1,6 +1,11 @@
 # Memory Bank workflow (generic)
 
 This project uses Memory Bank — structured project memory in `memory-bank/`.
+That directory is the maintainer's local working notes and is intentionally
+**not tracked in this repository** (see `.gitignore`) — it contains
+session-to-session task history and decision logs that aren't meant for a
+public audience. If you don't have `memory-bank/` locally, the instructions
+below don't apply to you; skip this file.
 
 ## Before any task
 
