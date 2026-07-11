@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { chmod, mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { shouldUseShellForCodexProbe } from "./commands/hooks.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -663,6 +664,12 @@ describe("agents preflight", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  it("runs Codex hook verification through a shell on Windows so .cmd shims work", () => {
+    assert.equal(shouldUseShellForCodexProbe("win32"), true);
+    assert.equal(shouldUseShellForCodexProbe("darwin"), false);
+    assert.equal(shouldUseShellForCodexProbe("linux"), false);
   });
 
   it("exits 1 and reports a violation when a required skill is missing for one target", async (t) => {

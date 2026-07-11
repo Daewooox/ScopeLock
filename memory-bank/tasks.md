@@ -1542,4 +1542,10 @@ Runtime enforcement подтверждён в обоих реальных UI, н
 - **Реализовано:** `pnpm demo:wallet -- --keep-fixture` теперь печатает `Fixture kept:` и готовый блок команд для ручного повтора без глобального бинаря `scopelock`: `SCOPELOCK_CLI=<repo>/packages/cli/dist/index.js` + `node "$SCOPELOCK_CLI" ...`.
 - **JSON evidence:** `summary.json` получил `manualCommands`, чтобы запись/документация могли брать те же команды без парсинга human output.
 - **Зачем:** закрывает UX-провал из ручной попытки `scopelock run ...` в клонированном `WalletAssignment`, где у пользователя нет глобально установленной команды и нет подготовленных `.scopelock` артефактов.
+
+### Step 5e (CI fix) - Windows hooks verify spawn - DONE
+
+- **Контракт:** `fix-windows-hooks-verify-spawn` (CLI command/test + Memory Bank; forbidden benchmarks/core/mcp).
+- **Root cause:** `hooks verify` запускал `codexBin` через Node `spawn(..., shell:false)`. На Windows `codex`/fake-codex часто является `.cmd` shim, который так не исполняется стабильно, поэтому падал CLI test `hooks verify upgrades Codex confidence...`.
+- **Реализовано:** Codex probe на Windows запускается через shell; macOS/Linux остаются на direct spawn. Добавлен regression-test `shouldUseShellForCodexProbe("win32") === true`.
 <!-- TASK #0044 END -->

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-windows-hooks-verify-spawn",
+  "task": "Fix Windows hooks verify spawning of cmd shims",
+  "createdAt": "2026-07-11T08:30:26.648Z",
+  "baseline": {
+    "headSha": "b6c6cc93ebb9e803a389b309e99b99d558692fe3",
+    "branch": "main",
+    "capturedAt": "2026-07-11T08:30:26.739Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/fix-windows-hooks-verify-spawn.json",
+      "packages/cli/src/commands/hooks.ts",
+      "packages/cli/src/cli.test.ts",
+      "memory-bank/activeContext.md",
+      "memory-bank/tasks.md"
+    ],
+    "forbiddenPathPatterns": [
+      "benchmarks/**",
+      "packages/core/**",
+      "packages/mcp/**"
+    ],
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

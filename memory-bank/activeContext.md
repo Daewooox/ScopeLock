@@ -104,6 +104,11 @@ generic importer/runner/UI; это узкий demo harness для design-partner
 пишет путь к сохранённому fixture и точные manual replay команды через локальный
 `node packages/cli/dist/index.js`, чтобы ручной флоу не зависел от глобально
 установленного `scopelock`. Summary JSON также содержит `manualCommands`.
+
+**Windows CI follow-up:** под контрактом `fix-windows-hooks-verify-spawn`
+исправлен `hooks verify`: на Windows Codex probe запускается через shell, чтобы
+`.cmd`/npm shim binaries исполнялись корректно. Это закрывает падение CLI tests
+в Windows Actions после Step 5a.
 <!-- TASK #0044 END -->
 
 ## Текущий фокус
