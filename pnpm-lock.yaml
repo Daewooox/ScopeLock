@@ -18,7 +18,7 @@ importers:
   packages/cli:
     dependencies:
       '@scopelock/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       commander:
         specifier: ^14.0.0
@@ -47,7 +47,7 @@ importers:
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
       '@scopelock/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       zod:
         specifier: ^4.4.3

@@ -197,6 +197,14 @@ Stable contract, relied on by CI and hooks:
 - `strict`: enforcement hooks block out-of-scope edits where the agent supports
   it (Claude Code `PreToolUse` deny). Cursor always audits (never blocks).
 
+## Security and Privacy
+
+ScopeLock is a deterministic local guardrail, not an OS sandbox. It protects
+against accidental scope drift and gives tamper evidence for approved local
+state, but it cannot stop a malicious same-user process with unrestricted shell
+access. See [SECURITY.md](./SECURITY.md), [THREAT-MODEL.md](./THREAT-MODEL.md),
+and [PRIVACY.md](./PRIVACY.md).
+
 ## What lives where
 
 ```

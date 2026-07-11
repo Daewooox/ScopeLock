@@ -16,7 +16,21 @@
     }
   },
   "files": [
-    "dist"
+    "dist/agents",
+    "dist/drift",
+    "dist/format.d.ts",
+    "dist/format.js",
+    "dist/git",
+    "dist/harness",
+    "dist/hook",
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/manifest",
+    "dist/render",
+    "dist/rules",
+    "dist/schedule",
+    "dist/schemas",
+    "dist/storage"
   ],
   "repository": {
     "type": "git",
