@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "readme-brand-demo-v2",
+  "task": "Simplify README and add synthetic visual demo",
+  "createdAt": "2026-07-12T11:49:51.052Z",
+  "baseline": {
+    "headSha": "8c2bad347d5560ae2abe1c6de26a008cc4f44caf",
+    "branch": "feature/terminal-ui-report-demo",
+    "capturedAt": "2026-07-12T11:49:51.140Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/assets/**",
+      "docs/reference.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
