@@ -18,6 +18,12 @@ export type ProcessTreeHandle = {
   wait(): Promise<ProcessTermination>;
 };
 
+export type RunSignalCoordinator = {
+  readonly signal: AbortSignal;
+  register(tree: ProcessTreeHandle): () => void;
+  dispose(): void;
+};
+
 type SpawnProcessTreeInput = {
   command: CommandSpec;
   cwd: string;
@@ -118,5 +124,43 @@ export function spawnProcessTree(input: SpawnProcessTreeInput): ProcessTreeHandl
     terminate,
     forceTerminate,
     wait: () => result,
+  };
+}
+
+export function createRunSignalCoordinator(): RunSignalCoordinator {
+  const controller = new AbortController();
+  const active = new Set<ProcessTreeHandle>();
+  let signalsSeen = 0;
+
+  const terminate = (signal: "SIGINT" | "SIGTERM") => {
+    signalsSeen += 1;
+    if (signalsSeen === 1) {
+      controller.abort(signal);
+      const reason = signal === "SIGINT" ? "sigint" : "sigterm";
+      for (const tree of active) tree.terminate(reason);
+    } else {
+      for (const tree of active) tree.forceTerminate();
+    }
+  };
+  const onSigint = () => terminate("SIGINT");
+  const onSigterm = () => terminate("SIGTERM");
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
+
+  return {
+    signal: controller.signal,
+    register(tree) {
+      active.add(tree);
+      if (controller.signal.aborted) {
+        const reason = controller.signal.reason === "SIGINT" ? "sigint" : "sigterm";
+        tree.terminate(reason);
+      }
+      return () => active.delete(tree);
+    },
+    dispose() {
+      process.off("SIGINT", onSigint);
+      process.off("SIGTERM", onSigterm);
+      active.clear();
+    },
   };
 }

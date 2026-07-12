@@ -1,7 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import { spawn } from "node:child_process";
 import {
   agentEnvironmentPreflightReportSchema,
   applyPreparedPatch,
@@ -41,6 +40,11 @@ import {
 import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
 import { color, renderTable, statusLabel } from "../ui.js";
+import {
+  createRunSignalCoordinator,
+  spawnProcessTree,
+  type RunSignalCoordinator,
+} from "../process-tree.js";
 
 type RunPlanOptions = {
   plan: string;
@@ -138,6 +142,12 @@ type TaskRun = {
     command?: OutputArtifact;
     stdout?: OutputArtifact;
     stderr?: OutputArtifact;
+  };
+  termination?: {
+    reason: string;
+    requestedSignal: NodeJS.Signals | null;
+    escalated: boolean;
+    platform: NodeJS.Platform;
   };
   isolation?: {
     baseSha: string;
@@ -362,7 +372,7 @@ async function runCommand(
   task: { id: string; contract: string; command?: CommandSpec },
   timeoutMs: number,
   storeRawOutput: boolean,
-  signal?: AbortSignal,
+  coordinator?: RunSignalCoordinator,
 ): Promise<TaskRun> {
   const started = Date.now();
   if (!task.command) {
@@ -379,81 +389,47 @@ async function runCommand(
   }
   const command = task.command;
   const persistedCommand = await persistCommand(artifactDir, task.id, command, storeRawOutput);
-  return new Promise((finish) => {
-    let settled = false;
-    const finishOnce = (result: TaskRun) => {
-      if (settled) return;
-      settled = true;
-      finish(result);
-    };
-    const child = Array.isArray(command)
-      ? spawn(command[0] as string, command.slice(1), {
-          cwd,
-          shell: false,
-          stdio: ["ignore", "pipe", "pipe"],
-        })
-      : spawn(command, [], { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    let timedOut = false;
-    let aborted = false;
-    const abort = () => {
-      aborted = true;
-      child.kill("SIGTERM");
-    };
-    signal?.addEventListener("abort", abort, { once: true });
-    if (signal?.aborted === true) abort();
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGTERM");
-    }, timeoutMs);
-    child.stdout.on("data", (chunk) => {
-      stdout = appendCaptured(stdout, chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr = appendCaptured(stderr, chunk);
-    });
-    child.on("error", async (error) => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", abort);
-      const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", error.message, storeRawOutput);
-      finishOnce({
-        id: task.id,
-        status: "failed",
-        command: persistedCommand.preview,
-        exitCode: null,
-        durationMs: Date.now() - started,
-        stdout: "",
-        stderr: persistedStderr.preview,
-        outputArtifacts: {
-          ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
-          ...(persistedStderr.artifact ? { stderr: persistedStderr.artifact } : {}),
-        },
-      });
-    });
-    child.on("close", async (code) => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", abort);
-      if (timedOut) stderr += `${stderr.length > 0 ? "\n" : ""}task timed out after ${timeoutMs}ms`;
-      if (aborted) stderr += `${stderr.length > 0 ? "\n" : ""}task interrupted by signal`;
-      const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
-      const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
-      finishOnce({
-        id: task.id,
-        status: code === 0 && !aborted ? "passed" : "failed",
-        command: persistedCommand.preview,
-        exitCode: code,
-        durationMs: Date.now() - started,
-        stdout: persistedStdout.preview,
-        stderr: persistedStderr.preview,
-        outputArtifacts: {
-          ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
-          ...(persistedStdout.artifact ? { stdout: persistedStdout.artifact } : {}),
-          ...(persistedStderr.artifact ? { stderr: persistedStderr.artifact } : {}),
-        },
-      });
-    });
-  });
+  const tree = spawnProcessTree({ command, cwd, gracefulTimeoutMs: 2_000 });
+  const unregister = coordinator?.register(tree);
+  let stdout = "";
+  let stderr = "";
+  tree.child.stdout?.on("data", (chunk) => { stdout = appendCaptured(stdout, chunk); });
+  tree.child.stderr?.on("data", (chunk) => { stderr = appendCaptured(stderr, chunk); });
+  tree.child.on("error", (error) => { stderr = appendCaptured(stderr, Buffer.from(error.message)); });
+  const timer = setTimeout(() => tree.terminate("timeout"), timeoutMs);
+  timer.unref();
+  const termination = await tree.wait();
+  clearTimeout(timer);
+  unregister?.();
+  if (termination.reason === "timeout") {
+    stderr += `${stderr.length > 0 ? "\n" : ""}task timed out after ${timeoutMs}ms`;
+  } else if (termination.reason !== null) {
+    stderr += `${stderr.length > 0 ? "\n" : ""}task interrupted by signal`;
+  }
+  const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
+  const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
+  return {
+    id: task.id,
+    status: termination.exitCode === 0 && termination.reason === null ? "passed" : "failed",
+    command: persistedCommand.preview,
+    exitCode: termination.exitCode,
+    durationMs: Date.now() - started,
+    stdout: persistedStdout.preview,
+    stderr: persistedStderr.preview,
+    outputArtifacts: {
+      ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+      ...(persistedStdout.artifact ? { stdout: persistedStdout.artifact } : {}),
+      ...(persistedStderr.artifact ? { stderr: persistedStderr.artifact } : {}),
+    },
+    ...(termination.reason !== null ? {
+      termination: {
+        reason: termination.reason,
+        requestedSignal: termination.requestedSignal,
+        escalated: termination.escalated,
+        platform: process.platform,
+      },
+    } : {}),
+  };
 }
 
 function isolatedTaskId(taskId: string, waveIndex: number): string {
@@ -493,6 +469,7 @@ async function runIsolatedTasks(input: {
   timeoutMs: number;
   storeRawOutput: boolean;
   signal: AbortSignal;
+  coordinator: RunSignalCoordinator;
 }): Promise<{ taskRuns: TaskRun[]; isolation: RunIsolation }> {
   const { headSha: runBaseSha } = await assertIsolationReady(input.cwd);
   const tempRoot = await createIsolationTempRoot();
@@ -559,7 +536,7 @@ async function runIsolatedTasks(input: {
             task,
             input.timeoutMs,
             input.storeRawOutput,
-            input.signal,
+            input.coordinator,
           );
           return { task, worktree, run };
         }),
@@ -965,14 +942,10 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       });
     }
   } else if (cycles.length === 0) {
+    const coordinator = createRunSignalCoordinator();
+    try {
     if (options.isolate === true) {
       let isolated: Awaited<ReturnType<typeof runIsolatedTasks>>;
-      const controller = new AbortController();
-      const onSignal = () => {
-        controller.abort();
-      };
-      process.on("SIGINT", onSignal);
-      process.on("SIGTERM", onSignal);
       try {
         isolated = await runIsolatedTasks({
           cwd,
@@ -983,16 +956,14 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           artifactDir,
           timeoutMs,
           storeRawOutput,
-          signal: controller.signal,
+          signal: coordinator.signal,
+          coordinator,
         });
       } catch (error) {
         if (error instanceof WorktreeError) {
           throw new CliError(isolationErrorCode(error), error.message);
         }
         throw error;
-      } finally {
-        process.off("SIGINT", onSignal);
-        process.off("SIGTERM", onSignal);
       }
       taskRuns.push(...isolated.taskRuns);
       isolation = isolated.isolation;
@@ -1003,9 +974,20 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           .map((id) => byId.get(id))
           .filter((task): task is (typeof runTasks)[number] => task !== undefined);
         taskRuns.push(
-          ...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task, timeoutMs, storeRawOutput)))),
+          ...(await Promise.all(runnable.map((task) => runCommand(
+            cwd,
+            artifactDir,
+            task,
+            timeoutMs,
+            storeRawOutput,
+            coordinator,
+          )))),
         );
+        if (coordinator.signal.aborted) break;
       }
+    }
+    } finally {
+      coordinator.dispose();
     }
   }
 

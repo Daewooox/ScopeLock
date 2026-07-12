@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "worktrunk-safety-w2",
+  "task": "Integrate process tree supervision into plan dispatcher",
+  "createdAt": "2026-07-12T22:22:43.327Z",
+  "baseline": {
+    "headSha": "f19ce3e896456d992c2ba46a1eefed545605bc41",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T22:22:43.418Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/src/process-tree.ts",
+      "packages/cli/src/process-tree.test.ts",
+      ".scopelock/contracts/worktrunk-safety-w2.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/cli/src/commands/hook*"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
