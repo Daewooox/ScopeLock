@@ -14,6 +14,9 @@
 - `--allow-shell` gating covers both string-form commands and argv-array
   invocations of a shell interpreter with an inline-command flag (e.g.
   `["sh", "-c", "..."]`, `["cmd", "/c", "..."]`), not just literal strings.
+- Any future automatic response to a finding must be gated by
+  `resolveFindingAction`: unclassified, unknown, absent, or malformed actions
+  resolve to `ask-user`, never `auto-fix`.
 
 ## What ScopeLock Does Not Protect
 
@@ -34,6 +37,9 @@
   scope enforcement. Without that hook, enforcement is post-run drift only.
   Tests and other shell commands remain separate plan tasks.
 - Approved contracts are trusted only while their local integrity seal matches.
+- ScopeLock does not push today. Any future path that constructs a `git push`
+  must call `checkPushSafety` against the live remote first and refuse to
+  discard unincorporated remote commits without an explicit user override.
 - Claude Code pre-write hooks can block known file-edit events. Cursor is
   treated as post-write audit. Codex hook confidence starts `degraded` and is
   only upgraded to `live-verified` by an explicit `hooks verify --target

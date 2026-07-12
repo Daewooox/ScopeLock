@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "id": "no-mistakes-guards-v2",
+  "task": "Implement no-mistakes borrowed patterns A and B: push safety guard and fail-closed finding action primitive.",
+  "createdAt": "2026-07-12T19:38:16.243Z",
+  "baseline": {
+    "headSha": "afbc7241ad6e8571ba314a042fd4fb068c91e943",
+    "branch": "feature/no-mistakes-guards",
+    "capturedAt": "2026-07-12T19:38:16.480Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/no-mistakes-guards-v2.json",
+      "packages/core/src/git/push-guard.ts",
+      "packages/core/src/rules/finding-action.ts",
+      "packages/core/src/index.ts",
+      "packages/core/src/*.test.ts",
+      "THREAT-MODEL.md",
+      "memory-bank/system-patterns/_index.md",
+      "memory-bank/system-patterns/fail-closed-defaults.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**",
+      "packages/core/src/drift/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": [
+      "memory-bank/plans/no-mistakes-borrowed-patterns-plan.md",
+      "AGENTS.md",
+      "memory-bank/docs/component-map.md",
+      "packages/core/src/git/exec.ts",
+      "packages/core/src/git/repo.ts",
+      "packages/core/src/drift.test.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/core/src/index.ts",
+      "THREAT-MODEL.md",
+      "memory-bank/system-patterns/_index.md"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "push-guard",
+      "label": "Fail-closed remote commit-loss guard",
+      "type": "domain",
+      "paths": [
+        "packages/core/src/git/push-guard.ts"
+      ],
+      "risk": "medium",
+      "confidence": 0.9,
+      "evidence": [
+        "Plan section A requires pure checkPushSafety using runGitAsync and no remote mutation."
+      ]
+    },
+    {
+      "id": "finding-action",
+      "label": "Fail-closed finding action classifier",
+      "type": "domain",
+      "paths": [
+        "packages/core/src/rules/finding-action.ts"
+      ],
+      "risk": "low",
+      "confidence": 0.95,
+      "evidence": [
+        "Plan section B requires resolveFindingAction and Zod schema with ask-user fallback."
+      ]
+    },
+    {
+      "id": "docs",
+      "label": "Threat model and system pattern documentation",
+      "type": "unknown",
+      "paths": [
+        "THREAT-MODEL.md",
+        "memory-bank/system-patterns/_index.md",
+        "memory-bank/system-patterns/fail-closed-defaults.md"
+      ],
+      "risk": "low",
+      "confidence": 0.85,
+      "evidence": [
+        "Plan requires trust-boundary bullet and named invariant documentation."
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "level": "medium",
+      "reason": "Push safety must fail closed on remote/fetch errors without accidentally treating unknown remote state as safe.",
+      "mitigation": "Unit tests cover missing ref safe path, local ahead, remote-only commit unsafe, and timeout/failure unsafe."
+    }
+  ],
+  "tests": [
+    {
+      "type": "build",
+      "command": "pnpm -r build",
+      "required": true
+    },
+    {
+      "type": "test",
+      "command": "pnpm test",
+      "required": true
+    },
+    {
+      "type": "drift",
+      "command": "node packages/cli/dist/index.js check-drift",
+      "required": true
+    },
+    {
+      "type": "format",
+      "command": "git diff --check",
+      "required": true
+    }
+  ],
+  "assumptions": [
+    "Patterns A and B are preventative primitives and are not wired into current commands.",
+    "Pattern C is intentionally out of scope."
+  ],
+  "openQuestions": []
+}
