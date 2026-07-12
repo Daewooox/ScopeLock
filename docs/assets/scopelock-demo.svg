@@ -64,6 +64,6 @@
   </g>
 
   <line x1="34" y1="502" x2="1046" y2="502" stroke="#30363d"/>
-  <text class="mono blue" x="34" y="530" font-size="13">$ pnpm demo:pilot</text>
-  <text class="ui muted" x="895" y="530" font-size="12">no API key required</text>
+  <text class="mono blue" x="34" y="530" font-size="13">$ scopelock run --plan plan.json</text>
+  <text class="ui muted" x="852" y="530" font-size="12">synthetic · no API key required</text>
 </svg>
