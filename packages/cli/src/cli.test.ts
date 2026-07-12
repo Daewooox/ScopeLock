@@ -42,6 +42,15 @@ function commitFixture(dir: string, message: string): void {
   assert.equal(spawnSync("git", ["commit", "-qm", message], { cwd: dir }).status, 0);
 }
 
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("cli end-to-end", () => {
   it("init -> contract new -> approve -> check-drift respects the exit-code contract", async (t) => {
     const dir = await makeRepo();
@@ -1506,6 +1515,58 @@ describe("run", () => {
       const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
       assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("kills task descendants before cleaning an isolated timeout", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const readyPath = join(tmpdir(), `scopelock-timeout-${process.pid}-${Date.now()}.json`);
+    try {
+      await writeContract(dir, join(dir, "slow-tree.json"), "slow-tree", ["result.txt"]);
+      const script = [
+        "const {spawn}=require('node:child_process');",
+        "const fs=require('node:fs');",
+        "const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});",
+        `fs.writeFileSync(${JSON.stringify(readyPath)},JSON.stringify({parent:process.pid,child:child.pid}));`,
+        "setInterval(()=>{},1000);",
+      ].join("");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-timeout-tree",
+          tasks: [{
+            id: "slow-tree",
+            contract: "slow-tree.json",
+            command: [process.execPath, "-e", script],
+          }],
+        }),
+      );
+      commitFixture(dir, "timeout tree fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "timeout-tree.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--timeout-ms", "250",
+        "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      const pids = JSON.parse(await readFile(readyPath, "utf8")) as { parent: number; child: number };
+      assert.equal(processIsAlive(pids.parent), false);
+      assert.equal(processIsAlive(pids.child), false);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].termination.reason, "timeout");
+      assert.equal(receipt.isolation.finalPromotion, "no-changes");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+      assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
+    } finally {
+      await rm(readyPath, { force: true });
       await rm(dir, { recursive: true, force: true });
     }
   });
