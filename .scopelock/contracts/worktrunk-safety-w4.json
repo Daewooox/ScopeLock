@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "worktrunk-safety-w4",
+  "task": "Compose isolation-bound Cursor plans",
+  "createdAt": "2026-07-12T22:30:09.839Z",
+  "baseline": {
+    "headSha": "758e9b8c56815f9b9e1d44073c607a760435f447",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T22:30:09.925Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/harness/agent-invocation.ts",
+      "packages/core/src/prompt.test.ts",
+      "packages/cli/src/commands/plan-fill-commands.ts",
+      "packages/cli/src/cli.test.ts",
+      ".scopelock/contracts/worktrunk-safety-w4.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
