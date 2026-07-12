@@ -10,8 +10,10 @@ import {
   assertIsolationReady,
   createIsolatedWorktree,
   createIsolationTempRoot,
+  commitIntegrationWave,
   prepareScopedPatch,
   removeIsolatedWorktree,
+  worktreeHead,
 } from "./index.js";
 import type { ApprovedContract } from "./index.js";
 
@@ -407,4 +409,81 @@ describe("isolated Git worktree lifecycle", () => {
       }
     },
   );
+
+  it("carries accepted output into the next wave without touching the user tree", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const integration = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "integration-waves",
+        kind: "integration",
+        baseSha: fixture.head,
+      });
+      const first = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "wave-one",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      await writeFile(join(first.path, "allowed/wave-one.txt"), "first wave\n");
+      const firstPatch = await prepareScopedPatch({
+        worktree: first,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(firstPatch.accepted, true);
+      assert.ok(firstPatch.patch);
+      assert.deepEqual(
+        await applyPreparedPatch({ repoRoot: integration.path, patch: firstPatch.patch }),
+        { applied: true },
+      );
+      const waveOne = await commitIntegrationWave({ worktree: integration, waveIndex: 1 });
+      assert.equal(waveOne.committed, true);
+      assert.notEqual(waveOne.headSha, fixture.head);
+
+      const second = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "wave-two",
+        kind: "task",
+        baseSha: waveOne.headSha,
+      });
+      assert.equal(await readFile(join(second.path, "allowed/wave-one.txt"), "utf8"), "first wave\n");
+      await writeFile(
+        join(second.path, "allowed/wave-two.txt"),
+        `reader saw: ${(await readFile(join(second.path, "allowed/wave-one.txt"), "utf8")).trim()}\n`,
+      );
+      const secondPatch = await prepareScopedPatch({
+        worktree: second,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(secondPatch.accepted, true);
+      assert.ok(secondPatch.patch);
+      assert.deepEqual(
+        await applyPreparedPatch({ repoRoot: integration.path, patch: secondPatch.patch }),
+        { applied: true },
+      );
+      const waveTwo = await commitIntegrationWave({ worktree: integration, waveIndex: 2 });
+      assert.equal(waveTwo.committed, true);
+      assert.equal(await worktreeHead(integration), waveTwo.headSha);
+      assert.equal(
+        await readFile(join(integration.path, "allowed/wave-two.txt"), "utf8"),
+        "reader saw: first wave\n",
+      );
+      await assert.rejects(readFile(join(fixture.repo, "allowed/wave-one.txt"), "utf8"));
+      await assert.rejects(readFile(join(fixture.repo, "allowed/wave-two.txt"), "utf8"));
+
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: first });
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: second });
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: integration });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
 });

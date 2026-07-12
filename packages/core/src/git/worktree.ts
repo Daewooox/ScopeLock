@@ -73,6 +73,7 @@ export class WorktreeError extends Error {
       | "DIRTY_REPO"
       | "INVALID_BASE"
       | "INVALID_ID"
+      | "INVALID_KIND"
       | "REPO_STATE_UNSAFE"
       | "PATCH_GENERATION_FAILED"
       | "PATCH_TOO_LARGE"
@@ -540,4 +541,62 @@ export async function applyPreparedPatch(input: {
   return applied.ok
     ? { applied: true }
     : { applied: false, reason: applied.detail || "git apply failed" };
+}
+
+export async function worktreeHead(
+  worktree: IsolatedWorktree,
+  timeoutMs?: number,
+): Promise<string> {
+  const sha = await gitOutput(worktree.path, ["rev-parse", "--verify", "HEAD^{commit}"], timeoutMs);
+  if (!objectIdPattern.test(sha)) {
+    throw new WorktreeError("INVALID_BASE", "worktree HEAD is not a full Git object id");
+  }
+  return sha;
+}
+
+export async function commitIntegrationWave(input: {
+  worktree: IsolatedWorktree;
+  waveIndex: number;
+  timeoutMs?: number;
+}): Promise<{ committed: boolean; headSha: string }> {
+  if (input.worktree.kind !== "integration") {
+    throw new WorktreeError("INVALID_KIND", "wave commits require an integration worktree");
+  }
+  if (!Number.isSafeInteger(input.waveIndex) || input.waveIndex < 0) {
+    throw new WorktreeError("INVALID_ID", "wave index must be a non-negative integer");
+  }
+  const status = await runGitAsync(
+    ["status", "--porcelain=v2", "-z", "--untracked-files=all"],
+    input.worktree.path,
+    { timeoutMs: input.timeoutMs },
+  );
+  if (!status.ok) {
+    throw new WorktreeError("WORKTREE_CREATE_FAILED", status.stderr || "integration status failed");
+  }
+  if (status.stdout.length === 0) {
+    return { committed: false, headSha: await worktreeHead(input.worktree, input.timeoutMs) };
+  }
+  const staged = await runGitAsync(["add", "-A", "--", "."], input.worktree.path, {
+    timeoutMs: input.timeoutMs,
+  });
+  if (!staged.ok) {
+    throw new WorktreeError("WORKTREE_CREATE_FAILED", staged.stderr || "integration staging failed");
+  }
+  const committed = await runGitAsync(
+    [
+      "-c",
+      "user.name=ScopeLock",
+      "-c",
+      "user.email=scopelock@localhost",
+      "commit",
+      "-qm",
+      `scopelock: accept wave ${input.waveIndex}`,
+    ],
+    input.worktree.path,
+    { timeoutMs: input.timeoutMs },
+  );
+  if (!committed.ok) {
+    throw new WorktreeError("WORKTREE_CREATE_FAILED", committed.stderr || "integration commit failed");
+  }
+  return { committed: true, headSha: await worktreeHead(input.worktree, input.timeoutMs) };
 }

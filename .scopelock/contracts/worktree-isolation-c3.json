@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "worktree-isolation-c3",
+  "task": "Pattern C phase C3 integration wave commits",
+  "createdAt": "2026-07-12T21:10:00.467Z",
+  "baseline": {
+    "headSha": "654275a8487f09d880ebb448e04a5d5f1fa10837",
+    "branch": "feature/worktree-isolation",
+    "capturedAt": "2026-07-12T21:10:00.559Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/worktree-isolation-c3.json",
+      "packages/core/src/git/worktree.ts",
+      "packages/core/src/worktree.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": [
+      "memory-bank/plans/worktree-isolation-implementation-plan.md"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "integration",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
