@@ -27,6 +27,12 @@
 
 - `plan.json` is executable code when it contains commands. `scopelock run`
   requires `--yes`; shell strings additionally require `--allow-shell`.
+- Commands produced by `plan fill-commands` are reviewable argv arrays and pass
+  through the same `run --plan --yes` trust gate as hand-written commands.
+- Generated Claude Code commands use `dontAsk`, expose only file read/edit
+  tools, deny Bash, and rely on the installed ScopeLock pre-write hook for
+  scope enforcement. Without that hook, enforcement is post-run drift only.
+  Tests and other shell commands remain separate plan tasks.
 - Approved contracts are trusted only while their local integrity seal matches.
 - Claude Code pre-write hooks can block known file-edit events. Cursor is
   treated as post-write audit. Codex hook confidence starts `degraded` and is

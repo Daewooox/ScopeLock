@@ -15,6 +15,7 @@ import { manifestCommand } from "./commands/manifest.js";
 import { agentsPreflightCommand } from "./commands/agents-preflight.js";
 import { runPlanCommand } from "./commands/run-plan.js";
 import { reportCommand } from "./commands/report.js";
+import { planFillCommandsCommand } from "./commands/plan-fill-commands.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
@@ -140,6 +141,24 @@ program
   .option("--json", "print machine-readable JSON")
   .action((plan: string, options: { includeReadHazards?: boolean }, command: Command) =>
     run(() => planParallelCommand(plan, options), jsonOf(command)),
+  );
+
+const plan = program.command("plan").description("compose reviewable execution plans");
+
+plan
+  .command("fill-commands")
+  .description("render task contracts into explicit agent argv commands")
+  .argument("<plan>", "path to a plan JSON file")
+  .requiredOption("--target <id>", "agent target: codex or claude")
+  .option("--out <path>", "write the enriched plan to this path")
+  .option("--force", "replace commands already present in the plan")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      planPath: string,
+      options: { target: string; out?: string; force?: boolean },
+      command: Command,
+    ) => run(() => planFillCommandsCommand(planPath, options), jsonOf(command)),
   );
 
 program

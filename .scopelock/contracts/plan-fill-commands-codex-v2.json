@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "plan-fill-commands-codex-v2",
+  "task": "Compose approved contract prompts into reviewable agent commands",
+  "createdAt": "2026-07-12T14:08:23.038Z",
+  "baseline": {
+    "headSha": "8560ffeb93002f54ec000006a975b10bfb2755f7",
+    "branch": "feature/plan-fill-commands",
+    "capturedAt": "2026-07-12T14:08:23.127Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/harness/agent-invocation.ts",
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/index.ts",
+      "packages/core/src/prompt.test.ts",
+      "packages/core/src/schedule.test.ts",
+      "packages/cli/src/commands/plan-fill-commands.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/reference.md",
+      "docs/parallel-workflow.md",
+      "THREAT-MODEL.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    },
+    {
+      "type": "cli",
+      "command": null,
+      "required": true
+    },
+    {
+      "type": "e2e",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
