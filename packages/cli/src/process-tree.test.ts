@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import {
   createRunSignalCoordinator,
   launchWindowsTaskkill,
+  signalUnixProcessGroup,
   spawnProcessTree,
 } from "./process-tree.js";
 
@@ -108,6 +109,20 @@ describe("process tree supervisor", () => {
     const result = await tree.wait();
     assert.equal(result.reason, "second-signal");
     assert.equal(result.escalated, true);
+  });
+
+  it("falls back to the child PID during an early process-group race", () => {
+    const calls: number[] = [];
+    signalUnixProcessGroup(4242, "SIGKILL", (pid) => {
+      calls.push(pid);
+      if (pid < 0) {
+        const error = new Error("process group not ready") as Error & { code: string };
+        error.code = "EPERM";
+        throw error;
+      }
+      return true;
+    });
+    assert.deepEqual(calls, [-4242, 4242]);
   });
 
   it("terminates a tree registered after an earlier OS signal", async (t) => {

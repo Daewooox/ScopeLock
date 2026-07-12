@@ -35,11 +35,27 @@ function signalFor(reason: Exclude<TerminationReason, "second-signal">): NodeJS.
   return reason === "sigint" ? "SIGINT" : "SIGTERM";
 }
 
-function killUnixGroup(pid: number, signal: NodeJS.Signals): void {
+type ProcessSignalSender = (pid: number, signal: NodeJS.Signals) => boolean;
+
+function isProcessError(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code;
+}
+
+export function signalUnixProcessGroup(
+  pid: number,
+  signal: NodeJS.Signals,
+  sendSignal: ProcessSignalSender = process.kill,
+): void {
   try {
-    process.kill(-pid, signal);
+    sendSignal(-pid, signal);
   } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error;
+    if (isProcessError(error, "ESRCH")) return;
+    if (!isProcessError(error, "EPERM")) throw error;
+    try {
+      sendSignal(pid, signal);
+    } catch (fallbackError) {
+      if (!isProcessError(fallbackError, "ESRCH")) throw fallbackError;
+    }
   }
 }
 
@@ -101,7 +117,7 @@ export function spawnProcessTree(input: SpawnProcessTreeInput): ProcessTreeHandl
     requestedSignal ??= "SIGTERM";
     escalated = true;
     if (process.platform === "win32") launchWindowsTaskkill(child.pid);
-    else killUnixGroup(child.pid, "SIGKILL");
+    else signalUnixProcessGroup(child.pid, "SIGKILL");
   };
 
   const terminate = (nextReason: Exclude<TerminationReason, "second-signal">) => {
@@ -112,7 +128,7 @@ export function spawnProcessTree(input: SpawnProcessTreeInput): ProcessTreeHandl
       escalated = true;
       launchWindowsTaskkill(child.pid);
     } else {
-      killUnixGroup(child.pid, requestedSignal);
+      signalUnixProcessGroup(child.pid, requestedSignal);
     }
     escalationTimer = setTimeout(forceTerminate, input.gracefulTimeoutMs);
     escalationTimer.unref();
