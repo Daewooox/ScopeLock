@@ -179,6 +179,7 @@ program
   .option("--allow-shell", "allow string commands to run through the platform shell")
   .option("--timeout-ms <ms>", "per-task timeout in milliseconds", (value) => Number(value), 900_000)
   .option("--store-raw-output", "store redacted command/stdout/stderr artifacts locally")
+  .option("--isolate", "run tasks in detached worktrees and promote only contract-approved diffs")
   .option("--json", "print machine-readable JSON")
   .action(
     (
@@ -192,6 +193,7 @@ program
         allowShell?: boolean;
         timeoutMs?: number;
         storeRawOutput?: boolean;
+        isolate?: boolean;
       },
       command: Command,
     ) => run(() => runPlanCommand(options), jsonOf(command)),

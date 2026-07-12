@@ -1,12 +1,17 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import {
   agentEnvironmentPreflightReportSchema,
+  applyPreparedPatch,
   agentWorkspaceManifestSchema,
   approvedContractSchema,
+  assertIsolationReady,
   buildConflictGraph,
+  commitIntegrationWave,
+  createIsolatedWorktree,
+  createIsolationTempRoot,
   findRepoRoot,
   hashFileBytes,
   runAgentPreflight,
@@ -23,9 +28,16 @@ import {
   type TaskScope,
   getActiveContractId,
   loadContract,
+  prepareAggregatePatch,
+  prepareScopedPatch,
+  removeIsolatedWorktree,
   verifyApprovalSeal,
+  worktreeHead,
+  type ApprovedContract,
+  type IsolatedWorktree,
+  type PreparedPatch,
+  WorktreeError,
 } from "@scopelock/core";
-import { readFile } from "node:fs/promises";
 import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
 import { color, renderTable, statusLabel } from "../ui.js";
@@ -40,6 +52,7 @@ type RunPlanOptions = {
   yes?: boolean;
   timeoutMs?: number;
   storeRawOutput?: boolean;
+  isolate?: boolean;
 };
 
 /**
@@ -89,6 +102,8 @@ const COMMAND_PREVIEW_BYTES = 400;
 const OUTPUT_PREVIEW_BYTES = 400;
 const DEFAULT_TASK_TIMEOUT_MS = 15 * 60_000;
 const MAX_CAPTURE_BYTES = 1024 * 1024;
+const MAX_ISOLATED_PATCH_BYTES = 50 * 1024 * 1024;
+const MAX_ISOLATED_TASKS = 32;
 
 function redactSecrets(value: string): string {
   return value
@@ -113,7 +128,7 @@ type OutputArtifact = {
 
 type TaskRun = {
   id: string;
-  status: "passed" | "failed" | "skipped";
+  status: "passed" | "failed" | "skipped" | "blocked";
   command: CommandSpec | null;
   exitCode: number | null;
   durationMs: number;
@@ -124,6 +139,37 @@ type TaskRun = {
     stdout?: OutputArtifact;
     stderr?: OutputArtifact;
   };
+  isolation?: {
+    baseSha: string;
+    outcome:
+      | "no-changes"
+      | "accepted-integration"
+      | "rejected-scope"
+      | "rejected-unsupported"
+      | "rejected-conflict"
+      | "not-promoted-final";
+    patchSha256: string | null;
+    patchBytes: number;
+    changedFiles: Array<{
+      path: string;
+      previousPath: string | null;
+      status: string;
+      classification: string;
+    }>;
+    findings: Array<{ code: string; path: string | null; detail: string }>;
+  };
+};
+
+type RunIsolation = {
+  mode: "worktree";
+  trustTier: "workspace-gated";
+  runBaseSha: string;
+  integrationHeadSha: string;
+  aggregatePatchSha256: string | null;
+  aggregatePatchBytes: number;
+  finalPromotion: "applied" | "no-changes" | "blocked";
+  interrupted: boolean;
+  cleanup: { status: "ok" | "warning"; remaining: string[] };
 };
 
 type ReceiptEnvironment = {
@@ -168,15 +214,9 @@ async function maybeReadJsonFile(path: string): Promise<unknown | null> {
   }
 }
 
-async function loadTaskScope(task: { id: string; contract: string }): Promise<TaskScope> {
+async function loadTaskContract(task: { contract: string }): Promise<ApprovedContract> {
   const raw = await readJsonFile(task.contract, "CONTRACT_NOT_FOUND");
-  const contract = approvedContractSchema.parse(raw);
-  return {
-    id: task.id,
-    planned: contract.scope.plannedPathPatterns,
-    forbidden: contract.scope.forbiddenPathPatterns,
-    read: contract.scope.readPathPatterns,
-  };
+  return approvedContractSchema.parse(raw);
 }
 
 async function loadMode(cwd: string): Promise<EnforcementMode> {
@@ -322,6 +362,7 @@ async function runCommand(
   task: { id: string; contract: string; command?: CommandSpec },
   timeoutMs: number,
   storeRawOutput: boolean,
+  signal?: AbortSignal,
 ): Promise<TaskRun> {
   const started = Date.now();
   if (!task.command) {
@@ -355,6 +396,13 @@ async function runCommand(
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let aborted = false;
+    const abort = () => {
+      aborted = true;
+      child.kill("SIGTERM");
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted === true) abort();
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
@@ -367,6 +415,7 @@ async function runCommand(
     });
     child.on("error", async (error) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", error.message, storeRawOutput);
       finishOnce({
         id: task.id,
@@ -384,12 +433,14 @@ async function runCommand(
     });
     child.on("close", async (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       if (timedOut) stderr += `${stderr.length > 0 ? "\n" : ""}task timed out after ${timeoutMs}ms`;
+      if (aborted) stderr += `${stderr.length > 0 ? "\n" : ""}task interrupted by signal`;
       const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
       const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
       finishOnce({
         id: task.id,
-        status: code === 0 ? "passed" : "failed",
+        status: code === 0 && !aborted ? "passed" : "failed",
         command: persistedCommand.preview,
         exitCode: code,
         durationMs: Date.now() - started,
@@ -405,6 +456,335 @@ async function runCommand(
   });
 }
 
+function isolatedTaskId(taskId: string, waveIndex: number): string {
+  const digest = createHash("sha256").update(taskId).digest("hex").slice(0, 10);
+  return `w${waveIndex}-${safeFilePart(taskId).slice(0, 40)}-${digest}`;
+}
+
+function isolatedEvidence(
+  baseSha: string,
+  patch: PreparedPatch | null,
+  outcome: NonNullable<TaskRun["isolation"]>["outcome"],
+  findings: Array<{ code: string; path: string | null; detail: string }> = [],
+): NonNullable<TaskRun["isolation"]> {
+  return {
+    baseSha,
+    outcome,
+    patchSha256: patch?.sha256 ?? null,
+    patchBytes: patch?.bytes ?? 0,
+    changedFiles:
+      patch?.changedFiles.map((file) => ({
+        path: file.path,
+        previousPath: file.previousPath,
+        status: file.status,
+        classification: file.classification,
+      })) ?? [],
+    findings,
+  };
+}
+
+async function runIsolatedTasks(input: {
+  cwd: string;
+  waves: string[][];
+  byId: Map<string, { id: string; contract: string; command?: CommandSpec }>;
+  deferredSet: Set<string>;
+  contracts: Map<string, ApprovedContract>;
+  artifactDir: string;
+  timeoutMs: number;
+  storeRawOutput: boolean;
+  signal: AbortSignal;
+}): Promise<{ taskRuns: TaskRun[]; isolation: RunIsolation }> {
+  const { headSha: runBaseSha } = await assertIsolationReady(input.cwd);
+  const tempRoot = await createIsolationTempRoot();
+  const patchDir = join(tempRoot, "patches");
+  const cleanupRemaining: string[] = [];
+  let integration: IsolatedWorktree | null = null;
+  let tempRootRemoved = false;
+  const taskRuns: TaskRun[] = [];
+  try {
+    integration = await createIsolatedWorktree({
+      repoRoot: input.cwd,
+      tempRoot,
+      id: "run",
+      kind: "integration",
+      baseSha: runBaseSha,
+      timeoutMs: input.timeoutMs,
+    });
+
+    for (let waveIndex = 0; waveIndex < input.waves.length; waveIndex += 1) {
+      if (input.signal.aborted) break;
+      const wave = input.waves[waveIndex] ?? [];
+      const baseSha = await worktreeHead(integration, input.timeoutMs);
+      const runnable = wave
+        .filter((id) => !input.deferredSet.has(id))
+        .map((id) => input.byId.get(id))
+        .filter((task): task is { id: string; contract: string; command?: CommandSpec } => task !== undefined);
+      const created: Array<{
+        task: { id: string; contract: string; command?: CommandSpec };
+        worktree: IsolatedWorktree;
+      }> = [];
+      try {
+        for (const task of runnable) {
+          created.push({
+            task,
+            worktree: await createIsolatedWorktree({
+              repoRoot: input.cwd,
+              tempRoot,
+              id: isolatedTaskId(task.id, waveIndex),
+              kind: "task",
+              baseSha,
+              timeoutMs: input.timeoutMs,
+            }),
+          });
+        }
+      } catch (error) {
+        for (const item of created) {
+          try {
+            await removeIsolatedWorktree({
+              repoRoot: input.cwd,
+              worktree: item.worktree,
+              timeoutMs: input.timeoutMs,
+            });
+          } catch {
+            cleanupRemaining.push(item.worktree.path);
+          }
+        }
+        throw error;
+      }
+      const executions = await Promise.all(
+        created.map(async ({ task, worktree }) => {
+          const run = await runCommand(
+            worktree.path,
+            input.artifactDir,
+            task,
+            input.timeoutMs,
+            input.storeRawOutput,
+            input.signal,
+          );
+          return { task, worktree, run };
+        }),
+      );
+
+      for (const execution of executions) {
+        try {
+          if (execution.run.status === "skipped") {
+            execution.run.isolation = isolatedEvidence(baseSha, null, "no-changes");
+            taskRuns.push(execution.run);
+            continue;
+          }
+          const contract = input.contracts.get(execution.task.id);
+          if (contract === undefined) throw new Error(`missing contract for task ${execution.task.id}`);
+          const prepared = await prepareScopedPatch({
+            worktree: execution.worktree,
+            scope: contract.scope,
+            patchDir,
+            maxPatchBytes: MAX_ISOLATED_PATCH_BYTES,
+            timeoutMs: input.timeoutMs,
+          });
+          if (execution.run.status === "failed") {
+            execution.run.isolation = isolatedEvidence(
+              baseSha,
+              prepared.patch,
+              "rejected-conflict",
+              prepared.findings,
+            );
+            taskRuns.push(execution.run);
+            continue;
+          }
+          if (!prepared.accepted) {
+            const unsupported = prepared.findings.some((finding) =>
+              finding.code.startsWith("UNSUPPORTED"),
+            );
+            execution.run.status = "blocked";
+            execution.run.stderr = [
+              execution.run.stderr,
+              ...prepared.findings.map((finding) => finding.detail),
+            ]
+              .filter(Boolean)
+              .join("\n");
+            execution.run.isolation = isolatedEvidence(
+              baseSha,
+              prepared.patch,
+              unsupported ? "rejected-unsupported" : "rejected-scope",
+              prepared.findings,
+            );
+            taskRuns.push(execution.run);
+            continue;
+          }
+          if (prepared.patch === null) {
+            execution.run.isolation = isolatedEvidence(baseSha, null, "no-changes");
+            taskRuns.push(execution.run);
+            continue;
+          }
+          const applied = await applyPreparedPatch({
+            repoRoot: integration.path,
+            patch: prepared.patch,
+            timeoutMs: input.timeoutMs,
+          });
+          if (!applied.applied) {
+            execution.run.status = "blocked";
+            execution.run.stderr = [execution.run.stderr, applied.reason].filter(Boolean).join("\n");
+            execution.run.isolation = isolatedEvidence(
+              baseSha,
+              prepared.patch,
+              "rejected-conflict",
+              [{ code: "INTEGRATION_PATCH_CONFLICT", path: null, detail: applied.reason }],
+            );
+          } else {
+            execution.run.isolation = isolatedEvidence(
+              baseSha,
+              prepared.patch,
+              "accepted-integration",
+            );
+          }
+          taskRuns.push(execution.run);
+        } catch (error) {
+          execution.run.status = "blocked";
+          const detail = error instanceof Error ? error.message : String(error);
+          execution.run.stderr = [execution.run.stderr, detail].filter(Boolean).join("\n");
+          execution.run.isolation = isolatedEvidence(baseSha, null, "rejected-conflict", [
+            { code: "ISOLATION_ERROR", path: null, detail },
+          ]);
+          taskRuns.push(execution.run);
+        } finally {
+          try {
+            await removeIsolatedWorktree({
+              repoRoot: input.cwd,
+              worktree: execution.worktree,
+              timeoutMs: input.timeoutMs,
+            });
+          } catch {
+            cleanupRemaining.push(execution.worktree.path);
+          }
+        }
+      }
+      await commitIntegrationWave({ worktree: integration, waveIndex, timeoutMs: input.timeoutMs });
+    }
+
+    const integrationHeadSha = await worktreeHead(integration, input.timeoutMs);
+    const aggregate = await prepareAggregatePatch({
+      worktree: { ...integration, baseSha: runBaseSha },
+      patchDir,
+      maxPatchBytes: MAX_ISOLATED_PATCH_BYTES,
+      timeoutMs: input.timeoutMs,
+    });
+    let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
+    const aggregatePatch = aggregate.patch;
+    if (input.signal.aborted) {
+      finalPromotion = "blocked";
+    } else if (!aggregate.accepted) {
+      finalPromotion = "blocked";
+    } else if (aggregatePatch !== null) {
+      try {
+        await assertIsolationReady(input.cwd, runBaseSha, input.timeoutMs);
+        const applied = await applyPreparedPatch({
+          repoRoot: input.cwd,
+          patch: aggregatePatch,
+          timeoutMs: input.timeoutMs,
+        });
+        finalPromotion = applied.applied ? "applied" : "blocked";
+      } catch {
+        finalPromotion = "blocked";
+      }
+    }
+    if (finalPromotion === "blocked") {
+      for (const task of taskRuns) {
+        if (task.isolation?.outcome !== "accepted-integration") continue;
+        task.status = "blocked";
+        task.isolation.outcome = "not-promoted-final";
+        task.isolation.findings.push({
+          code: "FINAL_PROMOTION_BLOCKED",
+          path: null,
+          detail: "aggregate patch was not applied to the user repository",
+        });
+      }
+    }
+    if (input.signal.aborted) {
+      const recorded = new Set(taskRuns.map((task) => task.id));
+      for (const task of input.byId.values()) {
+        if (recorded.has(task.id) || input.deferredSet.has(task.id)) continue;
+        const persistedCommand = await persistCommand(
+          input.artifactDir,
+          task.id,
+          task.command ?? null,
+          input.storeRawOutput,
+        );
+        taskRuns.push({
+          id: task.id,
+          status: "skipped",
+          command: persistedCommand.preview,
+          exitCode: null,
+          durationMs: 0,
+          stdout: "",
+          stderr: "not run because isolated execution was interrupted",
+          outputArtifacts: {
+            ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+          },
+        });
+      }
+    }
+    const completedIntegration = integration;
+    try {
+      await removeIsolatedWorktree({
+        repoRoot: input.cwd,
+        worktree: completedIntegration,
+        timeoutMs: input.timeoutMs,
+      });
+      integration = null;
+    } catch {
+      cleanupRemaining.push(completedIntegration.path);
+    }
+    if (integration === null) {
+      try {
+        await rm(tempRoot, { recursive: true, force: true });
+        tempRootRemoved = true;
+      } catch {
+        cleanupRemaining.push(tempRoot);
+      }
+    }
+    return {
+      taskRuns,
+      isolation: {
+        mode: "worktree",
+        trustTier: "workspace-gated",
+        runBaseSha,
+        integrationHeadSha,
+        aggregatePatchSha256: aggregatePatch?.sha256 ?? null,
+        aggregatePatchBytes: aggregatePatch?.bytes ?? 0,
+        finalPromotion,
+        interrupted: input.signal.aborted,
+        cleanup: {
+          status: cleanupRemaining.length === 0 ? "ok" : "warning",
+          remaining: cleanupRemaining.map((path) => basename(path)),
+        },
+      },
+    };
+  } finally {
+    if (integration !== null) {
+      const cleanupIntegration = integration;
+      try {
+        await removeIsolatedWorktree({
+          repoRoot: input.cwd,
+          worktree: cleanupIntegration,
+          timeoutMs: input.timeoutMs,
+        });
+        integration = null;
+      } catch {
+        cleanupRemaining.push(cleanupIntegration.path);
+      }
+    }
+    if (!tempRootRemoved && integration === null) {
+      try {
+        await rm(tempRoot, { recursive: true, force: true });
+        tempRootRemoved = true;
+      } catch {
+        // A normal-path failure is already recorded in the receipt. On an
+        // exceptional path there is no trustworthy receipt to complete.
+      }
+    }
+  }
+}
+
 function compactCommand(command: CommandSpec | null): string {
   if (command === null) return "-";
   if (Array.isArray(command)) return command.join(" ");
@@ -414,7 +794,15 @@ function compactCommand(command: CommandSpec | null): string {
 function runStatus(task: TaskRun): "pass" | "warn" | "fail" | "skip" {
   if (task.status === "passed") return "pass";
   if (task.status === "failed") return "fail";
+  if (task.status === "blocked") return "warn";
   return "skip";
+}
+
+function isolationErrorCode(error: WorktreeError): string {
+  if (error.code === "DIRTY_REPO") return "ISOLATION_REQUIRES_CLEAN_REPO";
+  if (error.code === "REPO_STATE_UNSAFE") return "ISOLATION_REPO_STATE_UNSAFE";
+  if (error.code === "INVALID_BASE") return "ISOLATION_BASE_CHANGED";
+  return "ISOLATION_SETUP_FAILED";
 }
 
 function ms(value: number): string {
@@ -431,19 +819,22 @@ function humanReport(
   deferred: string[],
   driftStatus: string,
   environmentStatus: string,
+  isolationStatus: string,
 ): string {
   const failed = taskRuns.filter((task) => task.status === "failed").map((task) => task.id);
   const skipped = taskRuns.filter((task) => task.status === "skipped").map((task) => task.id);
-  const headingStatus = failed.length > 0 || skipped.length > 0 ? "warn" : "pass";
+  const blocked = taskRuns.filter((task) => task.status === "blocked").map((task) => task.id);
+  const headingStatus = failed.length > 0 || skipped.length > 0 || blocked.length > 0 ? "warn" : "pass";
   const sequence =
     waves.length === 0
       ? "none"
       : waves.map((wave, index) => `${index + 1}. [${wave.join(", ")}]`).join(" -> ");
   const taskTable = renderTable(
-    ["Task", "Status", "Exit", "Time", "Command"],
+    ["Task", "Status", "Result", "Exit", "Time", "Command"],
     taskRuns.map((task) => [
       task.id,
       statusLabel(runStatus(task)),
+      task.isolation?.outcome ?? "direct",
       task.exitCode === null ? "-" : String(task.exitCode),
       ms(task.durationMs),
       compactCommand(task.command),
@@ -466,6 +857,7 @@ function humanReport(
         ["conflicts", conflicts.length === 0 ? "none" : String(conflicts.length)],
         ["deferred", deferred.length === 0 ? "none" : deferred.join(", ")],
         ["drift", driftStatus],
+        ["isolation", isolationStatus],
       ],
     ),
     "",
@@ -474,6 +866,7 @@ function humanReport(
   ];
   if (failed.length > 0) lines.push(`failed: [${failed.join(", ")}]`);
   if (skipped.length > 0) lines.push(`skipped: [${skipped.join(", ")}]`);
+  if (blocked.length > 0) lines.push(`blocked: [${blocked.join(", ")}]`);
   return lines.join("\n");
 }
 
@@ -485,6 +878,12 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const planRaw = await readJsonFile(options.plan, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
   const runTasks = plan.tasks;
+  if (options.isolate === true && runTasks.length > MAX_ISOLATED_TASKS) {
+    throw new CliError(
+      "ISOLATION_TASK_LIMIT_EXCEEDED",
+      `isolated plans support at most ${MAX_ISOLATED_TASKS} tasks; split this plan into smaller runs`,
+    );
+  }
   const byId = new Map(runTasks.map((task) => [task.id, task]));
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
   if (executableTasks.length > 0 && options.yes !== true) {
@@ -525,8 +924,16 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   );
 
   const scopes: TaskScope[] = [];
+  const taskContracts = new Map<string, ApprovedContract>();
   for (const task of plan.tasks) {
-    scopes.push(await loadTaskScope(task));
+    const contract = await loadTaskContract(task);
+    taskContracts.set(task.id, contract);
+    scopes.push({
+      id: task.id,
+      planned: contract.scope.plannedPathPatterns,
+      forbidden: contract.scope.forbiddenPathPatterns,
+      read: contract.scope.readPathPatterns,
+    });
   }
 
   const graph = buildConflictGraph(scopes, { readHazards: options.readHazards !== false });
@@ -537,6 +944,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const artifactDir = join(dirname(receiptPath), `${basename(receiptPath, ".json")}-artifacts`);
   const startedAt = new Date().toISOString();
   const taskRuns: TaskRun[] = [];
+  let isolation: RunIsolation | null = null;
   const environment = await maybeEnvironment(cwd);
   const blockedByEnvironment = environment?.mode === "strict" && environment.status === "fail";
 
@@ -557,14 +965,47 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       });
     }
   } else if (cycles.length === 0) {
-    for (const wave of waves) {
-      const runnable = wave
-        .filter((id) => !deferredSet.has(id))
-        .map((id) => byId.get(id))
-        .filter((task): task is (typeof runTasks)[number] => task !== undefined);
-      taskRuns.push(
-        ...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task, timeoutMs, storeRawOutput)))),
-      );
+    if (options.isolate === true) {
+      let isolated: Awaited<ReturnType<typeof runIsolatedTasks>>;
+      const controller = new AbortController();
+      const onSignal = () => {
+        controller.abort();
+      };
+      process.on("SIGINT", onSignal);
+      process.on("SIGTERM", onSignal);
+      try {
+        isolated = await runIsolatedTasks({
+          cwd,
+          waves,
+          byId,
+          deferredSet,
+          contracts: taskContracts,
+          artifactDir,
+          timeoutMs,
+          storeRawOutput,
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof WorktreeError) {
+          throw new CliError(isolationErrorCode(error), error.message);
+        }
+        throw error;
+      } finally {
+        process.off("SIGINT", onSignal);
+        process.off("SIGTERM", onSignal);
+      }
+      taskRuns.push(...isolated.taskRuns);
+      isolation = isolated.isolation;
+    } else {
+      for (const wave of waves) {
+        const runnable = wave
+          .filter((id) => !deferredSet.has(id))
+          .map((id) => byId.get(id))
+          .filter((task): task is (typeof runTasks)[number] => task !== undefined);
+        taskRuns.push(
+          ...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task, timeoutMs, storeRawOutput)))),
+        );
+      }
     }
   }
 
@@ -595,7 +1036,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
 
   const receipt = {
-    schemaVersion: 4,
+    schemaVersion: options.isolate === true ? 5 : 4,
     planId: plan.planId,
     startedAt,
     finishedAt: new Date().toISOString(),
@@ -615,6 +1056,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     environment,
     approvalIntegrity,
     blockedByEnvironment,
+    ...(options.isolate === true ? { isolation } : {}),
     waves,
     conflicts: graph.conflicts,
     cycles,
@@ -623,6 +1065,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       passedTasks: taskRuns.filter((task) => task.status === "passed").map((task) => task.id).sort(),
       failedTasks: taskRuns.filter((task) => task.status === "failed").map((task) => task.id).sort(),
       skippedTasks: taskRuns.filter((task) => task.status === "skipped").map((task) => task.id).sort(),
+      blockedTasks: taskRuns.filter((task) => task.status === "blocked").map((task) => task.id).sort(),
       driftStatus: drift?.status ?? "not_checked",
       environmentStatus: environment?.status ?? "not_configured",
     },
@@ -634,10 +1077,12 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
 
   const hasFailedTask = taskRuns.some((task) => task.status === "failed");
   const hasSkippedTask = taskRuns.some((task) => task.status === "skipped");
+  const hasBlockedTask = taskRuns.some((task) => task.status === "blocked");
   const hasDriftProblems = drift?.status === "violations" || drift?.status === "error";
   const hasEnvironmentProblems = environment !== null && environment.status === "fail";
+  const hasCleanupProblems = isolation?.cleanup.status === "warning";
   const exitCode: ExitCode =
-    cycles.length > 0 || hasFailedTask || hasSkippedTask || hasDriftProblems || hasEnvironmentProblems
+    cycles.length > 0 || hasFailedTask || hasSkippedTask || hasBlockedTask || hasDriftProblems || hasEnvironmentProblems || hasCleanupProblems
       ? 1
       : 0;
 
@@ -652,6 +1097,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       deferred,
       drift?.status ?? "not_checked",
       environment?.status ?? "not_configured",
+      isolation?.finalPromotion ?? (options.isolate === true ? "not-run" : "off"),
     ),
     exitCode,
   };

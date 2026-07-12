@@ -92,6 +92,28 @@ scopelock plan fill-commands plan.json --target claude --out enriched-plan.json
 scopelock run --plan enriched-plan.json --yes
 ```
 
+For stronger workspace containment, add `--isolate`:
+
+```bash
+scopelock run --plan enriched-plan.json --yes --isolate --receipt receipt.json
+```
+
+Each task runs in its own detached Git worktree. ScopeLock accepts only a
+whole task patch whose paths match that task's contract, carries accepted
+changes into later execution steps, and applies one aggregate patch to the
+user working tree at the end. The user repository must be clean and remain at
+the same `HEAD`; otherwise dispatch or final promotion fails closed.
+
+Isolated runs are opt-in and produce receipt v5 with per-task patch digests,
+path classifications, final-promotion status, and cleanup evidence. The first
+release limits a run to 32 tasks and each task/aggregate patch to 50 MiB.
+Gitlinks and symlinks are rejected. A signal interrupts children, blocks final
+promotion, and runs worktree cleanup.
+
+This is Git-workspace containment, not an OS sandbox. A command with ambient
+user permissions can still write through an absolute path outside its
+worktree. Keep harness-native sandboxes enabled and do not run untrusted plans.
+
 By default, `fill-commands` preserves tasks that already have a command. Use
 `--force` to replace them. It always generates an argv array, never a shell
 string. Generated Claude invocations use `dontAsk`, disable session persistence,
@@ -106,6 +128,7 @@ Other `run` options:
 - `--receipt <path>` writes the receipt to a custom path instead of the
   default under `.scopelock/reports/`.
 - `--timeout-ms <ms>` bounds each task's process (default 900000 = 15 minutes).
+- `--isolate` gates each task patch in a detached worktree and promotes once.
 - `--no-check-drift` skips the final `check-drift` step the receipt normally
   includes.
 - `--no-read-hazards` schedules using only write-write conflicts (F1),

@@ -24,11 +24,20 @@ type Receipt = {
     passedTasks?: unknown;
     failedTasks?: unknown;
     skippedTasks?: unknown;
+    blockedTasks?: unknown;
     driftStatus?: unknown;
     environmentStatus?: unknown;
   };
   taskRuns?: unknown;
   drift?: { status?: unknown } | null;
+  isolation?: {
+    mode?: unknown;
+    trustTier?: unknown;
+    finalPromotion?: unknown;
+    aggregatePatchSha256?: unknown;
+    aggregatePatchBytes?: unknown;
+    cleanup?: { status?: unknown; remaining?: unknown };
+  } | null;
 };
 
 async function readReceipt(path: string): Promise<Receipt> {
@@ -56,12 +65,22 @@ function arrayOfStrings(value: unknown): string[] {
 function taskRows(receipt: Receipt): Array<{ id: string; status: string; duration: string; notes: string }> {
   if (!Array.isArray(receipt.taskRuns)) return [];
   return receipt.taskRuns.map((task) => {
-    const item = task as { id?: unknown; status?: unknown; durationMs?: unknown; stderr?: unknown };
+    const item = task as {
+      id?: unknown;
+      status?: unknown;
+      durationMs?: unknown;
+      stderr?: unknown;
+      isolation?: { outcome?: unknown; findings?: unknown };
+    };
+    const notes = [
+      typeof item.isolation?.outcome === "string" ? `isolation: ${item.isolation.outcome}` : "",
+      typeof item.stderr === "string" && item.stderr.length > 0 ? item.stderr : "",
+    ].filter(Boolean).join("; ");
     return {
       id: typeof item.id === "string" ? item.id : "unknown",
       status: typeof item.status === "string" ? item.status : "unknown",
       duration: typeof item.durationMs === "number" ? `${Math.round(item.durationMs)}ms` : "-",
-      notes: typeof item.stderr === "string" && item.stderr.length > 0 ? item.stderr : "",
+      notes,
     };
   });
 }
@@ -90,8 +109,9 @@ function renderHtml(receipt: Receipt, receiptPath: string): string {
   const passed = arrayOfStrings(summary.passedTasks);
   const failed = arrayOfStrings(summary.failedTasks);
   const skipped = arrayOfStrings(summary.skippedTasks);
+  const blocked = arrayOfStrings(summary.blockedTasks);
   const tasks = taskRows(receipt);
-  const overall = failed.length > 0 || skipped.length > 0 || receipt.blockedByEnvironment === true ? "Attention" : "Cleared";
+  const overall = failed.length > 0 || skipped.length > 0 || blocked.length > 0 || receipt.blockedByEnvironment === true ? "Attention" : "Cleared";
   const overallClass = overall === "Cleared" ? "good" : "warn";
   const waves = Array.isArray(receipt.waves) ? receipt.waves : [];
   const raw = JSON.stringify(receipt, null, 2);
@@ -144,7 +164,7 @@ summary { cursor: pointer; font-weight: 700; }
   <div class="grid">
     <div class="stat">Passed tasks<strong class="good">${passed.length}</strong></div>
     <div class="stat">Failed tasks<strong class="${failed.length > 0 ? "bad" : "good"}">${failed.length}</strong></div>
-    <div class="stat">Skipped/deferred<strong class="${skipped.length > 0 ? "warn" : "good"}">${skipped.length}</strong></div>
+    <div class="stat">Skipped/blocked<strong class="${skipped.length + blocked.length > 0 ? "warn" : "good"}">${skipped.length + blocked.length}</strong></div>
     <div class="stat">Conflicts found<strong class="${count(receipt.conflicts) > 0 ? "warn" : "good"}">${count(receipt.conflicts)}</strong></div>
   </div>
   <section>
@@ -159,6 +179,9 @@ summary { cursor: pointer; font-weight: 700; }
       <tbody>
         <tr><th>Environment</th><td class="${statusClass(String(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured"))}">${escapeHtml(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured")}</td></tr>
         <tr><th>Drift</th><td class="${statusClass(String(summary.driftStatus ?? receipt.drift?.status ?? "not_checked"))}">${escapeHtml(summary.driftStatus ?? receipt.drift?.status ?? "not_checked")}</td></tr>
+        <tr><th>Isolation</th><td>${escapeHtml(receipt.isolation?.mode ?? "off")} / ${escapeHtml(receipt.isolation?.trustTier ?? "not_applicable")}</td></tr>
+        <tr><th>Final promotion</th><td class="${statusClass(String(receipt.isolation?.finalPromotion === "applied" || receipt.isolation?.finalPromotion === "no-changes" ? "ok" : receipt.isolation?.finalPromotion ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.finalPromotion ?? "not_applicable")}</td></tr>
+        <tr><th>Cleanup</th><td class="${statusClass(String(receipt.isolation?.cleanup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.cleanup?.status ?? "not_applicable")}</td></tr>
         <tr><th>Deferred tasks</th><td>${escapeHtml(arrayOfStrings(receipt.deferredTasks).join(", ") || "none")}</td></tr>
       </tbody>
     </table>

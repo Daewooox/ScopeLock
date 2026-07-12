@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "worktree-isolation-c1-v2",
+  "task": "Pattern C phase C1 isolated Git worktree lifecycle",
+  "createdAt": "2026-07-12T21:01:03.570Z",
+  "baseline": {
+    "headSha": "1885ae33768d19c2b97dbd1609576915fa360e00",
+    "branch": "feature/worktree-isolation",
+    "capturedAt": "2026-07-12T21:01:03.663Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/worktree-isolation-c1-v2.json",
+      "packages/core/src/git/worktree.ts",
+      "packages/core/src/worktree.test.ts",
+      "packages/core/src/index.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": [
+      "memory-bank/plans/worktree-isolation-implementation-plan.md",
+      "packages/core/src/git/exec.ts",
+      "packages/core/src/drift/collect.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
