@@ -292,11 +292,18 @@ symlink, gitlink, oversized, conflicting, or failed task results are not
 staged. After rechecking the original clean `HEAD`, ScopeLock applies one
 aggregate patch to the user tree and records the result in receipt v5.
 
-For Cursor, keep automatic `plan fill-commands --target cursor` disabled for
-now: a composed plan could be executed later without isolation. A manually
-reviewed Cursor headless argv command can be used with `run --isolate`; the
-release probe verified that a mixed planned+forbidden Cursor patch is rejected
-as a whole and leaves the user tree unchanged.
+For Cursor, composition is deliberately bound to isolated execution:
+
+```bash
+scopelock plan fill-commands plan.json --target cursor --out cursor-plan.json
+scopelock run --plan cursor-plan.json --yes --isolate --receipt receipt.json
+```
+
+The generated file contains `execution.isolation = "required"`, so a later
+direct run is rejected before any agent starts. Cursor keeps its native
+sandbox enabled, while ScopeLock validates the complete worktree patch before
+promotion. Existing explicit commands are preserved, but the whole mixed plan
+still inherits the strongest requirement and must run isolated.
 
 Existing commands are preserved unless `--force` is passed. The original plan
 is not changed, and `run` still executes only the commands visible in the
@@ -362,7 +369,7 @@ guarantee and the runtime backstop are drawing from the same ground truth.
 - **Real multi-agent timing.** The `orchestration-m5-validation.md` H3
   measurement is a proxy (synthetic per-task delay), not actual agents. A
   live multi-agent timed run is future work.
-- **Automatic invocation for every harness.** `plan fill-commands` supports
-  Codex and a restricted, live-verified Claude Code profile. Cursor headless
-  writes exist, but remain disabled until ScopeLock can prove scoped pre-write
-  denial or validate an isolated worktree before promotion.
+- **Equivalent pre-write denial for every harness.** `plan fill-commands`
+  supports Codex, a restricted live-verified Claude Code profile, and Cursor
+  only through an isolation-required plan. Cursor remains audit-only at hook
+  time; its complete worktree patch is validated before promotion instead.

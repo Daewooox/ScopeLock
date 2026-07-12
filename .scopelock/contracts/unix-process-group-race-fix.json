@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "unix-process-group-race-fix",
+  "task": "Handle early detached process-group signal race",
+  "createdAt": "2026-07-12T23:47:32.474Z",
+  "baseline": {
+    "headSha": "54ade9d402d1165e9484a80b380d1f84e18c2bc1",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T23:47:32.569Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/process-tree.ts",
+      "packages/cli/src/process-tree.test.ts",
+      ".scopelock/contracts/unix-process-group-race-fix.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/src/commands/**",
+      "packages/core/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

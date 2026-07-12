@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "codeql-test-code-construction-fix",
+  "task": "Remove dynamic path interpolation from signal test code",
+  "createdAt": "2026-07-12T23:44:13.276Z",
+  "baseline": {
+    "headSha": "09391cf084db762db75c7891cfb7a74beb04d9a4",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T23:44:13.370Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/cli.test.ts",
+      ".scopelock/contracts/codeql-test-code-construction-fix.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/process-tree.ts",
+      "packages/cli/src/commands/**",
+      "packages/core/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

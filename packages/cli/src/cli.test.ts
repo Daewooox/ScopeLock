@@ -42,6 +42,15 @@ function commitFixture(dir: string, message: string): void {
   assert.equal(spawnSync("git", ["commit", "-qm", message], { cwd: dir }).status, 0);
 }
 
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("cli end-to-end", () => {
   it("init -> contract new -> approve -> check-drift respects the exit-code contract", async (t) => {
     const dir = await makeRepo();
@@ -956,7 +965,7 @@ describe("plan fill-commands", () => {
     }
   });
 
-  it("returns exit 1 for Cursor without verified scoped pre-write denial", async (t) => {
+  it("composes Cursor only as an isolation-required plan", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
       t.skip("git init failed");
@@ -968,7 +977,7 @@ describe("plan fill-commands", () => {
         join(dir, "plan.json"),
         JSON.stringify({
           schemaVersion: 1,
-          planId: "unsupported-cursor",
+          planId: "isolated-cursor",
           tasks: [{ id: "a", contract: ".scopelock/contracts/a.json" }],
         }),
       );
@@ -980,12 +989,21 @@ describe("plan fill-commands", () => {
         "--target",
         "cursor",
       ]);
-      assert.equal(result.status, 1, result.stdout || result.stderr);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
       const body = JSON.parse(result.stdout);
-      assert.equal(body.status, "violations");
-      assert.equal(body.data.unsupported[0].taskId, "a");
-      assert.match(body.data.unsupported[0].reason, /pre-write denial is not live-verified/);
-      assert.equal(body.data.plan.tasks[0].command, undefined);
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.unsupported, []);
+      assert.equal(body.data.plan.execution.isolation, "required");
+      assert.deepEqual(body.data.plan.tasks[0].command.slice(0, 6), [
+        "agent", "--print", "--output-format", "stream-json", "--sandbox", "enabled",
+      ]);
+      assert.equal(body.data.plan.tasks[0].command.includes("--force"), false);
+      await writeFile(join(dir, "cursor-plan.json"), JSON.stringify(body.data.plan));
+      const direct = runCli(dir, [
+        "--json", "run", "--yes", "--plan", "cursor-plan.json", "--no-check-drift",
+      ]);
+      assert.equal(direct.status, 2, direct.stdout || direct.stderr);
+      assert.equal(JSON.parse(direct.stdout).error.code, "PLAN_REQUIRES_ISOLATION");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -1143,6 +1161,34 @@ describe("run", () => {
     }
   });
 
+  it("cannot run an isolation-required plan in direct mode", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolation-required",
+        execution: { isolation: "required" },
+        tasks: [{
+          id: "never-run",
+          contract: "missing.json",
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('escaped.txt','bad')"],
+        }],
+      }));
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--allow-shell", "--plan", "plan.json", "--no-check-drift",
+      ]);
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).error.code, "PLAN_REQUIRES_ISOLATION");
+      await assert.rejects(readFile(join(dir, "escaped.txt"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects an argv-array shell invocation (sh -c ...) as a shell command too (M0.9)", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -1263,6 +1309,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-waves",
+          execution: { isolation: "required" },
           tasks: [
             {
               id: "writer",
@@ -1301,6 +1348,8 @@ describe("run", () => {
       assert.equal(await readFile(join(dir, "observed.txt"), "utf8"), "wave-one");
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
       assert.equal(receipt.schemaVersion, 5);
+      assert.equal(receipt.inputs.executionRequirement.isolation, "required");
+      assert.equal(receipt.inputs.effectiveExecutionMode, "isolated");
       assert.deepEqual(receipt.waves, [["writer"], ["reader"]]);
       assert.equal(receipt.isolation.finalPromotion, "applied");
       assert.equal(receipt.isolation.cleanup.status, "ok");
@@ -1506,6 +1555,139 @@ describe("run", () => {
       const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
       assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("force-kills an isolated task tree on a second SIGINT", async (t) => {
+    if (process.platform === "win32") {
+      t.skip("POSIX signal delivery is not available on Windows");
+      return;
+    }
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const readyPath = join(tmpdir(), `scopelock-second-signal-${process.pid}-${Date.now()}.ready`);
+    try {
+      await writeContract(dir, join(dir, "stubborn.json"), "stubborn", ["result.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-second-signal",
+          tasks: [{
+            id: "stubborn",
+            contract: "stubborn.json",
+            command: [
+              process.execPath,
+              "-e",
+              "process.on('SIGINT',()=>{});process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.argv[1],'ready');setInterval(()=>{},1000)",
+              readyPath,
+            ],
+          }],
+        }),
+      );
+      commitFixture(dir, "second signal fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "second-signal.json");
+      const child = spawn(
+        process.execPath,
+        [CLI, "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift"],
+        { cwd: dir, stdio: ["ignore", "pipe", "pipe"] },
+      );
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+      child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        try {
+          if ((await readFile(readyPath, "utf8")) === "ready") break;
+        } catch {
+          // Wait until the task process has installed its signal handlers.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      assert.equal(await readFile(readyPath, "utf8"), "ready", "task process did not become ready");
+      const closed = new Promise<number | null>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          child.kill("SIGKILL");
+          reject(new Error("CLI survived the second SIGINT"));
+        }, 5_000);
+        child.on("close", (code) => {
+          clearTimeout(timer);
+          resolve(code);
+        });
+      });
+      const started = Date.now();
+      child.kill("SIGINT");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      child.kill("SIGINT");
+      const exitCode = await closed;
+      assert.equal(exitCode, 1, stdout || stderr);
+      assert.ok(Date.now() - started < 2_000, "second signal waited for graceful timeout");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].termination.reason, "sigint");
+      assert.equal(receipt.taskRuns[0].termination.escalated, true);
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+      assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
+    } finally {
+      await rm(readyPath, { force: true });
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("kills task descendants before cleaning an isolated timeout", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const readyPath = join(tmpdir(), `scopelock-timeout-${process.pid}-${Date.now()}.json`);
+    try {
+      await writeContract(dir, join(dir, "slow-tree.json"), "slow-tree", ["result.txt"]);
+      const script = [
+        "const {spawn}=require('node:child_process');",
+        "const fs=require('node:fs');",
+        "const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});",
+        `fs.writeFileSync(${JSON.stringify(readyPath)},JSON.stringify({parent:process.pid,child:child.pid}));`,
+        "setInterval(()=>{},1000);",
+      ].join("");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-timeout-tree",
+          tasks: [{
+            id: "slow-tree",
+            contract: "slow-tree.json",
+            command: [process.execPath, "-e", script],
+          }],
+        }),
+      );
+      commitFixture(dir, "timeout tree fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "timeout-tree.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--timeout-ms", "250",
+        "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      const pids = JSON.parse(await readFile(readyPath, "utf8")) as { parent: number; child: number };
+      assert.equal(processIsAlive(pids.parent), false);
+      assert.equal(processIsAlive(pids.child), false);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].termination.reason, "timeout");
+      assert.equal(receipt.isolation.finalPromotion, "no-changes");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+      assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
+    } finally {
+      await rm(readyPath, { force: true });
       await rm(dir, { recursive: true, force: true });
     }
   });

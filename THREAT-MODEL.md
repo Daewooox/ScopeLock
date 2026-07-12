@@ -41,6 +41,15 @@
   drift. Harness-native sandboxing remains an independent required layer.
 - Commands produced by `plan fill-commands` are reviewable argv arrays and pass
   through the same `run --plan --yes` trust gate as hand-written commands.
+- Cursor-composed plans carry `execution.isolation = "required"` and are
+  rejected before dispatch unless `--isolate` is present. The generated argv
+  keeps Cursor's native sandbox enabled; `--yes` and `--allow-shell` do not
+  weaken the mode binding.
+- Spawned agent commands are supervised as process trees. Timeout, `SIGINT`,
+  and `SIGTERM` use one cleanup path, and isolated worktrees are removed only
+  after the tree is reaped. Unix uses a detached process group; Windows uses a
+  numeric PID-only `taskkill /T /F` invocation and does not claim equivalent
+  process-group observability.
 - Generated Claude Code commands use `dontAsk`, expose only file read/edit
   tools, deny Bash, and rely on the installed ScopeLock pre-write hook for
   scope enforcement. Without that hook, enforcement is post-run drift only.

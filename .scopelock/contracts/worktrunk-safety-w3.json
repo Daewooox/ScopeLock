@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "worktrunk-safety-w3",
+  "task": "Bind plans to required isolation mode",
+  "createdAt": "2026-07-12T22:27:34.639Z",
+  "baseline": {
+    "headSha": "6c8229c25e4b616ae2cc56f10b5637eca3ba9d18",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T22:27:34.731Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schedule.test.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      ".scopelock/contracts/worktrunk-safety-w3.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

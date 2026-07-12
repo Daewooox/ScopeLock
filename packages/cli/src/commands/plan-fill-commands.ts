@@ -36,7 +36,11 @@ async function readJson(path: string, notFoundCode: string): Promise<unknown> {
   }
 }
 
-async function commandFor(contractPath: string, target: AgentId): Promise<string[]> {
+async function commandFor(
+  contractPath: string,
+  target: AgentId,
+  isolationBound: boolean,
+): Promise<string[]> {
   const raw = await readJson(contractPath, "CONTRACT_NOT_FOUND");
   const contract = approvedContractSchema.parse(raw);
   if (contract.baseline === null) {
@@ -45,7 +49,7 @@ async function commandFor(contractPath: string, target: AgentId): Promise<string
       `contract ${contract.id} has no approved git baseline; run scopelock approve first`,
     );
   }
-  return buildAgentCommand(target, renderAgentPrompt(contract, target));
+  return buildAgentCommand(target, renderAgentPrompt(contract, target), { isolationBound });
 }
 
 export async function planFillCommandsCommand(
@@ -53,6 +57,7 @@ export async function planFillCommandsCommand(
   options: FillCommandsOptions,
 ): Promise<CommandResult> {
   const target = agentIdSchema.parse(options.target);
+  const isolationBound = target === "cursor";
   const cwd = process.cwd();
   const plan = schedulePlanSchema.parse(await readJson(planPath, "PLAN_NOT_FOUND"));
   const tasks = [];
@@ -65,7 +70,7 @@ export async function planFillCommandsCommand(
     }
     const contractPath = isAbsolute(task.contract) ? task.contract : resolve(cwd, task.contract);
     try {
-      tasks.push({ ...task, command: await commandFor(contractPath, target) });
+      tasks.push({ ...task, command: await commandFor(contractPath, target, isolationBound) });
     } catch (error) {
       if (error instanceof AgentInvocationError && error.code === "UNSUPPORTED_TARGET") {
         unsupported.push({ taskId: task.id, target, reason: error.message });
@@ -79,7 +84,11 @@ export async function planFillCommandsCommand(
     }
   }
 
-  const enrichedPlan = schedulePlanSchema.parse({ ...plan, tasks });
+  const enrichedPlan = schedulePlanSchema.parse({
+    ...plan,
+    ...(isolationBound ? { execution: { isolation: "required" } } : {}),
+    tasks,
+  });
   const outputPath = options.out
     ? isAbsolute(options.out)
       ? options.out
@@ -95,6 +104,7 @@ export async function planFillCommandsCommand(
     : [
         `wrote enriched plan: ${outputPath}`,
         `filled: ${tasks.filter((task, index) => task.command !== plan.tasks[index]?.command).length}`,
+        ...(isolationBound ? ["execution: isolation required"] : []),
         ...unsupportedLines,
       ].join("\n");
 

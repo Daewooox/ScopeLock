@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "worktrunk-safety-w1-v2",
+  "task": "Add cross-platform process tree supervision",
+  "createdAt": "2026-07-12T22:19:25.794Z",
+  "baseline": {
+    "headSha": "b636e5d8becae121b2e939a17b0848d61204a7c1",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T22:19:25.874Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/process-tree.ts",
+      "packages/cli/src/process-tree.test.ts",
+      ".scopelock/contracts/worktrunk-safety-w1-v2.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/cli/src/commands/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

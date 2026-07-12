@@ -385,6 +385,22 @@ describe("scope algebra conflict graph and scheduler", () => {
       },
     );
 
+    assert.equal(
+      schedulePlanSchema.parse({
+        schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,
+        planId: "isolated",
+        execution: { isolation: "required" },
+        tasks: [{ id: "t1", contract: "t1.json" }],
+      }).execution?.isolation,
+      "required",
+    );
+    assert.throws(() => schedulePlanSchema.parse({
+      schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,
+      planId: "invalid-mode",
+      execution: { isolation: "sometimes" },
+      tasks: [{ id: "t1", contract: "t1.json" }],
+    }));
+
     assert.throws(() =>
       schedulePlanSchema.parse({
         schemaVersion: SCHEDULE_PLAN_SCHEMA_VERSION,

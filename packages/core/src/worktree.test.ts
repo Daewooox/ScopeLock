@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { spawn, spawnSync } from "node:child_process";
+import { access, chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { describe, it } from "node:test";
 import {
   WorktreeError,
@@ -165,6 +165,70 @@ describe("isolated Git worktree lifecycle", () => {
       assert.equal(git(foreign, ["rev-parse", "HEAD"]), fixture.head);
       git(fixture.repo, ["worktree", "remove", "--force", foreign]);
     } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed and preserves the path when git cannot remove a worktree", async () => {
+    const fixture = await makeRepo();
+    const originalPath = process.env.PATH;
+    let worktree: Awaited<ReturnType<typeof createIsolatedWorktree>> | null = null;
+    let blocker: ReturnType<typeof spawn> | null = null;
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      worktree = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "remove-failure",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      if (process.platform === "win32") {
+        blocker = spawn(
+          process.execPath,
+          ["-e", "process.stdout.write('ready');setInterval(()=>{},1000)"],
+          { cwd: worktree.path, stdio: ["ignore", "pipe", "pipe"] },
+        );
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("worktree blocker did not start")), 5_000);
+          blocker?.once("error", reject);
+          blocker?.stdout?.once("data", () => {
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+      } else {
+        const shimDir = join(fixture.root, "fake-bin");
+        await mkdir(shimDir);
+        const lookup = spawnSync("which", ["git"], { encoding: "utf8" });
+        const realGit = lookup.stdout.split(/\r?\n/).find(Boolean);
+        assert.ok(realGit, "real git executable not found");
+        const shim = join(shimDir, "git");
+        await writeFile(
+          shim,
+          `#!/bin/sh\nif [ "$1" = worktree ] && [ "$2" = remove ]; then echo injected remove failure >&2; exit 1; fi\nexec "${realGit}" "$@"\n`,
+        );
+        await chmod(shim, 0o755);
+        process.env.PATH = `${shimDir}${delimiter}${originalPath ?? ""}`;
+      }
+      await assert.rejects(
+        removeIsolatedWorktree({ repoRoot: fixture.repo, worktree }),
+        (error) => error instanceof WorktreeError &&
+          error.code === "WORKTREE_REMOVE_FAILED" &&
+          (process.platform === "win32" || error.message.includes("injected remove failure")),
+      );
+      process.env.PATH = originalPath;
+      await access(worktree.path);
+    } finally {
+      process.env.PATH = originalPath;
+      if (blocker !== null) {
+        const closed = new Promise((resolve) => blocker?.once("close", resolve));
+        blocker.kill("SIGKILL");
+        await closed;
+      }
+      if (worktree !== null) {
+        await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree }).catch(() => {});
+      }
       await rm(fixture.root, { recursive: true, force: true });
     }
   });

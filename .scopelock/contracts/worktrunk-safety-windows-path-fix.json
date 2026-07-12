@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "worktrunk-safety-windows-path-fix",
+  "task": "Make process-tree cwd assertion canonical on Windows",
+  "createdAt": "2026-07-12T22:52:56.174Z",
+  "baseline": {
+    "headSha": "b27416da0cffe9c442a2123bc411205ba20c763a",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T22:52:56.265Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/process-tree.test.ts",
+      ".scopelock/contracts/worktrunk-safety-windows-path-fix.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/process-tree.ts",
+      "packages/cli/src/commands/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
