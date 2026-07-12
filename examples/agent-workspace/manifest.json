@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "targets": ["claude", "cursor", "codex"],
+  "rules": [
+    { "id": "agents", "path": "AGENTS.md", "required": true }
+  ],
+  "skills": [
+    { "name": "review", "path": ".agents/skills/review", "required": true }
+  ],
+  "policy": {
+    "requirePhysicalCopies": true,
+    "requireRuleParity": false,
+    "requireSkillParity": false
+  }
+}

@@ -29,8 +29,10 @@
   requires `--yes`; shell strings additionally require `--allow-shell`.
 - Approved contracts are trusted only while their local integrity seal matches.
 - Claude Code pre-write hooks can block known file-edit events. Cursor is
-  treated as post-write audit. Codex hook confidence remains degraded until a
-  safe live probe exists.
+  treated as post-write audit. Codex hook confidence starts `degraded` and is
+  only upgraded to `live-verified` by an explicit `hooks verify --target
+  codex` run whose recorded digest matches the current hook config - never
+  automatically or from static inspection alone.
 - MCP tools are pinned to the server repository root and reject absolute or
   escaping contract paths.
 

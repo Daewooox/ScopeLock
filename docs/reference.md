@@ -11,7 +11,7 @@ your installed version.
 | `scopelock init` | Create `.scopelock/` config, contracts, and reports. |
 | `scopelock doctor` | Check git, Node, config, the active contract, and hooks. |
 | `scopelock contract new` | Create a schema-valid draft contract without an LLM. |
-| `scopelock approve <file>` | Save a contract and capture the current git baseline. |
+| `scopelock approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it the active contract. |
 | `scopelock rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
 | `scopelock export-prompt --target <id>` | Print the active contract as agent instructions. |
 | `scopelock inject-contract --target <id>` | Inject the contract into `AGENTS.md` or `CLAUDE.md`. |
@@ -63,6 +63,9 @@ does not run that command automatically.
 Codex hook confidence can be upgraded to `live-verified` only when an explicit
 verification record matches the SHA-256 digest of the current hook config.
 
+See [`examples/agent-workspace/`](../examples/agent-workspace/) for a
+reproducible manifest and both a passing and a failing run.
+
 ## Parallel planning
 
 By default `plan-parallel` detects write-write conflicts between task scopes.
@@ -78,6 +81,18 @@ reports the involved tasks instead of inventing an unsafe order. See
 `scopelock run --plan <plan.json>` is a thin dispatcher, not a generic agent
 runtime. Plans containing commands require `--yes`; string shell commands also
 require `--allow-shell`.
+
+Other `run` options:
+
+- `--receipt <path>` writes the receipt to a custom path instead of the
+  default under `.scopelock/reports/`.
+- `--timeout-ms <ms>` bounds each task's process (default 900000 = 15 minutes).
+- `--no-check-drift` skips the final `check-drift` step the receipt normally
+  includes.
+- `--no-read-hazards` schedules using only write-write conflicts (F1),
+  ignoring each contract's `readPathPatterns` (F2).
+- `--no-defer-write-conflicts` runs write-write conflicts instead of deferring
+  one side to a later wave.
 
 Receipts contain bounded, redacted previews by default. Raw redacted output is
 written only when `--store-raw-output` is explicitly enabled.

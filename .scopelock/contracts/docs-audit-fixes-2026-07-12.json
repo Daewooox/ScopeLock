@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "docs-audit-fixes-2026-07-12",
+  "task": "Fix stale doc claims: THREAT-MODEL codex probe, AGENTS.md stale contract, corepack fallback, undocumented run/approve flags, agents-preflight example manifest",
+  "createdAt": "2026-07-12T13:36:53.529Z",
+  "baseline": {
+    "headSha": "c4b8eade8c4271c0feb58894a883e564ab9550f4",
+    "branch": "main",
+    "capturedAt": "2026-07-12T13:36:53.611Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "THREAT-MODEL.md",
+      "AGENTS.md",
+      "README.md",
+      "docs/reference.md",
+      "examples/agent-workspace/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
