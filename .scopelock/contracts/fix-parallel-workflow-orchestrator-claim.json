@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-parallel-workflow-orchestrator-claim",
+  "task": "Fix stale claim in parallel-workflow.md about scopelock run agent orchestration",
+  "createdAt": "2026-07-12T13:08:24.909Z",
+  "baseline": {
+    "headSha": "0e9fa1bee46646359c8d8a375f15e48da7c9d7ab",
+    "branch": "main",
+    "capturedAt": "2026-07-12T13:08:24.991Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "docs/parallel-workflow.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
