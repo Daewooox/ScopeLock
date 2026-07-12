@@ -277,6 +277,27 @@ scopelock plan fill-commands plan.json --target codex --out enriched-plan.json
 scopelock run --plan enriched-plan.json --yes
 ```
 
+To prevent an agent's rejected workspace changes from touching the repository
+you are using, run the same reviewable plan in isolated mode:
+
+```bash
+scopelock run --plan enriched-plan.json --yes --isolate --receipt receipt.json
+scopelock report --open receipt.json
+```
+
+ScopeLock creates one temporary task worktree per runnable task. Accepted
+patches are staged in an integration worktree at the end of each execution
+step, so later tasks see earlier accepted output. Forbidden, outside-scope,
+symlink, gitlink, oversized, conflicting, or failed task results are not
+staged. After rechecking the original clean `HEAD`, ScopeLock applies one
+aggregate patch to the user tree and records the result in receipt v5.
+
+For Cursor, keep automatic `plan fill-commands --target cursor` disabled for
+now: a composed plan could be executed later without isolation. A manually
+reviewed Cursor headless argv command can be used with `run --isolate`; the
+release probe verified that a mixed planned+forbidden Cursor patch is rejected
+as a whole and leaves the user tree unchanged.
+
 Existing commands are preserved unless `--force` is passed. The original plan
 is not changed, and `run` still executes only the commands visible in the
 enriched file.

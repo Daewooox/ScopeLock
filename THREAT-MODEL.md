@@ -11,6 +11,9 @@
   claims - otherwise an attacker could downgrade `mode` to `warn` as part of
   the same edit that breaks the seal and defeat detection of that edit.
 - Receipt secret leakage by default, using redacted bounded previews.
+- Opt-in isolated plan execution keeps task changes in detached Git worktrees,
+  rejects a whole patch on any forbidden/outside/unsupported path, and applies
+  one sealed aggregate patch only after revalidating the user's clean `HEAD`.
 - `--allow-shell` gating covers both string-form commands and argv-array
   invocations of a shell interpreter with an inline-command flag (e.g.
   `["sh", "-c", "..."]`, `["cmd", "/c", "..."]`), not just literal strings.
@@ -21,6 +24,8 @@
 ## What ScopeLock Does Not Protect
 
 - A malicious same-user shell process with full filesystem access.
+- Absolute-path writes outside a task worktree. Worktree isolation is a
+  Git-level workspace boundary, not a kernel or filesystem sandbox.
 - Kernel, filesystem, terminal, editor, or GitHub runner compromise.
 - Agent actions through harness surfaces that do not expose trustworthy hooks.
 - User-approved executable plans from an untrusted source.
@@ -30,6 +35,10 @@
 
 - `plan.json` is executable code when it contains commands. `scopelock run`
   requires `--yes`; shell strings additionally require `--allow-shell`.
+- `run --isolate` claims `workspace-gated`, never OS-sandboxed. It requires a
+  clean repository, rejects symlink/gitlink promotion, caps plans at 32 tasks
+  and patches at 50 MiB, and blocks final promotion after interruption or base
+  drift. Harness-native sandboxing remains an independent required layer.
 - Commands produced by `plan fill-commands` are reviewable argv arrays and pass
   through the same `run --plan --yes` trust gate as hand-written commands.
 - Generated Claude Code commands use `dontAsk`, expose only file read/edit
