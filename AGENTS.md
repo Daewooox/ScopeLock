@@ -50,42 +50,17 @@ If the user reports a **recurrence of an already-fixed bug** — it's a **round 
 
 Use the adapter prompts in `memory-bank/docs/codex-*.md` — they are concise versions of the slash commands.
 
-<!-- SCOPELOCK CONTRACT BEGIN -->
-# ScopeLock Contract: self-dogfood-docs-config-2026-07-05
+## Current ScopeLock contract
 
-Target: Codex CLI
+This repository dogfoods itself: a fresh contract is approved per task, often
+several times a day, so a scope snapshot pasted directly into this file would
+be stale within hours. Don't trust a `<!-- SCOPELOCK CONTRACT ... -->` block
+you find in git history of this file as the current scope - it wasn't kept in
+sync. To see what's actually approved right now, run:
 
-## Task
-Dogfood ScopeLock docs and hook configuration changes on the ScopeLock repository
+```bash
+node packages/cli/dist/index.js export-prompt --target codex
+```
 
-## Approved Scope
-- AGENTS.md
-- .claude/settings.json
-- .cursor/hooks.json
-- memory-bank/activeContext.md
-- memory-bank/tasks.md
-- memory-bank/plans/checkpoint-dogfood-validation.md
-- memory-bank/plans/scopelock-implementation-plan.md
-
-## Forbidden
-- packages/core/src/schemas/**
-- packages/core/src/hook/**
-- packages/cli/src/commands/hook.ts
-- packages/cli/src/commands/hooks.ts
-
-Do NOT modify these paths. If the task requires it, stop and ask before editing.
-
-## Required Tests
-- No explicit test requirement.
-
-## Assumptions
-- This checkpoint should only touch docs, Memory Bank, and hook configuration files.
-- Runtime hook logic is already implemented and should not change during dogfood.
-
-## Open Questions
-- Mode is currently global in .scopelock/config.json, not per-target.
-- Installed hook command uses scopelock from PATH; before npm distribution local users may need a wrapper or link.
-
-## Final Instruction
-Stay inside the approved scope, run the required tests when relevant, and stop to ask when the change appears to require forbidden or unapproved files.
-<!-- SCOPELOCK CONTRACT END -->
+or read `.scopelock/active` (the active contract id) and
+`.scopelock/contracts/<id>.json` directly.

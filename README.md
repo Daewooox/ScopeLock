@@ -50,6 +50,11 @@ pnpm install
 pnpm demo:pilot
 ```
 
+`corepack` ships with Node 22, but some newer Node releases dropped it from
+the default install. If `corepack enable` reports "command not found", run
+`npm install -g corepack` first, or skip it entirely and `npm install -g
+pnpm@10` directly.
+
 ## What ScopeLock does
 
 - **Scope contracts** define allowed, forbidden, and read-only paths per task.
@@ -121,6 +126,7 @@ current configuration.
 - [CLI and configuration reference](docs/reference.md)
 - [Running multiple agents safely](docs/parallel-workflow.md)
 - [Reproducible parallel example](examples/parallel/)
+- [Agent environment preflight example](examples/agent-workspace/)
 - [Security model](SECURITY.md) and [threat model](THREAT-MODEL.md)
 - [Privacy](PRIVACY.md)
 
