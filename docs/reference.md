@@ -21,7 +21,7 @@ your installed version.
 | `scopelock check-drift` | Compare repository changes with the approved contract. |
 | `scopelock manifest` | Build a metadata-only manifest from tracked git files. |
 | `scopelock plan-parallel <plan.json>` | Detect conflicts and build a safe task schedule. |
-| `scopelock plan fill-commands <plan.json> --target <codex\|claude>` | Render task contracts into explicit, reviewable agent argv commands. |
+| `scopelock plan fill-commands <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans are isolation-required. |
 | `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
 | `scopelock run --plan <plan.json>` | Dispatch an approved plan and write a bounded receipt. |
 | `scopelock report <receipt> --open` | Render a standalone local HTML Flight Report. |
@@ -83,8 +83,7 @@ reports the involved tasks instead of inventing an unsafe order. See
 runtime. Plans containing commands require `--yes`; string shell commands also
 require `--allow-shell`.
 
-For Codex or Claude Code tasks, compose commands into a separate reviewable plan before
-dispatch:
+Compose agent commands into a separate reviewable plan before dispatch:
 
 ```bash
 scopelock hooks install --target claude --mode strict
@@ -108,7 +107,11 @@ Isolated runs are opt-in and produce receipt v5 with per-task patch digests,
 path classifications, final-promotion status, and cleanup evidence. The first
 release limits a run to 32 tasks and each task/aggregate patch to 50 MiB.
 Gitlinks and symlinks are rejected. A signal interrupts children, blocks final
-promotion, and runs worktree cleanup.
+promotion, and runs worktree cleanup. ScopeLock supervises the complete child
+process tree: timeout, `SIGINT`, and `SIGTERM` share one termination path, and
+the receipt records termination reason, requested signal, escalation, and
+platform when a task is interrupted. Windows uses PID-only `taskkill /T /F`;
+the receipt does not claim Unix-equivalent process-group proof.
 
 This is Git-workspace containment, not an OS sandbox. A command with ambient
 user permissions can still write through an absolute path outside its
@@ -120,8 +123,19 @@ string. Generated Claude invocations use `dontAsk`, disable session persistence,
 allow only file read/edit tools, and explicitly deny Bash. Put deterministic
 test commands in separate plan tasks. The installed strict hook supplies
 pre-write scope enforcement; without it, only the final drift check remains.
-Cursor has a headless CLI, but automatic
-write invocation remains disabled until scoped pre-write denial is proven.
+Cursor composition is available only as an isolation-bound plan:
+
+```bash
+scopelock plan fill-commands plan.json --target cursor --out cursor-plan.json
+scopelock run --plan cursor-plan.json --yes --isolate --receipt receipt.json
+```
+
+`fill-commands --target cursor` always writes
+`execution.isolation = "required"`. Running that file without `--isolate`
+fails with `PLAN_REQUIRES_ISOLATION`; `--yes` and `--allow-shell` cannot bypass
+the requirement. The generated argv keeps Cursor's sandbox enabled. ScopeLock
+still treats Cursor hooks as audit-only: the worktree patch gate, rather than
+a claimed pre-write deny, is the final enforcement boundary.
 
 Other `run` options:
 

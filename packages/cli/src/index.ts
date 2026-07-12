@@ -149,7 +149,7 @@ plan
   .command("fill-commands")
   .description("render task contracts into explicit agent argv commands")
   .argument("<plan>", "path to a plan JSON file")
-  .requiredOption("--target <id>", "agent target: codex or claude")
+  .requiredOption("--target <id>", "agent target: codex, claude, or cursor")
   .option("--out <path>", "write the enriched plan to this path")
   .option("--force", "replace commands already present in the plan")
   .option("--json", "print machine-readable JSON")
