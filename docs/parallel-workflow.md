@@ -329,6 +329,13 @@ guarantee and the runtime backstop are drawing from the same ground truth.
 - **Real multi-agent timing.** The `orchestration-m5-validation.md` H3
   measurement is a proxy (synthetic per-task delay), not actual agents. A
   live multi-agent timed run is future work.
-- **An orchestrator that launches the agents for you.** Today you drive
-  each wave manually (Step 4); a `scopelock run` command that launches and
-  coordinates agents wave-by-wave doesn't exist yet.
+- **A built-in way to feed each task's contract prompt into its agent
+  invocation.** `scopelock run --plan` *can* launch and coordinate real
+  agent CLIs wave-by-wave today - each task's `command` is just an argv
+  array, so it can be `["codex", "exec", ...]` or similar, and `run` already
+  respects the safe-wave order computed by `plan-parallel`. This isn't
+  hypothetical: `benchmarks/coordination/run-codex-real-agent-benchmark.mjs`
+  dispatches real Codex CLI processes this way. What's still missing is a
+  first-class flag or command that automatically stitches each task's
+  `export-prompt` output into that `command` for you - today you have to
+  build that argv array yourself, the way the benchmark script does.
