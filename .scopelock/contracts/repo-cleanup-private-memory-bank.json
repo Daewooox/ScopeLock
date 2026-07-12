@@ -4,9 +4,9 @@
   "task": "Untrack memory-bank and stale scopelock experiments from public repo",
   "createdAt": "2026-07-11T23:33:20.955Z",
   "baseline": {
-    "headSha": "edb203e307a5413009acb7c496611fb06bb67b77",
+    "headSha": "92873455dda7c140d903550aa6b132a64e4ce2f6",
     "branch": "main",
-    "capturedAt": "2026-07-11T23:33:21.035Z"
+    "capturedAt": "2026-07-11T23:48:45.263Z"
   },
   "targetAgents": [],
   "scope": {
