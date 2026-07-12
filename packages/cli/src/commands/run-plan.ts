@@ -17,6 +17,7 @@ import {
   writeJsonAtomic,
   type AgentEnvironmentPreflightReport,
   type ArtifactCheckResult,
+  type CommandSpec,
   type EnforcementMode,
   type ScopeConflict,
   type TaskScope,
@@ -40,8 +41,6 @@ type RunPlanOptions = {
   timeoutMs?: number;
   storeRawOutput?: boolean;
 };
-
-type CommandSpec = string | string[];
 
 /**
  * Interpreter basenames that execute an inline command string just like
@@ -103,12 +102,6 @@ function appendCaptured(current: string, chunk: Buffer): string {
   if (remaining <= 0) return current;
   return current + truncateUtf8(chunk.toString(), remaining);
 }
-
-type RunTask = {
-  id: string;
-  contract: string;
-  command?: CommandSpec;
-};
 
 type OutputArtifact = {
   path: string;
@@ -173,45 +166,6 @@ async function maybeReadJsonFile(path: string): Promise<unknown | null> {
     if (error instanceof CliError && error.code === "NOT_FOUND") return null;
     throw error;
   }
-}
-
-function parseRunTasks(planRaw: unknown): RunTask[] {
-  if (typeof planRaw !== "object" || planRaw === null || !("tasks" in planRaw)) {
-    throw new CliError("INVALID_INPUT", "plan must contain tasks");
-  }
-  const tasks = (planRaw as { tasks: unknown }).tasks;
-  if (!Array.isArray(tasks)) {
-    throw new CliError("INVALID_INPUT", "plan tasks must be an array");
-  }
-  return tasks.map((task) => {
-    if (typeof task !== "object" || task === null) {
-      throw new CliError("INVALID_INPUT", "plan task must be an object");
-    }
-    const candidate = task as { id?: unknown; contract?: unknown; command?: unknown };
-    if (typeof candidate.id !== "string" || typeof candidate.contract !== "string") {
-      throw new CliError("INVALID_INPUT", "plan task must include string id and contract");
-    }
-    if (
-      candidate.command !== undefined &&
-      typeof candidate.command !== "string" &&
-      !(
-        Array.isArray(candidate.command) &&
-        candidate.command.length > 0 &&
-        candidate.command.every((part) => typeof part === "string") &&
-        candidate.command[0]?.length > 0
-      )
-    ) {
-      throw new CliError(
-        "INVALID_INPUT",
-        `task ${candidate.id} command must be a string or non-empty string[]`,
-      );
-    }
-    return {
-      id: candidate.id,
-      contract: candidate.contract,
-      command: candidate.command as CommandSpec | undefined,
-    };
-  });
 }
 
 async function loadTaskScope(task: { id: string; contract: string }): Promise<TaskScope> {
@@ -365,7 +319,7 @@ async function persistCommand(
 async function runCommand(
   cwd: string,
   artifactDir: string,
-  task: RunTask,
+  task: { id: string; contract: string; command?: CommandSpec },
   timeoutMs: number,
   storeRawOutput: boolean,
 ): Promise<TaskRun> {
@@ -530,7 +484,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
   const planRaw = await readJsonFile(options.plan, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
-  const runTasks = parseRunTasks(planRaw);
+  const runTasks = plan.tasks;
   const byId = new Map(runTasks.map((task) => [task.id, task]));
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
   if (executableTasks.length > 0 && options.yes !== true) {
@@ -607,7 +561,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       const runnable = wave
         .filter((id) => !deferredSet.has(id))
         .map((id) => byId.get(id))
-        .filter((task): task is RunTask => task !== undefined);
+        .filter((task): task is (typeof runTasks)[number] => task !== undefined);
       taskRuns.push(
         ...(await Promise.all(runnable.map((task) => runCommand(cwd, artifactDir, task, timeoutMs, storeRawOutput)))),
       );

@@ -2,6 +2,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   HARNESSES,
+  AgentInvocationError,
+  MAX_AGENT_PROMPT_BYTES,
+  buildAgentCommand,
   injectContractSection,
   renderAgentPrompt,
   type AgentId,
@@ -52,6 +55,42 @@ describe("prompt rendering", () => {
       assert.match(prompt, /stop to ask/);
     });
   }
+});
+
+describe("agent invocation", () => {
+  it("builds a shell-free Codex argv command", () => {
+    assert.deepEqual(buildAgentCommand("codex", "do the task"), [
+      "codex",
+      "exec",
+      "do the task",
+    ]);
+  });
+
+  it("builds the live-verified restricted Claude argv command", () => {
+    const command = buildAgentCommand("claude", "do the task");
+
+    assert.deepEqual(command.slice(0, 2), ["claude", "-p"]);
+    assert.equal(command.at(-1), "do the task");
+    assert.equal(command.includes("dontAsk"), true);
+    assert.equal(command.includes("Bash"), true);
+    assert.equal(command.includes("--dangerously-skip-permissions"), false);
+  });
+
+  it("fails honestly for Cursor until scoped pre-write denial is verified", () => {
+    assert.throws(
+      () => buildAgentCommand("cursor", "do the task"),
+      (error: unknown) =>
+        error instanceof AgentInvocationError && error.code === "UNSUPPORTED_TARGET",
+    );
+  });
+
+  it("rejects prompts above the conservative argv limit", () => {
+    assert.throws(
+      () => buildAgentCommand("codex", "x".repeat(MAX_AGENT_PROMPT_BYTES + 1)),
+      (error: unknown) =>
+        error instanceof AgentInvocationError && error.code === "PROMPT_TOO_LARGE",
+    );
+  });
 });
 
 describe("AGENTS.md injection", () => {

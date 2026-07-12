@@ -20,6 +20,7 @@ export * from "./harness/claude-hooks.js";
 export * from "./harness/codex-hooks.js";
 export * from "./harness/cursor-hooks.js";
 export * from "./harness/hooks-merge.js";
+export * from "./harness/agent-invocation.js";
 export * from "./hook/gate.js";
 export * from "./render/prompt.js";
 export * from "./render/agents-md.js";

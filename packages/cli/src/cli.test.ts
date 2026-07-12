@@ -817,6 +817,272 @@ describe("agents preflight", () => {
   });
 });
 
+describe("plan fill-commands", () => {
+  async function writeContract(dir: string, name: string): Promise<void> {
+    const path = join(dir, `${name}.json`);
+    const draft = runCli(dir, [
+      "contract",
+      "new",
+      "--task",
+      `${name} task`,
+      "--id",
+      name,
+      "--planned",
+      `${name}.txt`,
+      "--out",
+      path,
+    ]);
+    assert.equal(draft.status, 0, draft.stderr);
+    const approved = runCli(dir, ["approve", path]);
+    assert.equal(approved.status, 0, approved.stdout || approved.stderr);
+  }
+
+  it("fills missing Codex commands, preserves overrides, and feeds run --plan", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, "a");
+      await writeContract(dir, "b");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "compose-demo",
+          tasks: [
+            { id: "a", contract: ".scopelock/contracts/a.json" },
+            { id: "b", contract: ".scopelock/contracts/b.json", command: ["manual", "b"] },
+          ],
+        }),
+      );
+
+      const filled = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "codex",
+        "--out",
+        "enriched.json",
+      ]);
+      assert.equal(filled.status, 0, filled.stdout || filled.stderr);
+      const enriched = JSON.parse(await readFile(join(dir, "enriched.json"), "utf8"));
+      assert.deepEqual(enriched.tasks[0].command.slice(0, 2), ["codex", "exec"]);
+      assert.match(enriched.tasks[0].command[2], /# ScopeLock Contract: a/);
+      assert.deepEqual(enriched.tasks[1].command, ["manual", "b"]);
+
+      const forced = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "codex",
+        "--force",
+        "--out",
+        "forced.json",
+      ]);
+      assert.equal(forced.status, 0, forced.stdout || forced.stderr);
+      const forcedPlan = JSON.parse(await readFile(join(dir, "forced.json"), "utf8"));
+      assert.deepEqual(forcedPlan.tasks[1].command.slice(0, 2), ["codex", "exec"]);
+
+      // Keep the composed plan shape and replace only executables with a
+      // deterministic test shim so CI does not require a Codex account.
+      for (const task of forcedPlan.tasks) {
+        task.command = [
+          process.execPath,
+          "-e",
+          `require('node:fs').writeFileSync('${task.id}.txt','ran')`,
+        ];
+      }
+      await writeFile(join(dir, "runnable.json"), JSON.stringify(forcedPlan));
+      const run = runCli(dir, [
+        "--json",
+        "run",
+        "--yes",
+        "--plan",
+        "runnable.json",
+        "--no-check-drift",
+      ]);
+      assert.equal(run.status, 0, run.stdout || run.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "ran");
+      assert.equal(await readFile(join(dir, "b.txt"), "utf8"), "ran");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fills a live-verified restricted Claude invocation", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, "a");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "claude-compose",
+          tasks: [{ id: "a", contract: ".scopelock/contracts/a.json" }],
+        }),
+      );
+      const result = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "claude",
+      ]);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      const body = JSON.parse(result.stdout);
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.plan.tasks[0].command.slice(0, 2), ["claude", "-p"]);
+      assert.equal(body.data.plan.tasks[0].command.includes("dontAsk"), true);
+      assert.equal(body.data.plan.tasks[0].command.includes("Bash"), true);
+      assert.equal(body.data.unsupported.length, 0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns exit 1 for Cursor without verified scoped pre-write denial", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, "a");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "unsupported-cursor",
+          tasks: [{ id: "a", contract: ".scopelock/contracts/a.json" }],
+        }),
+      );
+      const result = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "cursor",
+      ]);
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      const body = JSON.parse(result.stdout);
+      assert.equal(body.status, "violations");
+      assert.equal(body.data.unsupported[0].taskId, "a");
+      assert.match(body.data.unsupported[0].reason, /pre-write denial is not live-verified/);
+      assert.equal(body.data.plan.tasks[0].command, undefined);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns exit 2 when a task contract is missing", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "missing-contract",
+          tasks: [{ id: "a", contract: "missing.json" }],
+        }),
+      );
+      const result = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "codex",
+      ]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "CONTRACT_NOT_FOUND");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to compose an unapproved draft contract", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const draft = runCli(dir, [
+        "contract",
+        "new",
+        "--task",
+        "draft task",
+        "--id",
+        "draft",
+        "--planned",
+        "draft.txt",
+        "--out",
+        "draft.json",
+      ]);
+      assert.equal(draft.status, 0, draft.stderr);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "draft-contract",
+          tasks: [{ id: "draft", contract: "draft.json" }],
+        }),
+      );
+      const result = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "codex",
+      ]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "CONTRACT_NOT_APPROVED");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns exit 2 for a malformed plan", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "plan.json"), JSON.stringify({ schemaVersion: 1, tasks: [] }));
+      const result = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "codex",
+      ]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "INVALID_INPUT");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("run", () => {
   async function writeContract(
     dir: string,

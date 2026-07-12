@@ -21,6 +21,7 @@ your installed version.
 | `scopelock check-drift` | Compare repository changes with the approved contract. |
 | `scopelock manifest` | Build a metadata-only manifest from tracked git files. |
 | `scopelock plan-parallel <plan.json>` | Detect conflicts and build a safe task schedule. |
+| `scopelock plan fill-commands <plan.json> --target <codex\|claude>` | Render task contracts into explicit, reviewable agent argv commands. |
 | `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
 | `scopelock run --plan <plan.json>` | Dispatch an approved plan and write a bounded receipt. |
 | `scopelock report <receipt> --open` | Render a standalone local HTML Flight Report. |
@@ -81,6 +82,24 @@ reports the involved tasks instead of inventing an unsafe order. See
 `scopelock run --plan <plan.json>` is a thin dispatcher, not a generic agent
 runtime. Plans containing commands require `--yes`; string shell commands also
 require `--allow-shell`.
+
+For Codex or Claude Code tasks, compose commands into a separate reviewable plan before
+dispatch:
+
+```bash
+scopelock hooks install --target claude --mode strict
+scopelock plan fill-commands plan.json --target claude --out enriched-plan.json
+scopelock run --plan enriched-plan.json --yes
+```
+
+By default, `fill-commands` preserves tasks that already have a command. Use
+`--force` to replace them. It always generates an argv array, never a shell
+string. Generated Claude invocations use `dontAsk`, disable session persistence,
+allow only file read/edit tools, and explicitly deny Bash. Put deterministic
+test commands in separate plan tasks. The installed strict hook supplies
+pre-write scope enforcement; without it, only the final drift check remains.
+Cursor has a headless CLI, but automatic
+write invocation remains disabled until scoped pre-write denial is proven.
 
 Other `run` options:
 

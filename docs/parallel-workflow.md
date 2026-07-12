@@ -269,6 +269,18 @@ scopes - by construction (Step 3), none of their agents can collide even
 running fully concurrently. Only start wave 2 (`t4-tests`) once wave 1's
 writes have actually landed, since `t4-tests` reads them.
 
+For a headless Codex workflow, ScopeLock can compose each task's contract into
+an explicit argv command and write a separate plan for review:
+
+```bash
+scopelock plan fill-commands plan.json --target codex --out enriched-plan.json
+scopelock run --plan enriched-plan.json --yes
+```
+
+Existing commands are preserved unless `--force` is passed. The original plan
+is not changed, and `run` still executes only the commands visible in the
+enriched file.
+
 ## Step 5 - verify after the fact
 
 For each task, `check-drift` against its own contract confirms the agent
@@ -329,13 +341,7 @@ guarantee and the runtime backstop are drawing from the same ground truth.
 - **Real multi-agent timing.** The `orchestration-m5-validation.md` H3
   measurement is a proxy (synthetic per-task delay), not actual agents. A
   live multi-agent timed run is future work.
-- **A built-in way to feed each task's contract prompt into its agent
-  invocation.** `scopelock run --plan` *can* launch and coordinate real
-  agent CLIs wave-by-wave today - each task's `command` is just an argv
-  array, so it can be `["codex", "exec", ...]` or similar, and `run` already
-  respects the safe-wave order computed by `plan-parallel`. This isn't
-  hypothetical: `benchmarks/coordination/run-codex-real-agent-benchmark.mjs`
-  dispatches real Codex CLI processes this way. What's still missing is a
-  first-class flag or command that automatically stitches each task's
-  `export-prompt` output into that `command` for you - today you have to
-  build that argv array yourself, the way the benchmark script does.
+- **Automatic invocation for every harness.** `plan fill-commands` supports
+  Codex and a restricted, live-verified Claude Code profile. Cursor headless
+  writes exist, but remain disabled until ScopeLock can prove scoped pre-write
+  denial or validate an isolated worktree before promotion.

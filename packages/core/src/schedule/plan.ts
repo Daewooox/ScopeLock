@@ -2,9 +2,17 @@ import { z } from "zod";
 
 export const SCHEDULE_PLAN_SCHEMA_VERSION = 1;
 
+export const commandSpecSchema = z.union([
+  z.string().min(1),
+  z.array(z.string()).min(1).refine((command) => command[0]?.length > 0, {
+    message: "command executable must not be empty",
+  }),
+]);
+
 export const schedulePlanTaskSchema = z.object({
   id: z.string().min(1),
   contract: z.string().min(1),
+  command: commandSpecSchema.optional(),
 });
 
 export const schedulePlanSchema = z
@@ -29,3 +37,4 @@ export const schedulePlanSchema = z
 
 export type SchedulePlanTask = z.infer<typeof schedulePlanTaskSchema>;
 export type SchedulePlan = z.infer<typeof schedulePlanSchema>;
+export type CommandSpec = z.infer<typeof commandSpecSchema>;
