@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import {
   WorktreeError,
+  applyPreparedPatch,
   assertIsolationReady,
   createIsolatedWorktree,
   createIsolationTempRoot,
+  prepareScopedPatch,
   removeIsolatedWorktree,
 } from "./index.js";
+import type { ApprovedContract } from "./index.js";
 
 function git(cwd: string, args: string[]): string {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -24,10 +27,39 @@ async function makeRepo(): Promise<{ root: string; repo: string; head: string }>
   git(root, ["init", "-q", "-b", "main", repo]);
   git(repo, ["config", "user.name", "ScopeLock Test"]);
   git(repo, ["config", "user.email", "test@example.com"]);
+  await mkdir(join(repo, "allowed"), { recursive: true });
+  await mkdir(join(repo, "forbidden"), { recursive: true });
   await writeFile(join(repo, "tracked.txt"), "baseline\n");
+  await writeFile(join(repo, "allowed/text.txt"), "baseline text\n");
+  await writeFile(join(repo, "allowed/delete.txt"), "delete me\n");
+  await writeFile(join(repo, "allowed/rename-old.txt"), "rename me\n");
+  await writeFile(join(repo, "allowed/blob.bin"), Buffer.from([0, 1, 2, 255]));
+  await writeFile(join(repo, "forbidden/secret.txt"), "protected\n");
   git(repo, ["add", "."]);
   git(repo, ["commit", "-qm", "baseline"]);
   return { root, repo, head: git(repo, ["rev-parse", "HEAD"]) };
+}
+
+function contract(head: string): ApprovedContract {
+  return {
+    schemaVersion: 1,
+    id: "isolation-test",
+    task: "test isolated patches",
+    createdAt: new Date(0).toISOString(),
+    baseline: { headSha: head, branch: "main", capturedAt: new Date(0).toISOString() },
+    targetAgents: ["codex"],
+    scope: {
+      plannedPathPatterns: ["allowed/**"],
+      forbiddenPathPatterns: ["forbidden/**"],
+      readPathPatterns: [],
+      allowAllPaths: false,
+    },
+    nodes: [],
+    risks: [],
+    tests: [],
+    assumptions: [],
+    openQuestions: [],
+  };
 }
 
 describe("isolated Git worktree lifecycle", () => {
@@ -133,4 +165,246 @@ describe("isolated Git worktree lifecycle", () => {
       await rm(fixture.root, { recursive: true, force: true });
     }
   });
+
+  it("prepares and applies a sealed patch with text, new, delete, rename, binary, and mode changes", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "scope",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      const integration = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "integration",
+        kind: "integration",
+        baseSha: fixture.head,
+      });
+      await writeFile(join(task.path, "allowed/text.txt"), "changed text\n");
+      await writeFile(join(task.path, "allowed/new.txt"), "new\n");
+      await rm(join(task.path, "allowed/delete.txt"));
+      await rename(
+        join(task.path, "allowed/rename-old.txt"),
+        join(task.path, "allowed/rename-new.txt"),
+      );
+      await writeFile(join(task.path, "allowed/blob.bin"), Buffer.from([9, 0, 8, 255]));
+      await chmod(join(task.path, "allowed/text.txt"), 0o755);
+
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(prepared.accepted, true);
+      assert.ok(prepared.patch);
+      assert.ok(prepared.patch.changedFiles.every((file) => file.classification === "planned"));
+      assert.ok(prepared.patch.changedFiles.some((file) => file.previousPath === "allowed/rename-old.txt"));
+      assert.ok(prepared.patch.changedFiles.some((file) => file.isBinary));
+      assert.deepEqual(await applyPreparedPatch({ repoRoot: integration.path, patch: prepared.patch }), {
+        applied: true,
+      });
+      assert.equal(await readFile(join(integration.path, "allowed/new.txt"), "utf8"), "new\n");
+      assert.deepEqual(await readFile(join(integration.path, "allowed/blob.bin")), Buffer.from([9, 0, 8, 255]));
+      await assert.rejects(readFile(join(integration.path, "allowed/delete.txt"), "utf8"));
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: integration });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a whole patch when any path is forbidden", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "forbidden",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      await writeFile(join(task.path, "allowed/new.txt"), "allowed\n");
+      await rename(
+        join(task.path, "forbidden/secret.txt"),
+        join(task.path, "allowed/moved-secret.txt"),
+      );
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(prepared.accepted, false);
+      assert.ok(prepared.findings.some((finding) => finding.code === "FORBIDDEN_PATH"));
+      assert.ok(
+        prepared.patch?.changedFiles.some(
+          (file) =>
+            file.path === "allowed/moved-secret.txt" &&
+            file.previousPath === "forbidden/secret.txt" &&
+            file.classification === "forbidden",
+        ),
+      );
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when a patch exceeds its byte limit", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "large",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      await writeFile(join(task.path, "allowed/large.txt"), "x".repeat(4096));
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 32,
+      });
+      assert.equal(prepared.accepted, false);
+      assert.deepEqual(prepared.findings.map((finding) => finding.code), ["PATCH_TOO_LARGE"]);
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a prepared patch after its bytes are tampered with", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "tamper",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      await writeFile(join(task.path, "allowed/new.txt"), "new\n");
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(prepared.accepted, true);
+      assert.ok(prepared.patch);
+      await writeFile(prepared.patch.path, "tampered\n");
+      const applied = await applyPreparedPatch({ repoRoot: fixture.repo, patch: prepared.patch });
+      assert.equal(applied.applied, false);
+      assert.match(applied.applied ? "" : applied.reason, /digest mismatch/);
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("includes committed changes together with later untracked changes", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "committed",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      git(task.path, ["config", "user.name", "Agent"]);
+      git(task.path, ["config", "user.email", "agent@example.com"]);
+      await writeFile(join(task.path, "allowed/text.txt"), "committed change\n");
+      git(task.path, ["add", "allowed/text.txt"]);
+      git(task.path, ["commit", "-qm", "agent commit"]);
+      await writeFile(join(task.path, "allowed/after.txt"), "untracked after commit\n");
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(prepared.accepted, true);
+      assert.deepEqual(
+        prepared.patch?.changedFiles.map((file) => file.path).sort(),
+        ["allowed/after.txt", "allowed/text.txt"],
+      );
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed for a gitlink change", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "gitlink",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      git(task.path, [
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        `160000,${fixture.head},allowed/submodule`,
+      ]);
+      await mkdir(join(task.path, "allowed/submodule"));
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        contract: contract(fixture.head),
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+      assert.equal(prepared.accepted, false);
+      assert.ok(prepared.findings.some((finding) => finding.code === "UNSUPPORTED_GITLINK"));
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it(
+    "fails closed for a symlink change",
+    { skip: process.platform === "win32" },
+    async () => {
+      const fixture = await makeRepo();
+      try {
+        const tempRoot = await createIsolationTempRoot(fixture.root);
+        const task = await createIsolatedWorktree({
+          repoRoot: fixture.repo,
+          tempRoot,
+          id: "symlink",
+          kind: "task",
+          baseSha: fixture.head,
+        });
+        await symlink("../../outside", join(task.path, "allowed/link"));
+        const prepared = await prepareScopedPatch({
+          worktree: task,
+          contract: contract(fixture.head),
+          patchDir: join(tempRoot, "patches"),
+          maxPatchBytes: 1024 * 1024,
+        });
+        assert.equal(prepared.accepted, false);
+        assert.ok(prepared.findings.some((finding) => finding.code === "UNSUPPORTED_SYMLINK"));
+        await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+      } finally {
+        await rm(fixture.root, { recursive: true, force: true });
+      }
+    },
+  );
 });

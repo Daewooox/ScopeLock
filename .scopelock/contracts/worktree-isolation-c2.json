@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "worktree-isolation-c2",
+  "task": "Pattern C phase C2 sealed scoped patch inventory",
+  "createdAt": "2026-07-12T21:04:26.932Z",
+  "baseline": {
+    "headSha": "8ca4b5bfcf4ef6b34df24b9cb63eb9a2492c6fda",
+    "branch": "feature/worktree-isolation",
+    "capturedAt": "2026-07-12T21:04:27.023Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/worktree-isolation-c2.json",
+      "packages/core/src/git/worktree.ts",
+      "packages/core/src/worktree.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": [
+      "memory-bank/plans/worktree-isolation-implementation-plan.md",
+      "packages/core/src/rules/path-rules.ts",
+      "packages/core/src/schemas/contract.ts",
+      "packages/core/src/schemas/drift.ts"
+    ]
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
