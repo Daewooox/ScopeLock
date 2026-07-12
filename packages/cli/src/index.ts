@@ -14,6 +14,7 @@ import { planParallelCommand } from "./commands/plan-parallel.js";
 import { manifestCommand } from "./commands/manifest.js";
 import { agentsPreflightCommand } from "./commands/agents-preflight.js";
 import { runPlanCommand } from "./commands/run-plan.js";
+import { reportCommand } from "./commands/report.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
@@ -175,6 +176,17 @@ program
       },
       command: Command,
     ) => run(() => runPlanCommand(options), jsonOf(command)),
+  );
+
+program
+  .command("report")
+  .description("render a standalone HTML flight report from a run receipt")
+  .argument("<receipt>", "path to a ScopeLock run receipt JSON")
+  .option("--out <path>", "write HTML report to this path")
+  .option("--open", "open the generated report in the default browser")
+  .option("--json", "print machine-readable JSON")
+  .action((receipt: string, options: { out?: string; open?: boolean }, command: Command) =>
+    run(() => reportCommand(receipt, options), jsonOf(command)),
   );
 
 const agents = program.command("agents").description("agent environment attestation");

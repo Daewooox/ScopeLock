@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "terminal-ui-report-demo",
+  "task": "Add friendly terminal UI and standalone report for demo receipts",
+  "createdAt": "2026-07-12T08:52:04.419Z",
+  "baseline": {
+    "headSha": "7f8e1741e3ce59a5d024ca19d3e053c56a451b64",
+    "branch": "main",
+    "capturedAt": "2026-07-12T08:52:04.513Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/**",
+      "benchmarks/coordination/**",
+      "memory-bank/**",
+      "package.json"
+    ],
+    "forbiddenPathPatterns": [
+      ".github/**",
+      "packages/core/src/hook/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

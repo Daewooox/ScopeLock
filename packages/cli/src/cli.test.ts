@@ -1277,4 +1277,46 @@ describe("run", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("renders a standalone escaped HTML report from a receipt", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-report-"));
+    try {
+      const receiptPath = join(dir, "receipt.json");
+      const reportPath = join(dir, "report.html");
+      await writeFile(
+        receiptPath,
+        JSON.stringify({
+          schemaVersion: 4,
+          planId: "x<script>alert(1)</script>",
+          startedAt: "2026-07-12T00:00:00.000Z",
+          finishedAt: "2026-07-12T00:00:01.000Z",
+          waves: [["a"]],
+          conflicts: [],
+          deferredTasks: [],
+          environment: { status: "pass", mode: "strict", violationsCount: 0 },
+          handoffSummary: {
+            passedTasks: ["a"],
+            failedTasks: [],
+            skippedTasks: [],
+            driftStatus: "ok",
+            environmentStatus: "pass",
+          },
+          taskRuns: [{ id: "a", status: "passed", durationMs: 12, stderr: "" }],
+          drift: { status: "ok" },
+        }),
+      );
+
+      const res = runCli(dir, ["--json", "report", receiptPath, "--out", reportPath]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      const body = JSON.parse(res.stdout);
+      assert.equal(body.status, "ok");
+      assert.equal(body.data.reportPath, reportPath);
+      const html = await readFile(reportPath, "utf8");
+      assert.match(html, /ScopeLock Flight Report/);
+      assert.match(html, /x&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+      assert.doesNotMatch(html, /<script>alert/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
