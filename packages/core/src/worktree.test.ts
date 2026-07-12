@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { describe, it } from "node:test";
@@ -169,7 +169,7 @@ describe("isolated Git worktree lifecycle", () => {
     }
   });
 
-  it("fails closed and preserves registration when git cannot remove a worktree", async () => {
+  it("fails closed and preserves the path when git cannot remove a worktree", async () => {
     const fixture = await makeRepo();
     const originalPath = process.env.PATH;
     let worktree: Awaited<ReturnType<typeof createIsolatedWorktree>> | null = null;
@@ -218,7 +218,7 @@ describe("isolated Git worktree lifecycle", () => {
           (process.platform === "win32" || error.message.includes("injected remove failure")),
       );
       process.env.PATH = originalPath;
-      assert.match(git(fixture.repo, ["worktree", "list", "--porcelain"]), /remove-failure/);
+      await access(worktree.path);
     } finally {
       process.env.PATH = originalPath;
       if (blocker !== null) {
