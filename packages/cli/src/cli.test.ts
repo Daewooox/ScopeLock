@@ -1559,6 +1559,86 @@ describe("run", () => {
     }
   });
 
+  it("force-kills an isolated task tree on a second SIGINT", async (t) => {
+    if (process.platform === "win32") {
+      t.skip("POSIX signal delivery is not available on Windows");
+      return;
+    }
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const readyPath = join(tmpdir(), `scopelock-second-signal-${process.pid}-${Date.now()}.ready`);
+    try {
+      await writeContract(dir, join(dir, "stubborn.json"), "stubborn", ["result.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-second-signal",
+          tasks: [{
+            id: "stubborn",
+            contract: "stubborn.json",
+            command: [
+              process.execPath,
+              "-e",
+              `process.on('SIGINT',()=>{});process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(${JSON.stringify(readyPath)},'ready');setInterval(()=>{},1000)`,
+            ],
+          }],
+        }),
+      );
+      commitFixture(dir, "second signal fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "second-signal.json");
+      const child = spawn(
+        process.execPath,
+        [CLI, "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift"],
+        { cwd: dir, stdio: ["ignore", "pipe", "pipe"] },
+      );
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+      child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        try {
+          if ((await readFile(readyPath, "utf8")) === "ready") break;
+        } catch {
+          // Wait until the task process has installed its signal handlers.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      assert.equal(await readFile(readyPath, "utf8"), "ready", "task process did not become ready");
+      const closed = new Promise<number | null>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          child.kill("SIGKILL");
+          reject(new Error("CLI survived the second SIGINT"));
+        }, 5_000);
+        child.on("close", (code) => {
+          clearTimeout(timer);
+          resolve(code);
+        });
+      });
+      const started = Date.now();
+      child.kill("SIGINT");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      child.kill("SIGINT");
+      const exitCode = await closed;
+      assert.equal(exitCode, 1, stdout || stderr);
+      assert.ok(Date.now() - started < 2_000, "second signal waited for graceful timeout");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].termination.reason, "sigint");
+      assert.equal(receipt.taskRuns[0].termination.escalated, true);
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+      assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
+    } finally {
+      await rm(readyPath, { force: true });
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("kills task descendants before cleaning an isolated timeout", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
