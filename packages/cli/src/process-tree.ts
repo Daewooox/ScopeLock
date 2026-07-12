@@ -1,0 +1,122 @@
+import { spawn, type ChildProcess } from "node:child_process";
+import type { CommandSpec } from "@scopelock/core";
+
+export type TerminationReason = "timeout" | "sigint" | "sigterm" | "second-signal";
+
+export type ProcessTermination = {
+  reason: TerminationReason | null;
+  requestedSignal: NodeJS.Signals | null;
+  escalated: boolean;
+  exitCode: number | null;
+  signal: NodeJS.Signals | null;
+};
+
+export type ProcessTreeHandle = {
+  readonly child: ChildProcess;
+  terminate(reason: Exclude<TerminationReason, "second-signal">): void;
+  forceTerminate(): void;
+  wait(): Promise<ProcessTermination>;
+};
+
+type SpawnProcessTreeInput = {
+  command: CommandSpec;
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  gracefulTimeoutMs: number;
+};
+
+function signalFor(reason: Exclude<TerminationReason, "second-signal">): NodeJS.Signals {
+  return reason === "sigint" ? "SIGINT" : "SIGTERM";
+}
+
+function killUnixGroup(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error;
+  }
+}
+
+function killWindowsTree(pid: number): void {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return;
+  const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
+    shell: false,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  killer.on("error", () => {});
+  killer.unref();
+}
+
+export function spawnProcessTree(input: SpawnProcessTreeInput): ProcessTreeHandle {
+  if (!Number.isSafeInteger(input.gracefulTimeoutMs) || input.gracefulTimeoutMs < 0) {
+    throw new TypeError("gracefulTimeoutMs must be a non-negative integer");
+  }
+  const command = input.command;
+  const child = Array.isArray(command)
+    ? spawn(command[0] as string, command.slice(1), {
+        cwd: input.cwd,
+        env: input.env,
+        detached: true,
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+    : spawn(command, [], {
+        cwd: input.cwd,
+        env: input.env,
+        detached: true,
+        shell: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+  let reason: TerminationReason | null = null;
+  let requestedSignal: NodeJS.Signals | null = null;
+  let escalated = false;
+  let closed = false;
+  let escalationTimer: NodeJS.Timeout | null = null;
+
+  const forceTerminate = () => {
+    if (closed || child.pid === undefined) return;
+    reason ??= "second-signal";
+    requestedSignal ??= "SIGTERM";
+    escalated = true;
+    if (process.platform === "win32") killWindowsTree(child.pid);
+    else killUnixGroup(child.pid, "SIGKILL");
+  };
+
+  const terminate = (nextReason: Exclude<TerminationReason, "second-signal">) => {
+    if (closed || reason !== null || child.pid === undefined) return;
+    reason = nextReason;
+    requestedSignal = signalFor(nextReason);
+    if (process.platform === "win32") {
+      escalated = true;
+      killWindowsTree(child.pid);
+    } else {
+      killUnixGroup(child.pid, requestedSignal);
+    }
+    escalationTimer = setTimeout(forceTerminate, input.gracefulTimeoutMs);
+    escalationTimer.unref();
+  };
+
+  const result = new Promise<ProcessTermination>((resolve) => {
+    const settle = (exitCode: number | null, signal: NodeJS.Signals | null) => {
+      if (closed) return;
+      closed = true;
+      if (escalationTimer !== null) clearTimeout(escalationTimer);
+      resolve({ reason, requestedSignal, escalated, exitCode, signal });
+    };
+    child.once("close", (exitCode, signal) => {
+      settle(exitCode, signal);
+    });
+    child.once("error", () => {
+      settle(null, null);
+    });
+  });
+
+  return {
+    child,
+    terminate,
+    forceTerminate,
+    wait: () => result,
+  };
+}
