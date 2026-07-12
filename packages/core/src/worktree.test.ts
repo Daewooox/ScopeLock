@@ -198,7 +198,7 @@ describe("isolated Git worktree lifecycle", () => {
 
       const prepared = await prepareScopedPatch({
         worktree: task,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });
@@ -238,7 +238,7 @@ describe("isolated Git worktree lifecycle", () => {
       );
       const prepared = await prepareScopedPatch({
         worktree: task,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });
@@ -272,7 +272,7 @@ describe("isolated Git worktree lifecycle", () => {
       await writeFile(join(task.path, "allowed/large.txt"), "x".repeat(4096));
       const prepared = await prepareScopedPatch({
         worktree: task,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 32,
       });
@@ -298,7 +298,7 @@ describe("isolated Git worktree lifecycle", () => {
       await writeFile(join(task.path, "allowed/new.txt"), "new\n");
       const prepared = await prepareScopedPatch({
         worktree: task,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });
@@ -333,7 +333,7 @@ describe("isolated Git worktree lifecycle", () => {
       await writeFile(join(task.path, "allowed/after.txt"), "untracked after commit\n");
       const prepared = await prepareScopedPatch({
         worktree: task,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });
@@ -368,7 +368,7 @@ describe("isolated Git worktree lifecycle", () => {
       await mkdir(join(task.path, "allowed/submodule"));
       const prepared = await prepareScopedPatch({
         worktree: task,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });
@@ -397,7 +397,7 @@ describe("isolated Git worktree lifecycle", () => {
         await symlink("../../outside", join(task.path, "allowed/link"));
         const prepared = await prepareScopedPatch({
           worktree: task,
-          contract: contract(fixture.head),
+          scope: contract(fixture.head).scope,
           patchDir: join(tempRoot, "patches"),
           maxPatchBytes: 1024 * 1024,
         });
@@ -431,7 +431,7 @@ describe("isolated Git worktree lifecycle", () => {
       await writeFile(join(first.path, "allowed/wave-one.txt"), "first wave\n");
       const firstPatch = await prepareScopedPatch({
         worktree: first,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });
@@ -459,7 +459,7 @@ describe("isolated Git worktree lifecycle", () => {
       );
       const secondPatch = await prepareScopedPatch({
         worktree: second,
-        contract: contract(fixture.head),
+        scope: contract(fixture.head).scope,
         patchDir: join(tempRoot, "patches"),
         maxPatchBytes: 1024 * 1024,
       });

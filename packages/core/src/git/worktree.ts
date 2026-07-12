@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { collectChangedFiles } from "../drift/collect.js";
 import { classifyPath } from "../rules/path-rules.js";
-import type { ApprovedContract } from "../schemas/contract.js";
+import type { ContractScope } from "../schemas/contract.js";
 import type { ChangedFile, GitFileStatus } from "../schemas/drift.js";
 import { runGitAsync } from "./exec.js";
 
@@ -453,7 +453,7 @@ export async function removeIsolatedWorktree(input: {
 
 export async function prepareScopedPatch(input: {
   worktree: IsolatedWorktree;
-  contract: ApprovedContract;
+  scope: ContractScope;
   patchDir: string;
   maxPatchBytes: number;
   timeoutMs?: number;
@@ -500,7 +500,7 @@ export async function prepareScopedPatch(input: {
         ...changedFile,
         oldMode: entry.oldMode,
         newMode: entry.newMode,
-        classification: mode ?? classifyPath(changedFile, input.contract.scope),
+        classification: mode ?? classifyPath(changedFile, input.scope),
       };
     }),
   );
@@ -524,6 +524,23 @@ export async function prepareScopedPatch(input: {
   return findings.length === 0
     ? { accepted: true, patch, findings: [] }
     : { accepted: false, patch, findings };
+}
+
+export async function prepareAggregatePatch(input: {
+  worktree: IsolatedWorktree;
+  patchDir: string;
+  maxPatchBytes: number;
+  timeoutMs?: number;
+}): Promise<ScopedPatchResult> {
+  return prepareScopedPatch({
+    ...input,
+    scope: {
+      plannedPathPatterns: [],
+      forbiddenPathPatterns: [],
+      readPathPatterns: [],
+      allowAllPaths: true,
+    },
+  });
 }
 
 export async function applyPreparedPatch(input: {

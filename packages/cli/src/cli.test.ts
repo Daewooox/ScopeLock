@@ -37,6 +37,11 @@ async function makeRepo(): Promise<string | null> {
   return dir;
 }
 
+function commitFixture(dir: string, message: string): void {
+  assert.equal(spawnSync("git", ["add", "-A"], { cwd: dir }).status, 0);
+  assert.equal(spawnSync("git", ["commit", "-qm", message], { cwd: dir }).status, 0);
+}
+
 describe("cli end-to-end", () => {
   it("init -> contract new -> approve -> check-drift respects the exit-code contract", async (t) => {
     const dir = await makeRepo();
@@ -1239,6 +1244,165 @@ describe("run", () => {
       assert.ok(receipt.taskRuns.every((task: { status: string }) => task.status === "passed"));
       assert.match(receipt.inputs.plan.sha256, /^[a-f0-9]{64}$/);
       assert.match(receipt.inputs.contracts.a.sha256, /^[a-f0-9]{64}$/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("isolates tasks, carries accepted output to later waves, and promotes once", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "writer.json"), "writer", ["shared.txt"]);
+      await writeContract(dir, join(dir, "reader.json"), "reader", ["observed.txt"], ["shared.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-waves",
+          tasks: [
+            {
+              id: "writer",
+              contract: "writer.json",
+              command: [process.execPath, "-e", "require('node:fs').writeFileSync('shared.txt','wave-one')"],
+            },
+            {
+              id: "reader",
+              contract: "reader.json",
+              command: [
+                process.execPath,
+                "-e",
+                "const f=require('node:fs');f.writeFileSync('observed.txt',f.readFileSync('shared.txt','utf8'))",
+              ],
+            },
+          ],
+        }),
+      );
+      commitFixture(dir, "isolated fixture");
+
+      const receiptPath = join(dir, ".scopelock", "reports", "isolated.json");
+      const result = runCli(dir, [
+        "--json",
+        "run",
+        "--yes",
+        "--isolate",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+        "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      assert.equal(await readFile(join(dir, "shared.txt"), "utf8"), "wave-one");
+      assert.equal(await readFile(join(dir, "observed.txt"), "utf8"), "wave-one");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.schemaVersion, 5);
+      assert.deepEqual(receipt.waves, [["writer"], ["reader"]]);
+      assert.equal(receipt.isolation.finalPromotion, "applied");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      assert.match(receipt.isolation.aggregatePatchSha256, /^[a-f0-9]{64}$/);
+      assert.ok(receipt.taskRuns.every((task: { isolation: { outcome: string } }) =>
+        task.isolation.outcome === "accepted-integration"));
+      const report = runCli(dir, ["report", receiptPath]);
+      assert.equal(report.status, 0, report.stdout || report.stderr);
+      const html = await readFile(receiptPath.replace(/\.json$/, ".html"), "utf8");
+      assert.match(html, /Final promotion/);
+      assert.match(html, /accepted-integration/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects the whole isolated patch when one write is forbidden", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contractPath = join(dir, "mixed.json");
+      assert.equal(
+        runCli(dir, [
+          "contract", "new", "--task", "mixed", "--id", "mixed",
+          "--planned", "allowed.txt", "--forbidden", "forbidden.txt", "--out", contractPath,
+        ]).status,
+        0,
+      );
+      assert.equal(runCli(dir, ["approve", contractPath]).status, 0);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-forbidden",
+          tasks: [{
+            id: "mixed",
+            contract: "mixed.json",
+            command: [
+              process.execPath,
+              "-e",
+              "const f=require('node:fs');f.writeFileSync('allowed.txt','ok');f.writeFileSync('forbidden.txt','no')",
+            ],
+          }],
+        }),
+      );
+      commitFixture(dir, "forbidden fixture");
+
+      const receiptPath = join(dir, ".scopelock", "reports", "forbidden.json");
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      await assert.rejects(readFile(join(dir, "allowed.txt"), "utf8"));
+      await assert.rejects(readFile(join(dir, "forbidden.txt"), "utf8"));
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.finalPromotion, "no-changes");
+      assert.equal(receipt.taskRuns[0].status, "blocked");
+      assert.equal(receipt.taskRuns[0].isolation.outcome, "rejected-scope");
+      assert.ok(receipt.taskRuns[0].isolation.findings.some(
+        (finding: { code: string }) => finding.code === "FORBIDDEN_PATH",
+      ));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses isolated dispatch when the user repository is dirty", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-dirty",
+          tasks: [{
+            id: "a",
+            contract: "a.json",
+            command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','ran')"],
+          }],
+        }),
+      );
+      commitFixture(dir, "dirty fixture");
+      await writeFile(join(dir, "dirty.txt"), "user work");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).error.code, "ISOLATION_REQUIRES_CLEAN_REPO");
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+      assert.equal(await readFile(join(dir, "dirty.txt"), "utf8"), "user work");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
