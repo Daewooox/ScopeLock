@@ -29,6 +29,7 @@ async function makeRepo(): Promise<{ root: string; repo: string; head: string }>
   git(root, ["init", "-q", "-b", "main", repo]);
   git(repo, ["config", "user.name", "ScopeLock Test"]);
   git(repo, ["config", "user.email", "test@example.com"]);
+  git(repo, ["config", "core.autocrlf", "false"]);
   await mkdir(join(repo, "allowed"), { recursive: true });
   await mkdir(join(repo, "forbidden"), { recursive: true });
   await writeFile(join(repo, "tracked.txt"), "baseline\n");
