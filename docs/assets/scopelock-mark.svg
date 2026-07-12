@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">ScopeLock</title>
+  <desc id="desc">A protected green checkpoint inside four scope corners</desc>
+  <rect width="128" height="128" rx="24" fill="#0d1117"/>
+  <path d="M30 50V30h20M78 30h20v20M98 78v20H78M50 98H30V78" fill="none" stroke="#79c0ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="46" y="54" width="36" height="32" rx="8" fill="#238636"/>
+  <path d="M54 54v-5a10 10 0 0 1 20 0v5" fill="none" stroke="#f0f6fc" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="64" cy="70" r="4" fill="#f0f6fc"/>
+</svg>
