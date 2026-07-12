@@ -18,7 +18,7 @@ test("wallet demo animates one spinner line before replacing it with a check", (
   `;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
     encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
+    env: { ...process.env, CI: "false", NO_COLOR: "1" },
   });
   assert.equal(result.status, 0, result.stderr);
   assert.ok((result.stdout.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/g) ?? []).length >= 2);
