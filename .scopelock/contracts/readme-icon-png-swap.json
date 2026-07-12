@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "readme-icon-png-swap",
+  "task": "Replace SVG mark with user-provided PNG icon in README",
+  "createdAt": "2026-07-12T18:39:22.001Z",
+  "baseline": {
+    "headSha": "7e1ee13e8282643af8f285339f7e67a8a4aed7f7",
+    "branch": "main",
+    "capturedAt": "2026-07-12T18:39:22.081Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/assets/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

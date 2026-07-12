@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/assets/scopelock-mark.svg" width="96" alt="ScopeLock logo">
+  <img src="./docs/assets/scopelock-mark.png" width="96" alt="ScopeLock logo">
 </p>
 
 <h1 align="center">ScopeLock</h1>
