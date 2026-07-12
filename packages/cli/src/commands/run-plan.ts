@@ -854,6 +854,13 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
   const planRaw = await readJsonFile(options.plan, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
+  const isolationRequirement = plan.execution?.isolation ?? "optional";
+  if (isolationRequirement === "required" && options.isolate !== true) {
+    throw new CliError(
+      "PLAN_REQUIRES_ISOLATION",
+      "this plan contains commands that may run only with --isolate",
+    );
+  }
   const runTasks = plan.tasks;
   if (options.isolate === true && runTasks.length > MAX_ISOLATED_TASKS) {
     throw new CliError(
@@ -1033,6 +1040,8 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       plan: { path: options.plan, sha256: hashFileBytes(planPath) },
       contracts: contractDigests,
       shellAllowed: options.allowShell === true,
+      executionRequirement: { isolation: isolationRequirement },
+      effectiveExecutionMode: options.isolate === true ? "isolated" : "direct",
     },
     artifactsDir: artifactDir,
     environment,

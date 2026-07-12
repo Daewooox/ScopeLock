@@ -19,6 +19,9 @@ export const schedulePlanSchema = z
   .object({
     schemaVersion: z.literal(SCHEDULE_PLAN_SCHEMA_VERSION),
     planId: z.string().min(1),
+    execution: z.object({
+      isolation: z.enum(["optional", "required"]).default("optional"),
+    }).optional(),
     tasks: z.array(schedulePlanTaskSchema).min(1),
   })
   .superRefine((plan, ctx) => {

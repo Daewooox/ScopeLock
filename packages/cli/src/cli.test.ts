@@ -1152,6 +1152,34 @@ describe("run", () => {
     }
   });
 
+  it("cannot run an isolation-required plan in direct mode", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolation-required",
+        execution: { isolation: "required" },
+        tasks: [{
+          id: "never-run",
+          contract: "missing.json",
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('escaped.txt','bad')"],
+        }],
+      }));
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--allow-shell", "--plan", "plan.json", "--no-check-drift",
+      ]);
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).error.code, "PLAN_REQUIRES_ISOLATION");
+      await assert.rejects(readFile(join(dir, "escaped.txt"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects an argv-array shell invocation (sh -c ...) as a shell command too (M0.9)", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -1272,6 +1300,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-waves",
+          execution: { isolation: "required" },
           tasks: [
             {
               id: "writer",
@@ -1310,6 +1339,8 @@ describe("run", () => {
       assert.equal(await readFile(join(dir, "observed.txt"), "utf8"), "wave-one");
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
       assert.equal(receipt.schemaVersion, 5);
+      assert.equal(receipt.inputs.executionRequirement.isolation, "required");
+      assert.equal(receipt.inputs.effectiveExecutionMode, "isolated");
       assert.deepEqual(receipt.waves, [["writer"], ["reader"]]);
       assert.equal(receipt.isolation.finalPromotion, "applied");
       assert.equal(receipt.isolation.cleanup.status, "ok");
