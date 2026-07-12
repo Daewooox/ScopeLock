@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "worktrunk-safety-w5-v2",
+  "task": "Document and finalize process-tree mode-bound execution",
+  "createdAt": "2026-07-12T22:42:59.287Z",
+  "baseline": {
+    "headSha": "6287760fbfef34bb38b210aa227fc28f639fc883",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T22:42:59.378Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/index.ts",
+      "docs/reference.md",
+      "docs/parallel-workflow.md",
+      "THREAT-MODEL.md",
+      "memory-bank/docs/component-map.md",
+      "memory-bank/plans/worktrunk-safety-patterns-live-verdict.md",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      ".scopelock/contracts/worktrunk-safety-w5-v2.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/cli/src/commands/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
