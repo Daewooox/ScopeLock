@@ -11,6 +11,7 @@ export * from "./git/repo.js";
 export * from "./git/status.js";
 export * from "./git/diff.js";
 export * from "./git/push-guard.js";
+export * from "./git/worktree.js";
 export * from "./drift/collect.js";
 export * from "./drift/engine.js";
 export * from "./rules/path-rules.js";
