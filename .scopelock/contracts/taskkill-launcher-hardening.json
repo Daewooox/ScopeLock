@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "taskkill-launcher-hardening",
+  "task": "Make Windows taskkill invocation directly testable",
+  "createdAt": "2026-07-12T23:32:26.252Z",
+  "baseline": {
+    "headSha": "d0e4fcd9ea4e8016b2860426ead71edd35eab13e",
+    "branch": "feature/process-tree-mode-bound-plans",
+    "capturedAt": "2026-07-12T23:32:26.345Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/process-tree.ts",
+      "packages/cli/src/process-tree.test.ts",
+      ".scopelock/contracts/taskkill-launcher-hardening.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/commands/**",
+      "packages/core/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

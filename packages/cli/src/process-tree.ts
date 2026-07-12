@@ -43,9 +43,23 @@ function killUnixGroup(pid: number, signal: NodeJS.Signals): void {
   }
 }
 
-function killWindowsTree(pid: number): void {
+type TaskkillChild = {
+  on(event: "error", listener: (error: Error) => void): unknown;
+  unref(): void;
+};
+
+type TaskkillSpawner = (
+  command: string,
+  args: string[],
+  options: { shell: false; stdio: "ignore"; windowsHide: true },
+) => TaskkillChild;
+
+export function launchWindowsTaskkill(
+  pid: number,
+  spawnTaskkill: TaskkillSpawner = (command, args, options) => spawn(command, args, options),
+): void {
   if (!Number.isSafeInteger(pid) || pid <= 0) return;
-  const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
+  const killer = spawnTaskkill("taskkill", ["/PID", String(pid), "/T", "/F"], {
     shell: false,
     stdio: "ignore",
     windowsHide: true,
@@ -86,7 +100,7 @@ export function spawnProcessTree(input: SpawnProcessTreeInput): ProcessTreeHandl
     reason ??= "second-signal";
     requestedSignal ??= "SIGTERM";
     escalated = true;
-    if (process.platform === "win32") killWindowsTree(child.pid);
+    if (process.platform === "win32") launchWindowsTaskkill(child.pid);
     else killUnixGroup(child.pid, "SIGKILL");
   };
 
@@ -96,7 +110,7 @@ export function spawnProcessTree(input: SpawnProcessTreeInput): ProcessTreeHandl
     requestedSignal = signalFor(nextReason);
     if (process.platform === "win32") {
       escalated = true;
-      killWindowsTree(child.pid);
+      launchWindowsTaskkill(child.pid);
     } else {
       killUnixGroup(child.pid, requestedSignal);
     }

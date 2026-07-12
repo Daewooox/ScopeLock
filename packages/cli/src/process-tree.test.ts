@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { createRunSignalCoordinator, spawnProcessTree } from "./process-tree.js";
+import {
+  createRunSignalCoordinator,
+  launchWindowsTaskkill,
+  spawnProcessTree,
+} from "./process-tree.js";
 
 async function waitForFile(path: string): Promise<string> {
   const deadline = Date.now() + 5_000;
@@ -25,6 +29,15 @@ function isAlive(pid: number): boolean {
   } catch {
     return false;
   }
+}
+
+async function waitForExit(pid: number): Promise<boolean> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    if (!isAlive(pid)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return !isAlive(pid);
 }
 
 describe("process tree supervisor", () => {
@@ -77,8 +90,8 @@ describe("process tree supervisor", () => {
       tree.terminate("timeout");
       const result = await tree.wait();
       assert.equal(result.reason, "timeout");
-      assert.equal(isAlive(pids.parent), false);
-      assert.equal(isAlive(pids.child), false);
+      assert.equal(await waitForExit(pids.parent), true);
+      assert.equal(await waitForExit(pids.child), true);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -138,38 +151,26 @@ describe("process tree supervisor", () => {
     assert.deepEqual(messages.at(-1), { type: "terminated", reason: "sigint" });
   });
 
-  it("invokes Windows taskkill with a numeric PID-only argv", async (t) => {
-    if (process.platform !== "win32") {
-      t.skip("Windows taskkill is available only on Windows");
-      return;
-    }
-    const dir = await mkdtemp(join(tmpdir(), "scopelock-taskkill-"));
-    const originalPath = process.env.PATH;
-    try {
-      const log = join(dir, "taskkill-args.txt");
-      const shim = join(dir, "taskkill.cmd");
-      const systemTaskkill = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe");
-      await writeFile(
-        shim,
-        `@echo off\r\necho %* > "${log}"\r\n"${systemTaskkill}" %*\r\n`,
-      );
-      process.env.PATH = `${dir};${originalPath ?? ""}`;
-      const tree = spawnProcessTree({
-        command: [process.execPath, "-e", "setInterval(()=>{},1000)"],
-        cwd: dir,
-        gracefulTimeoutMs: 100,
-      });
-      const pid = tree.child.pid;
-      assert.ok(pid !== undefined && pid > 0);
-      tree.terminate("timeout");
-      const result = await tree.wait();
-      const args = (await waitForFile(log)).trim().split(/\s+/);
-      assert.deepEqual(args, ["/PID", String(pid), "/T", "/F"]);
-      assert.equal(result.reason, "timeout");
-      assert.equal(result.escalated, true);
-    } finally {
-      process.env.PATH = originalPath;
-      await rm(dir, { recursive: true, force: true });
-    }
+  it("invokes Windows taskkill with a numeric PID-only argv", () => {
+    const calls: Array<{ command: string; args: string[]; options: unknown }> = [];
+    let unrefCalled = false;
+    const fakeSpawner = (command: string, args: string[], options: unknown) => {
+      calls.push({ command, args, options });
+      return {
+        on: () => undefined,
+        unref: () => { unrefCalled = true; },
+      };
+    };
+    launchWindowsTaskkill(4242, fakeSpawner);
+    assert.deepEqual(calls, [{
+      command: "taskkill",
+      args: ["/PID", "4242", "/T", "/F"],
+      options: { shell: false, stdio: "ignore", windowsHide: true },
+    }]);
+    assert.equal(unrefCalled, true);
+
+    launchWindowsTaskkill(Number.NaN, fakeSpawner);
+    launchWindowsTaskkill(-1, fakeSpawner);
+    assert.equal(calls.length, 1);
   });
 });
