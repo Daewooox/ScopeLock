@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-claude-command-arg-separator",
+  "task": "Fix argv-swallowing bug in composed Claude command (missing -- separator before prompt)",
+  "createdAt": "2026-07-12T17:45:08.288Z",
+  "baseline": {
+    "headSha": "200fb0d71fddde147089c0221084fca79281c5ff",
+    "branch": "main",
+    "capturedAt": "2026-07-12T17:45:08.367Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/harness/agent-invocation.ts",
+      "packages/core/src/prompt.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
