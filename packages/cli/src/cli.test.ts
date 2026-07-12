@@ -965,7 +965,7 @@ describe("plan fill-commands", () => {
     }
   });
 
-  it("returns exit 1 for Cursor without verified scoped pre-write denial", async (t) => {
+  it("composes Cursor only as an isolation-required plan", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
       t.skip("git init failed");
@@ -977,7 +977,7 @@ describe("plan fill-commands", () => {
         join(dir, "plan.json"),
         JSON.stringify({
           schemaVersion: 1,
-          planId: "unsupported-cursor",
+          planId: "isolated-cursor",
           tasks: [{ id: "a", contract: ".scopelock/contracts/a.json" }],
         }),
       );
@@ -989,12 +989,21 @@ describe("plan fill-commands", () => {
         "--target",
         "cursor",
       ]);
-      assert.equal(result.status, 1, result.stdout || result.stderr);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
       const body = JSON.parse(result.stdout);
-      assert.equal(body.status, "violations");
-      assert.equal(body.data.unsupported[0].taskId, "a");
-      assert.match(body.data.unsupported[0].reason, /pre-write denial is not live-verified/);
-      assert.equal(body.data.plan.tasks[0].command, undefined);
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.unsupported, []);
+      assert.equal(body.data.plan.execution.isolation, "required");
+      assert.deepEqual(body.data.plan.tasks[0].command.slice(0, 6), [
+        "agent", "--print", "--output-format", "stream-json", "--sandbox", "enabled",
+      ]);
+      assert.equal(body.data.plan.tasks[0].command.includes("--force"), false);
+      await writeFile(join(dir, "cursor-plan.json"), JSON.stringify(body.data.plan));
+      const direct = runCli(dir, [
+        "--json", "run", "--yes", "--plan", "cursor-plan.json", "--no-check-drift",
+      ]);
+      assert.equal(direct.status, 2, direct.stdout || direct.stderr);
+      assert.equal(JSON.parse(direct.stdout).error.code, "PLAN_REQUIRES_ISOLATION");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

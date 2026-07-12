@@ -85,12 +85,22 @@ describe("agent invocation", () => {
     assert.equal(command.includes("--dangerously-skip-permissions"), false);
   });
 
-  it("fails honestly for Cursor until scoped pre-write denial is verified", () => {
+  it("requires isolation binding for Cursor write commands", () => {
     assert.throws(
       () => buildAgentCommand("cursor", "do the task"),
       (error: unknown) =>
         error instanceof AgentInvocationError && error.code === "UNSUPPORTED_TARGET",
     );
+    const command = buildAgentCommand("cursor", "do the task", { isolationBound: true });
+    assert.deepEqual(command.slice(0, 8), [
+      "agent", "--print", "--output-format", "stream-json",
+      "--sandbox", "enabled", "--trust", "--workspace",
+    ]);
+    assert.equal(command.at(-2), "--");
+    assert.equal(command.at(-1), "do the task");
+    assert.equal(command.includes("--force"), false);
+    assert.equal(command.includes("--yolo"), false);
+    assert.equal(command.includes("disabled"), false);
   });
 
   it("rejects prompts above the conservative argv limit", () => {

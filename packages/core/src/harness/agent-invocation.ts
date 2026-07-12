@@ -16,7 +16,11 @@ export class AgentInvocationError extends Error {
   }
 }
 
-export function buildAgentCommand(target: AgentId, promptText: string): string[] {
+export function buildAgentCommand(
+  target: AgentId,
+  promptText: string,
+  options: { isolationBound?: boolean } = {},
+): string[] {
   const promptBytes = Buffer.byteLength(promptText, "utf8");
   if (promptBytes > MAX_AGENT_PROMPT_BYTES) {
     throw new AgentInvocationError(
@@ -51,8 +55,23 @@ export function buildAgentCommand(target: AgentId, promptText: string): string[]
       promptText,
     ];
   }
+  if (options.isolationBound === true) {
+    return [
+      "agent",
+      "--print",
+      "--output-format",
+      "stream-json",
+      "--sandbox",
+      "enabled",
+      "--trust",
+      "--workspace",
+      ".",
+      "--",
+      promptText,
+    ];
+  }
   throw new AgentInvocationError(
     "UNSUPPORTED_TARGET",
-    "Cursor headless writes are available, but scoped pre-write denial is not live-verified; provide command manually or use an isolated worktree",
+    "Cursor write commands require an isolation-bound plan",
   );
 }
