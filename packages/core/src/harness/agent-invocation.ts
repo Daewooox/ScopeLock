@@ -41,6 +41,13 @@ export function buildAgentCommand(target: AgentId, promptText: string): string[]
       "Read,Glob,Grep,Edit,Write",
       "--disallowedTools",
       "Bash",
+      // `--disallowedTools` (like `--tools`/`--allowedTools`) is variadic in
+      // the Claude CLI - without an explicit `--` terminator, it greedily
+      // consumes the prompt text word-by-word as bogus tool names instead of
+      // treating it as the positional prompt argument, and claude exits with
+      // "Input must be provided either through stdin or as a prompt argument".
+      // Reproduced and confirmed fixed locally against Claude Code 2.1.207.
+      "--",
       promptText,
     ];
   }

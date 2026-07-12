@@ -71,6 +71,15 @@ describe("agent invocation", () => {
 
     assert.deepEqual(command.slice(0, 2), ["claude", "-p"]);
     assert.equal(command.at(-1), "do the task");
+    // `--disallowedTools` (like `--tools`/`--allowedTools`) is variadic in the
+    // real Claude CLI: without a `--` terminator right before the prompt, it
+    // greedily swallows the prompt text word-by-word as bogus deny rules and
+    // claude never sees a positional prompt at all - reproduced live against
+    // Claude Code 2.1.207 (`claude -p --disallowedTools Bash "some words"`
+    // fails with "Input must be provided ... as a prompt argument"; adding
+    // `--` before the prompt fixes it). This assertion is the regression test
+    // for that failure mode, not just "the prompt is somewhere in the argv".
+    assert.equal(command.at(-2), "--");
     assert.equal(command.includes("dontAsk"), true);
     assert.equal(command.includes("Bash"), true);
     assert.equal(command.includes("--dangerously-skip-permissions"), false);
