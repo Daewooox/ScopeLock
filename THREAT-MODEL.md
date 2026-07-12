@@ -40,6 +40,9 @@
 - ScopeLock does not push today. Any future path that constructs a `git push`
   must call `checkPushSafety` against the live remote first and refuse to
   discard unincorporated remote commits without an explicit user override.
+  The push must bind atomically to the returned lease snapshot with an explicit
+  `--force-with-lease=<ref>:<expected-sha>` (including the missing-ref case),
+  rather than relying on a check-then-push sequence alone.
 - Claude Code pre-write hooks can block known file-edit events. Cursor is
   treated as post-write audit. Codex hook confidence starts `degraded` and is
   only upgraded to `live-verified` by an explicit `hooks verify --target

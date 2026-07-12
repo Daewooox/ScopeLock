@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkPushSafety } from "./index.js";
@@ -61,7 +61,13 @@ describe("push safety guard", () => {
         localSha,
       });
 
-      assert.deepEqual(verdict, { safe: true });
+      assert.deepEqual(verdict, {
+        safe: true,
+        lease: {
+          remoteRef: "refs/heads/new-branch",
+          expectedRemoteSha: null,
+        },
+      });
     } finally {
       await rm(fixture.root, { recursive: true, force: true });
     }
@@ -82,7 +88,14 @@ describe("push safety guard", () => {
         localSha,
       });
 
-      assert.deepEqual(verdict, { safe: true });
+      const expectedRemoteSha = git(fixture.local, [
+        "rev-parse",
+        "refs/remotes/origin/main",
+      ]);
+      assert.deepEqual(verdict, {
+        safe: true,
+        lease: { remoteRef: "refs/heads/main", expectedRemoteSha },
+      });
     } finally {
       await rm(fixture.root, { recursive: true, force: true });
     }
@@ -129,6 +142,46 @@ describe("push safety guard", () => {
       });
 
       assert.deepEqual(verdict, { safe: false, unincorporated: [] });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not execute git options supplied as the remote name", async () => {
+    const fixture = await makeRemoteFixture();
+    try {
+      const marker = join(fixture.root, "remote-injection");
+      const localSha = git(fixture.local, ["rev-parse", "HEAD"]);
+
+      const verdict = await checkPushSafety({
+        repoRoot: fixture.local,
+        remote: `--upload-pack=touch ${marker}`,
+        remoteRef: "refs/heads/main",
+        localSha,
+      });
+
+      assert.deepEqual(verdict, { safe: false, unincorporated: [] });
+      await assert.rejects(access(marker));
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not execute git options supplied as the remote ref", async () => {
+    const fixture = await makeRemoteFixture();
+    try {
+      const marker = join(fixture.root, "ref-injection");
+      const localSha = git(fixture.local, ["rev-parse", "HEAD"]);
+
+      const verdict = await checkPushSafety({
+        repoRoot: fixture.local,
+        remote: "origin",
+        remoteRef: `--upload-pack=touch ${marker}`,
+        localSha,
+      });
+
+      assert.deepEqual(verdict, { safe: false, unincorporated: [] });
+      await assert.rejects(access(marker));
     } finally {
       await rm(fixture.root, { recursive: true, force: true });
     }
