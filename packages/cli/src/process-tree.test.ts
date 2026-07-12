@@ -44,10 +44,12 @@ describe("process tree supervisor", () => {
       });
       const result = await tree.wait();
       assert.equal(result.exitCode, 0);
-      assert.deepEqual(JSON.parse(await readFile(out, "utf8")), {
-        cwd: await realpath(dir),
-        arg: "a value with spaces",
-      });
+      const childResult = JSON.parse(await readFile(out, "utf8")) as {
+        cwd: string;
+        arg: string;
+      };
+      assert.equal(await realpath(childResult.cwd), await realpath(dir));
+      assert.equal(childResult.arg, "a value with spaces");
       assert.equal(result.reason, null);
     } finally {
       await rm(dir, { recursive: true, force: true });
