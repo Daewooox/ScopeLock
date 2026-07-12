@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1403,6 +1403,108 @@ describe("run", () => {
       assert.equal(JSON.parse(result.stdout).error.code, "ISOLATION_REQUIRES_CLEAN_REPO");
       await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
       assert.equal(await readFile(join(dir, "dirty.txt"), "utf8"), "user work");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects isolated plans above the bounded task limit", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-too-large",
+          tasks: Array.from({ length: 33 }, (_, index) => ({
+            id: `task-${index}`,
+            contract: `task-${index}.json`,
+          })),
+        }),
+      );
+      const result = runCli(dir, ["--json", "run", "--isolate", "--plan", "plan.json"]);
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).error.code, "ISOLATION_TASK_LIMIT_EXCEEDED");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("cleans isolated worktrees and refuses promotion after SIGTERM", async (t) => {
+    if (process.platform === "win32") {
+      t.skip("POSIX signal delivery is not available on Windows");
+      return;
+    }
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "slow.json"), "slow", ["result.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-signal",
+          tasks: [{
+            id: "slow",
+            contract: "slow.json",
+            command: [
+              process.execPath,
+              "-e",
+              "setTimeout(()=>require('node:fs').writeFileSync('result.txt','late'),10000)",
+            ],
+          }],
+        }),
+      );
+      commitFixture(dir, "signal fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "signal.json");
+      const child = spawn(
+        process.execPath,
+        [CLI, "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift"],
+        { cwd: dir, stdio: ["ignore", "pipe", "pipe"] },
+      );
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+      child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+
+      const deadline = Date.now() + 5_000;
+      let registered = false;
+      while (Date.now() < deadline) {
+        const listed = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+        if (listed.stdout.includes("scopelock-isolate-")) {
+          registered = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      assert.equal(registered, true, "isolated worktree was not created before timeout");
+      child.kill("SIGTERM");
+      const exitCode = await new Promise<number | null>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          child.kill("SIGKILL");
+          reject(new Error("isolated CLI did not exit after SIGTERM"));
+        }, 5_000);
+        child.on("close", (code) => {
+          clearTimeout(timer);
+          resolve(code);
+        });
+      });
+
+      assert.equal(exitCode, 1, stdout || stderr);
+      await assert.rejects(readFile(join(dir, "result.txt"), "utf8"));
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.interrupted, true);
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+      assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

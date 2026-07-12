@@ -103,6 +103,7 @@ const OUTPUT_PREVIEW_BYTES = 400;
 const DEFAULT_TASK_TIMEOUT_MS = 15 * 60_000;
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const MAX_ISOLATED_PATCH_BYTES = 50 * 1024 * 1024;
+const MAX_ISOLATED_TASKS = 32;
 
 function redactSecrets(value: string): string {
   return value
@@ -167,6 +168,7 @@ type RunIsolation = {
   aggregatePatchSha256: string | null;
   aggregatePatchBytes: number;
   finalPromotion: "applied" | "no-changes" | "blocked";
+  interrupted: boolean;
   cleanup: { status: "ok" | "warning"; remaining: string[] };
 };
 
@@ -360,6 +362,7 @@ async function runCommand(
   task: { id: string; contract: string; command?: CommandSpec },
   timeoutMs: number,
   storeRawOutput: boolean,
+  signal?: AbortSignal,
 ): Promise<TaskRun> {
   const started = Date.now();
   if (!task.command) {
@@ -393,6 +396,13 @@ async function runCommand(
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let aborted = false;
+    const abort = () => {
+      aborted = true;
+      child.kill("SIGTERM");
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted === true) abort();
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
@@ -405,6 +415,7 @@ async function runCommand(
     });
     child.on("error", async (error) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", error.message, storeRawOutput);
       finishOnce({
         id: task.id,
@@ -422,12 +433,14 @@ async function runCommand(
     });
     child.on("close", async (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       if (timedOut) stderr += `${stderr.length > 0 ? "\n" : ""}task timed out after ${timeoutMs}ms`;
+      if (aborted) stderr += `${stderr.length > 0 ? "\n" : ""}task interrupted by signal`;
       const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
       const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
       finishOnce({
         id: task.id,
-        status: code === 0 ? "passed" : "failed",
+        status: code === 0 && !aborted ? "passed" : "failed",
         command: persistedCommand.preview,
         exitCode: code,
         durationMs: Date.now() - started,
@@ -479,12 +492,14 @@ async function runIsolatedTasks(input: {
   artifactDir: string;
   timeoutMs: number;
   storeRawOutput: boolean;
+  signal: AbortSignal;
 }): Promise<{ taskRuns: TaskRun[]; isolation: RunIsolation }> {
   const { headSha: runBaseSha } = await assertIsolationReady(input.cwd);
   const tempRoot = await createIsolationTempRoot();
   const patchDir = join(tempRoot, "patches");
   const cleanupRemaining: string[] = [];
   let integration: IsolatedWorktree | null = null;
+  let tempRootRemoved = false;
   const taskRuns: TaskRun[] = [];
   try {
     integration = await createIsolatedWorktree({
@@ -497,6 +512,7 @@ async function runIsolatedTasks(input: {
     });
 
     for (let waveIndex = 0; waveIndex < input.waves.length; waveIndex += 1) {
+      if (input.signal.aborted) break;
       const wave = input.waves[waveIndex] ?? [];
       const baseSha = await worktreeHead(integration, input.timeoutMs);
       const runnable = wave
@@ -543,6 +559,7 @@ async function runIsolatedTasks(input: {
             task,
             input.timeoutMs,
             input.storeRawOutput,
+            input.signal,
           );
           return { task, worktree, run };
         }),
@@ -653,7 +670,9 @@ async function runIsolatedTasks(input: {
     });
     let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
     const aggregatePatch = aggregate.patch;
-    if (!aggregate.accepted) {
+    if (input.signal.aborted) {
+      finalPromotion = "blocked";
+    } else if (!aggregate.accepted) {
       finalPromotion = "blocked";
     } else if (aggregatePatch !== null) {
       try {
@@ -680,6 +699,30 @@ async function runIsolatedTasks(input: {
         });
       }
     }
+    if (input.signal.aborted) {
+      const recorded = new Set(taskRuns.map((task) => task.id));
+      for (const task of input.byId.values()) {
+        if (recorded.has(task.id) || input.deferredSet.has(task.id)) continue;
+        const persistedCommand = await persistCommand(
+          input.artifactDir,
+          task.id,
+          task.command ?? null,
+          input.storeRawOutput,
+        );
+        taskRuns.push({
+          id: task.id,
+          status: "skipped",
+          command: persistedCommand.preview,
+          exitCode: null,
+          durationMs: 0,
+          stdout: "",
+          stderr: "not run because isolated execution was interrupted",
+          outputArtifacts: {
+            ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+          },
+        });
+      }
+    }
     const completedIntegration = integration;
     try {
       await removeIsolatedWorktree({
@@ -691,6 +734,14 @@ async function runIsolatedTasks(input: {
     } catch {
       cleanupRemaining.push(completedIntegration.path);
     }
+    if (integration === null) {
+      try {
+        await rm(tempRoot, { recursive: true, force: true });
+        tempRootRemoved = true;
+      } catch {
+        cleanupRemaining.push(tempRoot);
+      }
+    }
     return {
       taskRuns,
       isolation: {
@@ -701,6 +752,7 @@ async function runIsolatedTasks(input: {
         aggregatePatchSha256: aggregatePatch?.sha256 ?? null,
         aggregatePatchBytes: aggregatePatch?.bytes ?? 0,
         finalPromotion,
+        interrupted: input.signal.aborted,
         cleanup: {
           status: cleanupRemaining.length === 0 ? "ok" : "warning",
           remaining: cleanupRemaining.map((path) => basename(path)),
@@ -709,17 +761,27 @@ async function runIsolatedTasks(input: {
     };
   } finally {
     if (integration !== null) {
+      const cleanupIntegration = integration;
       try {
         await removeIsolatedWorktree({
           repoRoot: input.cwd,
-          worktree: integration,
+          worktree: cleanupIntegration,
           timeoutMs: input.timeoutMs,
         });
+        integration = null;
       } catch {
-        cleanupRemaining.push(integration.path);
+        cleanupRemaining.push(cleanupIntegration.path);
       }
     }
-    await rm(tempRoot, { recursive: true, force: true });
+    if (!tempRootRemoved && integration === null) {
+      try {
+        await rm(tempRoot, { recursive: true, force: true });
+        tempRootRemoved = true;
+      } catch {
+        // A normal-path failure is already recorded in the receipt. On an
+        // exceptional path there is no trustworthy receipt to complete.
+      }
+    }
   }
 }
 
@@ -816,6 +878,12 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const planRaw = await readJsonFile(options.plan, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
   const runTasks = plan.tasks;
+  if (options.isolate === true && runTasks.length > MAX_ISOLATED_TASKS) {
+    throw new CliError(
+      "ISOLATION_TASK_LIMIT_EXCEEDED",
+      `isolated plans support at most ${MAX_ISOLATED_TASKS} tasks; split this plan into smaller runs`,
+    );
+  }
   const byId = new Map(runTasks.map((task) => [task.id, task]));
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
   if (executableTasks.length > 0 && options.yes !== true) {
@@ -899,6 +967,12 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   } else if (cycles.length === 0) {
     if (options.isolate === true) {
       let isolated: Awaited<ReturnType<typeof runIsolatedTasks>>;
+      const controller = new AbortController();
+      const onSignal = () => {
+        controller.abort();
+      };
+      process.on("SIGINT", onSignal);
+      process.on("SIGTERM", onSignal);
       try {
         isolated = await runIsolatedTasks({
           cwd,
@@ -909,12 +983,16 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           artifactDir,
           timeoutMs,
           storeRawOutput,
+          signal: controller.signal,
         });
       } catch (error) {
         if (error instanceof WorktreeError) {
           throw new CliError(isolationErrorCode(error), error.message);
         }
         throw error;
+      } finally {
+        process.off("SIGINT", onSignal);
+        process.off("SIGTERM", onSignal);
       }
       taskRuns.push(...isolated.taskRuns);
       isolation = isolated.isolation;
@@ -1002,8 +1080,9 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const hasBlockedTask = taskRuns.some((task) => task.status === "blocked");
   const hasDriftProblems = drift?.status === "violations" || drift?.status === "error";
   const hasEnvironmentProblems = environment !== null && environment.status === "fail";
+  const hasCleanupProblems = isolation?.cleanup.status === "warning";
   const exitCode: ExitCode =
-    cycles.length > 0 || hasFailedTask || hasSkippedTask || hasBlockedTask || hasDriftProblems || hasEnvironmentProblems
+    cycles.length > 0 || hasFailedTask || hasSkippedTask || hasBlockedTask || hasDriftProblems || hasEnvironmentProblems || hasCleanupProblems
       ? 1
       : 0;
 
