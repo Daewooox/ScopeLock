@@ -27,6 +27,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
+import { color, renderTable, statusLabel } from "../ui.js";
 
 type RunPlanOptions = {
   plan: string;
@@ -450,13 +451,72 @@ async function runCommand(
   });
 }
 
-function humanReport(planId: string, receiptPath: string, taskRuns: TaskRun[]): string {
+function compactCommand(command: CommandSpec | null): string {
+  if (command === null) return "-";
+  if (Array.isArray(command)) return command.join(" ");
+  return command;
+}
+
+function runStatus(task: TaskRun): "pass" | "warn" | "fail" | "skip" {
+  if (task.status === "passed") return "pass";
+  if (task.status === "failed") return "fail";
+  return "skip";
+}
+
+function ms(value: number): string {
+  if (value < 1000) return `${value}ms`;
+  return `${(value / 1000).toFixed(1)}s`;
+}
+
+function humanReport(
+  planId: string,
+  receiptPath: string,
+  taskRuns: TaskRun[],
+  waves: string[][],
+  conflicts: ScopeConflict[],
+  deferred: string[],
+  driftStatus: string,
+  environmentStatus: string,
+): string {
   const failed = taskRuns.filter((task) => task.status === "failed").map((task) => task.id);
   const skipped = taskRuns.filter((task) => task.status === "skipped").map((task) => task.id);
+  const headingStatus = failed.length > 0 || skipped.length > 0 ? "warn" : "pass";
+  const sequence =
+    waves.length === 0
+      ? "none"
+      : waves.map((wave, index) => `${index + 1}. [${wave.join(", ")}]`).join(" -> ");
+  const taskTable = renderTable(
+    ["Task", "Status", "Exit", "Time", "Command"],
+    taskRuns.map((task) => [
+      task.id,
+      statusLabel(runStatus(task)),
+      task.exitCode === null ? "-" : String(task.exitCode),
+      ms(task.durationMs),
+      compactCommand(task.command),
+    ]),
+  );
   const lines = [
-    `run ${planId}`,
-    `receipt: ${receiptPath}`,
-    `tasks: ${taskRuns.length}, failed: ${failed.length}, skipped: ${skipped.length}`,
+    `${color("ScopeLock flight run", "bold")}: ${planId} ${statusLabel(headingStatus)}`,
+    "",
+    color("Execution sequence", "cyan"),
+    `  ${sequence}`,
+    "",
+    color("Tasks", "cyan"),
+    taskTable,
+    "",
+    color("Safety", "cyan"),
+    renderTable(
+      ["Check", "Result"],
+      [
+        ["environment", environmentStatus],
+        ["conflicts", conflicts.length === 0 ? "none" : String(conflicts.length)],
+        ["deferred", deferred.length === 0 ? "none" : deferred.join(", ")],
+        ["drift", driftStatus],
+      ],
+    ),
+    "",
+    `Receipt: ${receiptPath}`,
+    `Next: scopelock report --open ${JSON.stringify(receiptPath)}`,
   ];
   if (failed.length > 0) lines.push(`failed: [${failed.join(", ")}]`);
   if (skipped.length > 0) lines.push(`skipped: [${skipped.join(", ")}]`);
@@ -629,7 +689,16 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
 
   return {
     data: { receiptPath, receipt },
-    human: humanReport(plan.planId, receiptPath, taskRuns),
+    human: humanReport(
+      plan.planId,
+      receiptPath,
+      taskRuns,
+      waves,
+      graph.conflicts,
+      deferred,
+      drift?.status ?? "not_checked",
+      environment?.status ?? "not_configured",
+    ),
     exitCode,
   };
 }

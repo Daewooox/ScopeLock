@@ -12,11 +12,110 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
+import { Worker } from "node:worker_threads";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), "../..");
 const cli = join(repoRoot, "packages/cli/dist/index.js");
 const defaultCloneUrl = "https://github.com/Daewooox/WalletAssignment.git";
+const interactiveOutput = process.stdout.isTTY === true && process.env.CI !== "true";
+const colorEnabled = process.stdout.isTTY === true && process.env.NO_COLOR === undefined && process.env.CI !== "true";
+
+function paint(value, code) {
+  return colorEnabled ? `\x1b[${code}m${value}\x1b[0m` : value;
+}
+
+function statusText(ok) {
+  return ok ? paint("✓", "32") : paint("✗", "31");
+}
+
+const spinnerSource = `
+  const { parentPort, workerData } = await import("node:worker_threads");
+  const { writeSync } = await import("node:fs");
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const state = new Int32Array(workerData.state);
+  let frame = 0;
+  const render = () => {
+    const symbol = workerData.color ? "\\x1b[36m" + frames[frame] + "\\x1b[0m" : frames[frame];
+    writeSync(1, "\\r\\x1b[2K" + symbol + " " + workerData.label);
+    frame = (frame + 1) % frames.length;
+  };
+  let timer;
+  parentPort.once("message", () => {
+    clearInterval(timer);
+    Atomics.store(state, 0, 2);
+    Atomics.notify(state, 0);
+  });
+  render();
+  timer = setInterval(render, 80);
+  Atomics.store(state, 0, 1);
+  Atomics.notify(state, 0);
+`;
+
+function createDemoUi(disabled) {
+  let spinner = null;
+  if (disabled) {
+    return {
+      title() {},
+      start() {},
+      end() {},
+      info() {},
+      summary() {},
+    };
+  }
+  return {
+    title(source) {
+      process.stdout.write([
+        paint("ScopeLock Wallet Demo", "1"),
+        `source: ${source}`,
+        "story: preflight block -> fix -> safe execution -> hook deny -> receipt",
+        "",
+      ].join("\n"));
+    },
+    start(label) {
+      if (!interactiveOutput) return;
+      const state = new Int32Array(new SharedArrayBuffer(4));
+      const worker = new Worker(spinnerSource, {
+        eval: true,
+        workerData: { label, color: colorEnabled, state: state.buffer },
+      });
+      worker.on("error", () => {});
+      spinner = { worker, state };
+      Atomics.wait(state, 0, 0, 1_000);
+    },
+    end(label, ok, detail = "") {
+      if (spinner !== null) {
+        spinner.worker.postMessage("stop");
+        Atomics.wait(spinner.state, 0, 1, 1_000);
+        void spinner.worker.terminate();
+        spinner = null;
+      }
+      const clearActiveLine = interactiveOutput ? "\r\x1b[2K" : "";
+      process.stdout.write(`${clearActiveLine}${statusText(ok)} ${label}${detail ? ` ${paint(detail, "2")}` : ""}\n`);
+    },
+    info(label, value) {
+      process.stdout.write(`${paint(label, "36")}: ${value}\n`);
+    },
+    summary(summary, outputDir) {
+      const rows = [
+        ["baseline swift test", summary.steps.baselineTestsPassed],
+        ["missing skill preflight block", summary.steps.missingSkillBlocked],
+        ["skill fix preflight", summary.steps.fixedPreflightPassed],
+        ["Package.swift hook deny", summary.steps.hookDenied],
+        ["final swift test", summary.steps.finalSwiftTestsPassed],
+        ["final check-drift", summary.steps.finalDriftClean],
+      ];
+      const width = Math.max(...rows.map(([label]) => label.length));
+      process.stdout.write("\n");
+      process.stdout.write(`${paint("Flight summary", "1")}\n`);
+      for (const [label, ok] of rows) {
+        process.stdout.write(`  ${label.padEnd(width)}  ${statusText(ok)}\n`);
+      }
+      process.stdout.write(`  ${"safe execution steps".padEnd(width)}  ${summary.steps.safeWaves.map((wave) => `[${wave.join(", ")}]`).join(" -> ")}\n`);
+      process.stdout.write(`  ${"receipt".padEnd(width)}  v${summary.steps.receiptSchemaVersion} ${join(outputDir, "receipt.json")}\n`);
+    },
+  };
+}
 
 function option(argv, name, fallback) {
   const inline = argv.find((arg) => arg.startsWith(`${name}=`));
@@ -569,12 +668,16 @@ function runWalletDemo(argv) {
   const keepFixture = argv.includes("--keep-fixture");
   const json = argv.includes("--json");
   const quiet = argv.includes("--quiet");
+  const ui = createDemoUi(json || quiet);
   const outputDir = resolve(option(argv, "--output-dir", join(repoRoot, ".scopelock/reports/wallet-demo")));
   const root = mkdtempSync(join(tmpdir(), "scopelock-wallet-demo-"));
   const source = cloneSource(root, argv);
 
   try {
+    ui.title(source);
+    ui.start("prepare WalletAssignment fixture");
     ensureGitRepo(root);
+    ui.end("prepare WalletAssignment fixture", true, root);
     if (!hasCommand("swift")) {
       const summary = blockedSummary(root, outputDir, source, "swift_unavailable", "`swift` is not available in PATH", keepFixture);
       if (json) process.stdout.write(`${JSON.stringify({ outputDir, ...summary }, null, 2)}\n`);
@@ -582,8 +685,10 @@ function runWalletDemo(argv) {
       return summary;
     }
 
+    ui.start("run baseline swift tests");
     const baseline = swiftTest(root);
     if (baseline.status !== 0) {
+      ui.end("run baseline swift tests", false);
       const summary = blockedSummary(root, outputDir, source, "baseline_swift_test_failed", baseline.stderr || baseline.stdout, keepFixture);
       summary.steps.swiftAvailable = true;
       mkdirSync(outputDir, { recursive: true });
@@ -592,17 +697,33 @@ function runWalletDemo(argv) {
       else if (!quiet) process.stdout.write("ScopeLock Wallet Demo\nblocked: baseline_swift_test_failed\n");
       return summary;
     }
+    ui.end("run baseline swift tests", true);
 
+    ui.start("install ScopeLock contracts and Codex hook");
     setupScopeLock(root);
+    ui.end("install ScopeLock contracts and Codex hook", true);
+
+    ui.start("prove strict preflight blocks missing skill");
     const blockedReceipt = join(root, ".scopelock/reports/wallet-blocked.json");
     const blocked = runCli(root, ["--json", "run", "--yes", "--plan", "plan.json", "--receipt", blockedReceipt, "--no-check-drift"]);
     const blockedBody = JSON.parse(blocked.stdout);
+    const missingSkillBlocked = blocked.status === 1 && blockedBody.data.receipt.blockedByEnvironment === true;
+    ui.end("prove strict preflight blocks missing skill", missingSkillBlocked);
 
+    ui.start("add required wallet review skill");
     addWalletSkill(root);
+    ui.end("add required wallet review skill", true);
+
+    ui.start("verify agent environment");
     const preflight = runCli(root, ["--json", "agents", "preflight", "--manifest", ".scopelock/agents.json"]);
+    ui.end("verify agent environment", preflight.status === 0);
+
+    ui.start("derive safe execution sequence");
     const plan = runCli(root, ["--json", "plan-parallel", "plan.json", "--include-read-hazards"]);
     const planBody = JSON.parse(plan.stdout);
+    ui.end("derive safe execution sequence", plan.status === 0, planBody.data.waves.map((wave) => `[${wave.join(", ")}]`).join(" -> "));
 
+    ui.start("probe forbidden Package.swift patch");
     const forbiddenEvent = JSON.stringify({
       tool_name: "apply_patch",
       tool_input: {
@@ -611,12 +732,22 @@ function runWalletDemo(argv) {
     });
     const hook = runCli(root, ["hook", "gate", "--format", "codex"], forbiddenEvent);
     const hookBody = JSON.parse(hook.stdout);
+    const hookDenied = hookBody.hookSpecificOutput?.permissionDecision === "deny";
+    ui.end("probe forbidden Package.swift patch", hookDenied);
 
+    ui.start("run safe tasks through ScopeLock");
     const finalReceipt = join(root, ".scopelock/reports/wallet-final.json");
     const finalRun = runCli(root, ["--json", "run", "--yes", "--plan", "plan.json", "--receipt", finalReceipt, "--no-check-drift"]);
     const finalBody = JSON.parse(finalRun.stdout);
+    ui.end("run safe tasks through ScopeLock", finalRun.status === 0);
+
+    ui.start("run final swift tests");
     const finalTests = swiftTest(root);
+    ui.end("run final swift tests", finalTests.status === 0);
+
+    ui.start("check final drift against approved contract");
     const drift = runCli(root, ["--json", "check-drift"]);
+    ui.end("check final drift against approved contract", drift.status === 0);
 
     const summary = {
       generatedAt: new Date().toISOString(),
@@ -627,10 +758,10 @@ function runWalletDemo(argv) {
       steps: {
         swiftAvailable: true,
         baselineTestsPassed: baseline.status === 0,
-        missingSkillBlocked: blocked.status === 1 && blockedBody.data.receipt.blockedByEnvironment === true,
+        missingSkillBlocked,
         fixedPreflightPassed: preflight.status === 0,
         safeWaves: planBody.data.waves,
-        hookDenied: hookBody.hookSpecificOutput?.permissionDecision === "deny",
+        hookDenied,
         finalRunPassed: finalRun.status === 0,
         finalSwiftTestsPassed: finalTests.status === 0,
         finalDriftClean: drift.status === 0,
@@ -649,19 +780,9 @@ function runWalletDemo(argv) {
     if (json) {
       process.stdout.write(`${JSON.stringify({ outputDir, ...summary }, null, 2)}\n`);
     } else if (!quiet) {
-      process.stdout.write([
-        "ScopeLock Wallet Demo",
-        `source: ${source}`,
-        `1. baseline swift test: ${summary.steps.baselineTestsPassed ? "PASS" : "FAIL"}`,
-        `2. missing skill -> preflight block: ${summary.steps.missingSkillBlocked ? "PASS" : "FAIL"}`,
-        `3. fix skill -> agents preflight: ${summary.steps.fixedPreflightPassed ? "PASS" : "FAIL"}`,
-        `4. safe waves: ${summary.steps.safeWaves.map((wave) => `[${wave.join(", ")}]`).join(" -> ")}`,
-        `5. Package.swift hook deny: ${summary.steps.hookDenied ? "PASS" : "FAIL"}`,
-        `6. final swift test: ${summary.steps.finalSwiftTestsPassed ? "PASS" : "FAIL"}`,
-        `7. final check-drift: ${summary.steps.finalDriftClean ? "PASS" : "FAIL"}`,
-        `8. receipt v${summary.steps.receiptSchemaVersion}: ${join(outputDir, "receipt.json")}`,
-        ...(keepFixture ? keepFixtureHint(root) : []),
-      ].join("\n") + "\n");
+      ui.summary(summary, outputDir);
+      ui.info("Open visual report", `scopelock report --open ${JSON.stringify(join(outputDir, "receipt.json"))}`);
+      if (keepFixture) process.stdout.write(`${keepFixtureHint(root).join("\n")}\n`);
     }
     return summary;
   } finally {
@@ -669,7 +790,7 @@ function runWalletDemo(argv) {
   }
 }
 
-export { runWalletDemo };
+export { createDemoUi, runWalletDemo };
 
 if (process.argv[2] === "--worker") {
   try {

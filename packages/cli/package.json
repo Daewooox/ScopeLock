@@ -11,11 +11,11 @@
     "scopelock": "./dist/index.js"
   },
   "files": [
+    "dist/*.d.ts",
+    "dist/*.js",
     "dist/commands",
-    "dist/index.d.ts",
-    "dist/index.js",
-    "dist/run.d.ts",
-    "dist/run.js"
+    "dist/commands/*.d.ts",
+    "dist/commands/*.js"
   ],
   "repository": {
     "type": "git",
