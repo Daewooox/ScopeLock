@@ -1583,7 +1583,8 @@ describe("run", () => {
             command: [
               process.execPath,
               "-e",
-              `process.on('SIGINT',()=>{});process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(${JSON.stringify(readyPath)},'ready');setInterval(()=>{},1000)`,
+              "process.on('SIGINT',()=>{});process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.argv[1],'ready');setInterval(()=>{},1000)",
+              readyPath,
             ],
           }],
         }),
