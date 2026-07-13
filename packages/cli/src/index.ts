@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { run } from "./run.js";
+import { CliError, run } from "./run.js";
 import { initCommand } from "./commands/init.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { checkDriftCommand } from "./commands/check-drift.js";
@@ -38,24 +38,28 @@ function jsonOf(command: Command): { json: boolean } {
   return { json: opts.json === true };
 }
 
-program
-  .command("approve")
-  .description("approve a contract and capture the current git baseline")
+function registerApprove(parent: Command, name: string, hidden = false): void {
+  parent
+  .command(name, { hidden })
+  .description("approve a scope contract and capture its git baseline")
   .argument("<contract>", "path to approved contract JSON")
   .option("--no-activate", "save contract without making it active")
   .option("--json", "print machine-readable JSON")
   .action((contract: string, options: { activate: boolean }, command: Command) =>
     run(() => approveCommand(contract, options), jsonOf(command)),
   );
+}
 
-program
-  .command("rebaseline")
+function registerRebaseline(parent: Command, name: string, hidden = false): void {
+  parent
+  .command(name, { hidden })
   .description("re-anchor an existing contract's baseline to the current commit (repairs a stale baseline)")
   .argument("[contract]", "contract id to rebaseline (default: the active contract)")
   .option("--json", "print machine-readable JSON")
   .action((contract: string | undefined, _options: unknown, command: Command) =>
     run(() => rebaselineCommand(contract), jsonOf(command)),
   );
+}
 
 program
   .command("init")
@@ -78,31 +82,35 @@ program
     run(() => checkDriftCommand(options), jsonOf(command)),
   );
 
-program
-  .command("export-prompt")
-  .description("print the active contract as agent instructions")
+function registerContractExport(parent: Command, name: string, hidden = false): void {
+  parent
+  .command(name, { hidden })
+  .description("render the active contract as agent-ready instructions")
   .requiredOption("--target <id>", "agent target: claude, codex, cursor")
   .option("--json", "print machine-readable JSON")
   .action((options: { target: string }, command: Command) =>
     run(() => exportPromptCommand(options), jsonOf(command)),
   );
+}
 
-program
-  .command("inject-contract")
-  .description("inject the active contract into the target agent doc file")
+function registerContractInject(parent: Command, name: string, hidden = false): void {
+  parent
+  .command(name, { hidden })
+  .description("place the active contract in the target agent instruction file")
   .option("--target <id>", "agent target: claude, codex, cursor")
   .option("--json", "print machine-readable JSON")
   .action((options: { target?: string }, command: Command) =>
     run(() => injectContractCommand(options), jsonOf(command)),
   );
+}
 
 const contract = program
   .command("contract")
-  .description("author and inspect ScopeLock contracts");
+  .description("create, approve, and share scope contracts");
 
 contract
   .command("new")
-  .description("scaffold a schema-valid draft contract (deterministic, no LLM)")
+  .description("create a reviewable draft scope contract")
   .requiredOption("--task <text>", "one-line description of the task")
   .option("--id <id>", "contract id (default: slug of task + date)")
   .option("--planned <glob>", "planned path glob (repeatable)", collect, [])
@@ -130,9 +138,21 @@ contract
     ) => run(() => contractNewCommand(options), jsonOf(command)),
   );
 
-program
-  .command("plan-parallel")
-  .description("derive a parallel-safe schedule (waves) from a plan of task contracts")
+registerApprove(contract, "approve");
+registerRebaseline(contract, "rebaseline");
+registerContractExport(contract, "export");
+registerContractInject(contract, "inject");
+
+// Compatibility aliases stay parseable but no longer crowd the public help.
+registerApprove(program, "approve", true);
+registerRebaseline(program, "rebaseline", true);
+registerContractExport(program, "export-prompt", true);
+registerContractInject(program, "inject-contract", true);
+
+function registerPlanSchedule(parent: Command, name: string, hidden = false): void {
+  parent
+  .command(name, { hidden })
+  .description("detect task conflicts and build safe execution stages")
   .argument("<plan>", "path to a plan-parallel JSON file")
   .option(
     "--include-read-hazards",
@@ -142,12 +162,12 @@ program
   .action((plan: string, options: { includeReadHazards?: boolean }, command: Command) =>
     run(() => planParallelCommand(plan, options), jsonOf(command)),
   );
+}
 
-const plan = program.command("plan").description("compose reviewable execution plans");
-
-plan
-  .command("fill-commands")
-  .description("render task contracts into explicit agent argv commands")
+function registerPlanCompose(parent: Command, name: string, hidden = false): void {
+  parent
+  .command(name, { hidden })
+  .description("add explicit, reviewable agent commands to a plan")
   .argument("<plan>", "path to a plan JSON file")
   .requiredOption("--target <id>", "agent target: codex, claude, or cursor")
   .option("--out <path>", "write the enriched plan to this path")
@@ -160,6 +180,15 @@ plan
       command: Command,
     ) => run(() => planFillCommandsCommand(planPath, options), jsonOf(command)),
   );
+}
+
+const plan = program.command("plan").description("schedule and compose multi-agent work");
+
+registerPlanSchedule(plan, "schedule");
+registerPlanCompose(plan, "compose");
+
+registerPlanCompose(plan, "fill-commands", true);
+registerPlanSchedule(program, "plan-parallel", true);
 
 program
   .command("manifest")
@@ -169,8 +198,9 @@ program
 
 program
   .command("run")
-  .description("thin dispatcher: run plan tasks by safe waves and write a receipt")
-  .requiredOption("--plan <path>", "path to a plan JSON file")
+  .description("run a reviewed plan in safe execution stages and write a receipt")
+  .argument("[plan]", "path to a plan JSON file")
+  .option("--plan <path>", "legacy form of the plan path")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
   .option("--no-defer-write-conflicts", "run write-write conflicts instead of deferring one side")
   .option("--no-check-drift", "skip the final check-drift receipt step")
@@ -183,8 +213,9 @@ program
   .option("--json", "print machine-readable JSON")
   .action(
     (
+      planPath: string | undefined,
       options: {
-        plan: string;
+        plan?: string;
         readHazards?: boolean;
         deferWriteConflicts?: boolean;
         checkDrift?: boolean;
@@ -196,7 +227,17 @@ program
         isolate?: boolean;
       },
       command: Command,
-    ) => run(() => runPlanCommand(options), jsonOf(command)),
+    ) =>
+      run(() => {
+        if (planPath !== undefined && options.plan !== undefined && planPath !== options.plan) {
+          throw new CliError("CONFLICTING_PLAN_PATHS", "pass the plan once: as an argument or with --plan");
+        }
+        const selectedPlan = planPath ?? options.plan;
+        if (selectedPlan === undefined) {
+          throw new CliError("PLAN_REQUIRED", "pass a plan path: scopelock run <plan.json>");
+        }
+        return runPlanCommand({ ...options, plan: selectedPlan });
+      }, jsonOf(command)),
   );
 
 program
@@ -214,7 +255,7 @@ const agents = program.command("agents").description("agent environment attestat
 
 agents
   .command("preflight")
-  .description("verify agent rules/skills are physically present and consistent before dispatch (read-only)")
+  .description("check agent rules, skills, and hook readiness before dispatch (read-only)")
   .requiredOption("--manifest <path>", "path to an agent workspace manifest JSON file")
   .option("--target <id>", "restrict the check to this target (repeatable)", collect, [])
   .option("--json", "print machine-readable JSON")
@@ -223,7 +264,7 @@ agents
       run(() => agentsPreflightCommand(options), jsonOf(command)),
   );
 
-const hook = program.command("hook").description("internal hook entrypoints");
+const hook = program.command("hook", { hidden: true }).description("internal hook entrypoints");
 
 hook
   .command("gate")
@@ -236,7 +277,7 @@ hook
   .description("evaluate a hook event and always audit instead of denying")
   .action(() => hookGateCommand({ forceAudit: true }));
 
-const hooks = program.command("hooks").description("install or uninstall agent hooks");
+const hooks = program.command("hooks").description("manage agent enforcement hooks");
 
 hooks
   .command("install")

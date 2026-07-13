@@ -51,6 +51,49 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
+describe("public command language", () => {
+  it("shows canonical command groups and hides compatibility aliases", () => {
+    const help = runCli(process.cwd(), ["--help"]);
+    assert.equal(help.status, 0);
+    assert.match(help.stdout, /contract\s+create, approve, and share scope contracts/);
+    assert.match(help.stdout, /plan\s+schedule and compose multi-agent work/);
+    assert.match(help.stdout, /run \[options\] \[plan\]/);
+    assert.doesNotMatch(help.stdout, /\n\s+approve \[options\]/);
+    assert.doesNotMatch(help.stdout, /\n\s+plan-parallel/);
+    assert.doesNotMatch(help.stdout, /\n\s+hook\s/);
+  });
+
+  it("keeps legacy commands parseable while exposing canonical equivalents", () => {
+    for (const args of [
+      ["contract", "approve", "--help"],
+      ["approve", "--help"],
+      ["plan", "schedule", "--help"],
+      ["plan-parallel", "--help"],
+      ["plan", "compose", "--help"],
+      ["plan", "fill-commands", "--help"],
+    ]) {
+      const result = runCli(process.cwd(), args);
+      assert.equal(result.status, 0, `${args.join(" ")}: ${result.stderr}`);
+    }
+  });
+
+  it("requires exactly one effective plan path", () => {
+    const missing = runCli(process.cwd(), ["--json", "run"]);
+    assert.equal(missing.status, 2);
+    assert.equal(JSON.parse(missing.stdout).error.code, "PLAN_REQUIRED");
+
+    const conflicting = runCli(process.cwd(), [
+      "--json",
+      "run",
+      "one.json",
+      "--plan",
+      "two.json",
+    ]);
+    assert.equal(conflicting.status, 2);
+    assert.equal(JSON.parse(conflicting.stdout).error.code, "CONFLICTING_PLAN_PATHS");
+  });
+});
+
 describe("cli end-to-end", () => {
   it("init -> contract new -> approve -> check-drift respects the exit-code contract", async (t) => {
     const dir = await makeRepo();
@@ -77,7 +120,7 @@ describe("cli end-to-end", () => {
       ]);
       assert.equal(draft.status, 0);
 
-      const approve = runCli(dir, ["--json", "approve", draftPath]);
+      const approve = runCli(dir, ["--json", "contract", "approve", draftPath]);
       assert.equal(approve.status, 0);
       assert.equal(JSON.parse(approve.stdout).status, "ok");
 
@@ -284,7 +327,7 @@ describe("plan-parallel", () => {
         }),
       );
 
-      const res = runCli(dir, ["--json", "plan-parallel", "plan.json"]);
+      const res = runCli(dir, ["--json", "plan", "schedule", "plan.json"]);
       assert.equal(res.status, 0);
       const body = JSON.parse(res.stdout);
       assert.equal(body.status, "ok");
@@ -875,7 +918,7 @@ describe("plan fill-commands", () => {
       const filled = runCli(dir, [
         "--json",
         "plan",
-        "fill-commands",
+        "compose",
         "plan.json",
         "--target",
         "codex",
@@ -916,9 +959,8 @@ describe("plan fill-commands", () => {
       const run = runCli(dir, [
         "--json",
         "run",
-        "--yes",
-        "--plan",
         "runnable.json",
+        "--yes",
         "--no-check-drift",
       ]);
       assert.equal(run.status, 0, run.stdout || run.stderr);
