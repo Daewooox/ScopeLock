@@ -42,7 +42,7 @@ export async function rebaselineCommand(
   if (id === null) {
     throw new CliError(
       "NO_ACTIVE_CONTRACT",
-      "no contract id given and no active contract; pass `scopelock rebaseline <id>`",
+      "no contract id given and no active contract; pass `scopelock contract rebaseline <id>`",
     );
   }
 

@@ -150,7 +150,7 @@ export async function checkDriftTool(input: { base?: string } = {}, serverRepoRo
   const config = await loadConfig(paths);
   const activeId = await getActiveContractId(paths);
   if (activeId === null) {
-    throw new Error("no active approved contract; approve one with `scopelock approve <file>`");
+    throw new Error("no active approved contract; approve one with `scopelock contract approve <file>`");
   }
 
   const contract = await loadContract(paths, activeId);
@@ -160,11 +160,11 @@ export async function checkDriftTool(input: { base?: string } = {}, serverRepoRo
   }
   const baselineSha = input.base ?? contract.baseline?.headSha ?? null;
   if (baselineSha === null) {
-    throw new Error("active contract has no baseline; approve it with `scopelock approve <file>`");
+    throw new Error("active contract has no baseline; approve it with `scopelock contract approve <file>`");
   }
   if (!commitExists(repoRoot, baselineSha)) {
     throw new Error(
-      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock rebaseline\``,
+      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock contract rebaseline\``,
     );
   }
 

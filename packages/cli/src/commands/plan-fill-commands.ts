@@ -46,7 +46,7 @@ async function commandFor(
   if (contract.baseline === null) {
     throw new CliError(
       "CONTRACT_NOT_APPROVED",
-      `contract ${contract.id} has no approved git baseline; run scopelock approve first`,
+      `contract ${contract.id} has no approved git baseline; run scopelock contract approve first`,
     );
   }
   return buildAgentCommand(target, renderAgentPrompt(contract, target), { isolationBound });

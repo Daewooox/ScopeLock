@@ -96,7 +96,7 @@ export async function verifyApprovalSeal(
     raw = await readFile(await sealPath(repoRoot, contract.id), "utf8");
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return { ok: false, reason: "missing", detail: "approval seal is missing; run scopelock rebaseline" };
+      return { ok: false, reason: "missing", detail: "approval seal is missing; run scopelock contract rebaseline" };
     }
     return { ok: false, reason: "invalid", detail: error instanceof Error ? error.message : String(error) };
   }

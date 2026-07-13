@@ -103,7 +103,7 @@ export async function doctorCommand(): Promise<CommandResult> {
           "active-contract",
           "warn",
           "no active approved contract",
-          "approve a contract with `scopelock approve <file>`",
+          "approve a contract with `scopelock contract approve <file>`",
         ),
       );
     } else {
@@ -116,7 +116,7 @@ export async function doctorCommand(): Promise<CommandResult> {
               "active-baseline",
               "error",
               "active contract has no baseline",
-              "re-approve the contract with `scopelock approve <file>`",
+              "re-approve the contract with `scopelock contract approve <file>`",
             ),
           );
         } else if (root === null) {

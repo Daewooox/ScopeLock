@@ -333,6 +333,11 @@ describe("plan-parallel", () => {
       assert.equal(body.status, "ok");
       assert.deepEqual(body.data.waves, [["t1", "t2"]]);
       assert.deepEqual(body.data.conflicts, []);
+
+      const human = runCli(dir, ["plan", "schedule", "plan.json"]);
+      assert.equal(human.status, 0);
+      assert.match(human.stdout, /stage 1: \[t1, t2\]/);
+      assert.doesNotMatch(human.stdout, /wave 1:/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
