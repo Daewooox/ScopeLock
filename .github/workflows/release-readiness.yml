@@ -33,6 +33,7 @@ jobs:
           name: npm-tarballs
           path: .release-artifacts/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 7
 
   install-smoke:
@@ -93,4 +94,5 @@ jobs:
           name: release-evidence
           path: .release-artifacts/release-evidence.json
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 30
