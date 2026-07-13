@@ -15,9 +15,15 @@ function option(name, fallback) {
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", timeout: 120_000 });
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed\n${result.stdout}${result.stderr}`);
+    throw new Error(`${command} ${args.join(" ")} failed\n${result.error ?? ""}\n${result.stdout ?? ""}${result.stderr ?? ""}`);
   }
   return result.stdout;
+}
+
+function npmInvocation(args) {
+  if (process.platform !== "win32") return { command: "npm", args };
+  const npmCli = resolve(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js");
+  return { command: process.execPath, args: [npmCli, ...args] };
 }
 
 async function probeMcp(entrypoint, cwd) {
@@ -58,12 +64,8 @@ const tempRoot = await mkdtemp(resolve(tmpdir(), "scopelock-release-smoke-"));
 try {
   await writeFile(resolve(tempRoot, "package.json"), '{"private":true,"type":"module"}\n');
   const tarballs = manifest.packages.map((pkg) => resolve(artifactsDir, pkg.filename));
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  run(
-    npm,
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", ...tarballs],
-    tempRoot,
-  );
+  const projectInstall = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", ...tarballs]);
+  run(projectInstall.command, projectInstall.args, tempRoot);
 
   run(
     process.execPath,
@@ -80,21 +82,21 @@ try {
   await probeMcp(mcp, fixture);
 
   const globalPrefix = resolve(tempRoot, "global");
-  run(
-    npm,
-    ["install", "--global", "--prefix", globalPrefix, "--ignore-scripts", "--no-audit", "--no-fund", ...tarballs],
-    tempRoot,
-  );
+  const globalInstall = npmInvocation([
+    "install", "--global", "--prefix", globalPrefix, "--ignore-scripts", "--no-audit", "--no-fund", ...tarballs,
+  ]);
+  run(globalInstall.command, globalInstall.args, tempRoot);
   const globalModules =
     process.platform === "win32" ? resolve(globalPrefix, "node_modules") : join(globalPrefix, "lib", "node_modules");
   const globalCli = resolve(globalModules, "@scopelock/cli/dist/index.js");
   assertIncludes(run(process.execPath, [globalCli, "--help"], tempRoot), "Local guardrails");
+  const npmVersion = npmInvocation(["--version"]);
 
   const result = {
     schemaVersion: 1,
     platform: process.platform,
     node: process.version,
-    npm: run(npm, ["--version"], tempRoot).trim(),
+    npm: run(npmVersion.command, npmVersion.args, tempRoot).trim(),
     version: manifest.version,
     installModes: ["project", "global-prefix"],
     status: "passed",
