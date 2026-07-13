@@ -65,7 +65,7 @@ export async function checkDriftCommand(options: {
   if (activeId === null) {
     throw new CliError(
       "NO_ACTIVE_CONTRACT",
-      "no active approved contract; approve one with `scopelock approve <file>`",
+      "no active approved contract; approve one with `scopelock contract approve <file>`",
     );
   }
 
@@ -78,7 +78,7 @@ export async function checkDriftCommand(options: {
   if (baselineSha === null) {
     throw new CliError(
       "NO_BASELINE",
-      "active contract has no baseline; approve it with `scopelock approve <file>`",
+      "active contract has no baseline; approve it with `scopelock contract approve <file>`",
     );
   }
 
@@ -88,7 +88,7 @@ export async function checkDriftCommand(options: {
   if (!commitExists(root, baselineSha)) {
     throw new CliError(
       "BASELINE_NOT_FOUND",
-      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock rebaseline\` to re-anchor it to the current commit`,
+      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock contract rebaseline\` to re-anchor it to the current commit`,
     );
   }
 

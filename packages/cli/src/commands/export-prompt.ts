@@ -25,7 +25,7 @@ export async function exportPromptCommand(options: {
   if (activeId === null) {
     throw new CliError(
       "NO_ACTIVE_CONTRACT",
-      "no active approved contract; approve one with `scopelock approve <file>`",
+      "no active approved contract; approve one with `scopelock contract approve <file>`",
     );
   }
 

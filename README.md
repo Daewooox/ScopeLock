@@ -85,29 +85,46 @@ You can now run `scopelock --help`. To avoid a global link, replace
 
 ## Basic workflow
 
+### Guard one agent
+
 ```bash
-# Initialize ScopeLock in your repository
 scopelock init
 
-# Describe and approve the task boundary
+# Describe the task boundary, then approve its current git baseline
 scopelock contract new \
   --task "Add a dark mode toggle" \
   --planned "src/ui/**" \
   --forbidden "src/auth/**" \
   --out dark-mode.json
-scopelock approve dark-mode.json
+scopelock contract approve dark-mode.json
 
 # Give the contract to an agent and enable enforcement
-scopelock inject-contract --target claude
+scopelock contract inject --target claude
 scopelock hooks install --target claude --mode strict
 
 # Verify the finished work
 scopelock check-drift
 ```
 
-When you dispatch a multi-task plan with `scopelock run`, the command prints
-the receipt path and the exact `scopelock report --open ...` command to inspect
-it in a browser.
+### Coordinate several agents
+
+```bash
+# Find conflicts and build safe execution stages
+scopelock plan schedule plan.json --include-read-hazards
+
+# Add explicit agent commands to a separate, reviewable plan
+scopelock plan compose plan.json --target claude --out ready-plan.json
+
+# Run each task in an isolated worktree and promote only approved patches
+scopelock run ready-plan.json --yes --isolate --receipt receipt.json
+
+# Inspect the evidence in a standalone local report
+scopelock report receipt.json --open
+```
+
+Nothing is silently approved or executed. `plan compose` creates a file you
+can review, and `run` still requires `--yes`. The command prints the receipt
+path and the exact report command when it finishes.
 
 ## Agent support
 
@@ -115,7 +132,7 @@ it in a browser.
 |---|---:|---:|---|
 | Claude Code | Yes | Yes | Pre-write deny in strict mode |
 | Codex | Yes | Yes | Deny when the project hook is live-verified |
-| Cursor | Yes | Yes | Post-edit audit |
+| Cursor | Yes | Yes | Isolated patch gate; hooks remain audit-only |
 
 ScopeLock reports enforcement confidence honestly. A configured hook is not
 called `live-verified` until an explicit harness probe confirms it for the

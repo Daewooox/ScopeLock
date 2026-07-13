@@ -59,7 +59,7 @@ you find in git history of this file as the current scope - it wasn't kept in
 sync. To see what's actually approved right now, run:
 
 ```bash
-node packages/cli/dist/index.js export-prompt --target codex
+node packages/cli/dist/index.js contract export --target codex
 ```
 
 or read `.scopelock/active` (the active contract id) and

@@ -17,7 +17,7 @@ function slugify(input: string): string {
 
 /**
  * Deterministic contract scaffolder: no LLM. Emits a schema-valid draft
- * contract (baseline is stamped later by `scopelock approve`). Prints JSON to
+ * contract (baseline is stamped later by `scopelock contract approve`). Prints JSON to
  * stdout by default so it is pipeable (`scopelock contract new ... > c.json`),
  * or writes a file with --out.
  */
@@ -70,7 +70,7 @@ export async function contractNewCommand(options: {
     await writeJsonAtomic(outPath, contract);
     return {
       data: { contract, path: outPath },
-      human: `wrote draft contract ${id} to ${outPath}\nnext: scopelock approve ${options.out}`,
+      human: `wrote draft contract ${id} to ${outPath}\nnext: scopelock contract approve ${options.out}`,
       exitCode: 0,
     };
   }

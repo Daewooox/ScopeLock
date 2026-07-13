@@ -607,7 +607,7 @@ export async function commitIntegrationWave(input: {
       "user.email=scopelock@localhost",
       "commit",
       "-qm",
-      `scopelock: accept wave ${input.waveIndex}`,
+      `scopelock: accept stage ${input.waveIndex}`,
     ],
     input.worktree.path,
     { timeoutMs: input.timeoutMs },

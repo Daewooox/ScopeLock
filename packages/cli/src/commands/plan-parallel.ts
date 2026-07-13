@@ -61,7 +61,7 @@ function humanReport(
       ...cycles.map((group) => `  stuck group: [${group.join(", ")}]`),
     );
   }
-  lines.push(...waves.map((wave, index) => `wave ${index + 1}: [${wave.join(", ")}]`));
+  lines.push(...waves.map((wave, index) => `stage ${index + 1}: [${wave.join(", ")}]`));
   if (conflicts.length > 0) {
     lines.push("conflicts:", ...conflicts.map(humanConflict));
   }

@@ -11,22 +11,37 @@ your installed version.
 | `scopelock init` | Create `.scopelock/` config, contracts, and reports. |
 | `scopelock doctor` | Check git, Node, config, the active contract, and hooks. |
 | `scopelock contract new` | Create a schema-valid draft contract without an LLM. |
-| `scopelock approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it the active contract. |
-| `scopelock rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
-| `scopelock export-prompt --target <id>` | Print the active contract as agent instructions. |
-| `scopelock inject-contract --target <id>` | Inject the contract into `AGENTS.md` or `CLAUDE.md`. |
+| `scopelock contract approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it active. |
+| `scopelock contract rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
+| `scopelock contract export --target <id>` | Print the active contract as agent instructions. |
+| `scopelock contract inject --target <id>` | Put the contract in `AGENTS.md` or `CLAUDE.md`. |
 | `scopelock hooks install --target <id>` | Add ScopeLock entries to an agent's hook config. |
 | `scopelock hooks uninstall --target <id>` | Remove only ScopeLock-owned hook entries. |
 | `scopelock hooks verify --target codex` | Run a harmless live hook probe without disabling sandbox protections. |
 | `scopelock check-drift` | Compare repository changes with the approved contract. |
 | `scopelock manifest` | Build a metadata-only manifest from tracked git files. |
-| `scopelock plan-parallel <plan.json>` | Detect conflicts and build a safe task schedule. |
-| `scopelock plan fill-commands <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans are isolation-required. |
+| `scopelock plan schedule <plan.json>` | Detect conflicts and build safe execution stages. |
+| `scopelock plan compose <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans require isolation. |
 | `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
-| `scopelock run --plan <plan.json>` | Dispatch an approved plan and write a bounded receipt. |
+| `scopelock run <plan.json>` | Dispatch a reviewed plan and write a bounded receipt. |
 | `scopelock report <receipt> --open` | Render a standalone local HTML Flight Report. |
 
 `--json` is available on every command for machine-readable output.
+
+### Legacy aliases
+
+Older scripts remain compatible for this release. The aliases below are
+hidden from root help so new users see one coherent command model:
+
+| Legacy | Canonical |
+|---|---|
+| `approve` | `contract approve` |
+| `rebaseline` | `contract rebaseline` |
+| `export-prompt` | `contract export` |
+| `inject-contract` | `contract inject` |
+| `plan-parallel` | `plan schedule` |
+| `plan fill-commands` | `plan compose` |
+| `run --plan plan.json` | `run plan.json` |
 
 ## Exit codes
 
@@ -41,8 +56,8 @@ your installed version.
 - `warn` is the default. Violations are written to
   `.scopelock/reports/audit.ndjson` but do not block the agent.
 - `strict` blocks supported out-of-scope edits. Claude Code supports pre-write
-  deny. Codex deny requires a live-verified project hook. Cursor remains an
-  audit integration.
+  deny. Codex deny requires a live-verified project hook. Cursor hooks remain
+  audit-only; isolated runs add a separate validate-before-promote patch gate.
 
 ## Agent environment preflight
 
@@ -69,7 +84,7 @@ reproducible manifest and both a passing and a failing run.
 
 ## Parallel planning
 
-By default `plan-parallel` detects write-write conflicts between task scopes.
+By default `plan schedule` detects write-write conflicts between task scopes.
 Use `--include-read-hazards` to also order a writer before tasks that declare
 the same path as a read dependency.
 
@@ -79,7 +94,7 @@ reports the involved tasks instead of inventing an unsafe order. See
 
 ## Plan execution and receipts
 
-`scopelock run --plan <plan.json>` is a thin dispatcher, not a generic agent
+`scopelock run <plan.json>` is a thin dispatcher, not a generic agent
 runtime. Plans containing commands require `--yes`; string shell commands also
 require `--allow-shell`.
 
@@ -87,14 +102,14 @@ Compose agent commands into a separate reviewable plan before dispatch:
 
 ```bash
 scopelock hooks install --target claude --mode strict
-scopelock plan fill-commands plan.json --target claude --out enriched-plan.json
-scopelock run --plan enriched-plan.json --yes
+scopelock plan compose plan.json --target claude --out enriched-plan.json
+scopelock run enriched-plan.json --yes
 ```
 
 For stronger workspace containment, add `--isolate`:
 
 ```bash
-scopelock run --plan enriched-plan.json --yes --isolate --receipt receipt.json
+scopelock run enriched-plan.json --yes --isolate --receipt receipt.json
 ```
 
 Each task runs in its own detached Git worktree. ScopeLock accepts only a
@@ -117,7 +132,7 @@ This is Git-workspace containment, not an OS sandbox. A command with ambient
 user permissions can still write through an absolute path outside its
 worktree. Keep harness-native sandboxes enabled and do not run untrusted plans.
 
-By default, `fill-commands` preserves tasks that already have a command. Use
+By default, `plan compose` preserves tasks that already have a command. Use
 `--force` to replace them. It always generates an argv array, never a shell
 string. Generated Claude invocations use `dontAsk`, disable session persistence,
 allow only file read/edit tools, and explicitly deny Bash. Put deterministic
@@ -126,11 +141,11 @@ pre-write scope enforcement; without it, only the final drift check remains.
 Cursor composition is available only as an isolation-bound plan:
 
 ```bash
-scopelock plan fill-commands plan.json --target cursor --out cursor-plan.json
-scopelock run --plan cursor-plan.json --yes --isolate --receipt receipt.json
+scopelock plan compose plan.json --target cursor --out cursor-plan.json
+scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
-`fill-commands --target cursor` always writes
+`plan compose --target cursor` always writes
 `execution.isolation = "required"`. Running that file without `--isolate`
 fails with `PLAN_REQUIRES_ISOLATION`; `--yes` and `--allow-shell` cannot bypass
 the requirement. The generated argv keeps Cursor's sandbox enabled. ScopeLock
@@ -148,7 +163,7 @@ Other `run` options:
 - `--no-read-hazards` schedules using only write-write conflicts (F1),
   ignoring each contract's `readPathPatterns` (F2).
 - `--no-defer-write-conflicts` runs write-write conflicts instead of deferring
-  one side to a later wave.
+  one side to a later execution stage.
 
 Receipts contain bounded, redacted previews by default. Raw redacted output is
 written only when `--store-raw-output` is explicitly enabled.

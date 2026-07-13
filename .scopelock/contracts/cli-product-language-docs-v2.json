@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "cli-product-language-docs-v2",
+  "task": "Refresh product and technical documentation",
+  "createdAt": "2026-07-13T00:05:35.352Z",
+  "baseline": {
+    "headSha": "537895f8187246be88b046a7e10d14ee0453d7f8",
+    "branch": "feature/cli-product-language",
+    "capturedAt": "2026-07-13T00:05:35.448Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "AGENTS.md",
+      "THREAT-MODEL.md",
+      "docs/**",
+      "examples/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

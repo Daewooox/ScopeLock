@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "cli-product-language-c3",
+  "task": "Align user-facing guidance and stage terminology",
+  "createdAt": "2026-07-13T00:07:44.587Z",
+  "baseline": {
+    "headSha": "12edbbd08bf234d53353c38ba9cf36fcf526272d",
+    "branch": "feature/cli-product-language",
+    "capturedAt": "2026-07-13T00:07:44.681Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/check-drift.ts",
+      "packages/cli/src/commands/contract-new.ts",
+      "packages/cli/src/commands/doctor.ts",
+      "packages/cli/src/commands/export-prompt.ts",
+      "packages/cli/src/commands/inject-contract.ts",
+      "packages/cli/src/commands/plan-fill-commands.ts",
+      "packages/cli/src/commands/plan-parallel.ts",
+      "packages/cli/src/commands/rebaseline.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/core/src/storage/seal.ts",
+      "packages/core/src/git/worktree.ts",
+      "packages/mcp/src/tools.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

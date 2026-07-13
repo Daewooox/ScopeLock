@@ -6,7 +6,7 @@ concurrent agents step on each other: two of them touch the same file, one's
 half-finished edit corrupts the other's context, and you end up debugging a
 merge conflict instead of reviewing two clean diffs.
 
-ScopeLock's scheduler (`scopelock plan-parallel`) removes the guesswork: it
+ScopeLock's scheduler (`scopelock plan schedule`) removes the guesswork: it
 takes each subtask's approved **scope contract** (the same contract you'd
 use for a single agent) and computes, deterministically and without an LLM,
 which subtasks can safely run at the same time and which must wait. "Safely"
@@ -60,10 +60,10 @@ the current git baseline into the contract, so `check-drift` in Step 5 has
 something to diff against):
 
 ```bash
-scopelock approve t1-core.json --json
-scopelock approve t2-cli.json --json
-scopelock approve t3-docs.json --json
-scopelock approve t4-tests.json --json
+scopelock contract approve t1-core.json --json
+scopelock contract approve t2-cli.json --json
+scopelock contract approve t3-docs.json --json
+scopelock contract approve t4-tests.json --json
 ```
 
 Real output for the first approve:
@@ -79,7 +79,7 @@ Each `approve` (without `--no-activate`) makes its contract the single
 
 `plan.json` follows `schedulePlanSchema`: a flat list of `{ id, contract }`
 pairs. `contract` paths resolve **relative to the current working
-directory** (the same convention `approve <file>` uses), not relative to
+directory** (the same convention `contract approve <file>` uses), not relative to
 `plan.json`'s own location:
 
 ```json
@@ -97,35 +97,36 @@ directory** (the same convention `approve <file>` uses), not relative to
 
 ## Step 3 - compute the schedule
 
-By default `plan-parallel` only looks at **write-write** conflicts (mode
+By default `plan schedule` only looks at **write-write** conflicts (mode
 F1). It ignores read scopes entirely unless you pass
 `--include-read-hazards` (mode F2):
 
 ```bash
-scopelock plan-parallel plan.json
+scopelock plan schedule plan.json
 ```
 
 Real output:
 
 ```
 plan parallel-workflow-example
-wave 1: [t1-core, t2-cli, t3-docs, t4-tests]
+stage 1: [t1-core, t2-cli, t3-docs, t4-tests]
 ```
 
 All four subtasks have disjoint *write* scopes, so F1 puts all of them in
-one wave - it has no notion of `t4-tests` reading from `t1-core`'s output.
+one execution stage - it has no notion of `t4-tests` reading from
+`t1-core`'s output.
 Now the same plan with read hazards turned on:
 
 ```bash
-scopelock plan-parallel plan.json --include-read-hazards
+scopelock plan schedule plan.json --include-read-hazards
 ```
 
 Real output:
 
 ```
 plan parallel-workflow-example
-wave 1: [t1-core, t2-cli, t3-docs]
-wave 2: [t4-tests]
+stage 1: [t1-core, t2-cli, t3-docs]
+stage 2: [t4-tests]
 conflicts:
   t1-core x t4-tests [read-write]: packages/core/src/schedule
 ```
@@ -138,10 +139,9 @@ And the `--json` form (this is what you'd script against):
 
 ### Reading the output
 
-- **Wave**: a batch of task ids that can run at the same time. Waves run in
-  order - everything in wave 1 finishes (or at least commits its writes)
-  before wave 2 starts.
-- **Conflict**: a pairwise reason two tasks couldn't share a wave.
+- **Execution stage**: a batch of task ids that can run at the same time.
+  Stages run in order: everything in stage 1 finishes before stage 2 starts.
+- **Conflict**: a pairwise reason two tasks could not share a stage.
   `kind` is `"write-write"` (both would write overlapping paths - a hard
   mutual-exclusion) or `"read-write"` (one writes what the other reads - an
   ordering constraint, only checked with `--include-read-hazards`).
@@ -152,7 +152,7 @@ And the `--json` form (this is what you'd script against):
   explainable instead of just "trust the scheduler."
 - **`--include-read-hazards`**: opt-in. Without it, only write-write
   conflicts are considered (F1) - the read/write ordering constraint above
-  simply isn't checked, and everything ends up in one wave. This is the
+  simply isn't checked, and everything ends up in one stage. This is the
   right default when you don't care about read staleness (e.g. independent
   features); turn it on when a subtask's correctness depends on another's
   output already existing.
@@ -167,7 +167,7 @@ read-write cycle. Built the same way as above (`t5-cycle-a` writes
 `src/a.ts` and reads `src/b.ts`; `t5-cycle-b` is the mirror image):
 
 ```bash
-scopelock plan-parallel cycle-plan.json --include-read-hazards
+scopelock plan schedule cycle-plan.json --include-read-hazards
 ```
 
 Real output:
@@ -215,74 +215,22 @@ cycle back the other way).
 | `1` | unschedulable - `cycles` is non-empty; see Step 3b |
 | `2` | bad input - missing/invalid plan file, missing/invalid contract file, duplicate task ids |
 
-## Step 4 - hand each wave's tasks to their agents
+## Step 4 - compose, review, and run
 
-`export-prompt` and `inject-contract` only ever act on the single **active**
-contract (the one your last `approve` call activated, or whichever contract
-you've pointed `.scopelock/active` at) - there's currently no
-`--contract <id>` flag to target a specific one directly. In practice, for
-each task in the wave you're about to launch, `approve` (or otherwise
-activate) that task's contract right before generating its prompt:
+ScopeLock renders every approved task contract into an explicit agent argv
+command and writes a separate plan for review. The original plan is unchanged:
 
 ```bash
-scopelock export-prompt --target codex
-```
-
-Real output (for `t1-core`, right after approving it):
-
-```
-# ScopeLock Contract: t1-core
-
-Target: Codex CLI
-
-## Task
-Parallel-workflow example: core scheduler tweaks
-
-## Approved Scope
-- packages/core/src/schedule/**
-
-## Forbidden
-- No explicit forbidden path patterns.
-
-## Required Tests
-- No explicit test requirement.
-
-## Assumptions
-- No recorded assumptions.
-
-## Open Questions
-- No open questions.
-
-## Final Instruction
-Stay inside the approved scope, run the required tests when relevant, and stop to ask when the change appears to require forbidden or unapproved files.
-```
-
-`inject-contract --target <id>` does the same, but writes the block into
-`AGENTS.md`/`CLAUDE.md` (wrapped in `<!-- SCOPELOCK CONTRACT BEGIN/END -->`
-markers) instead of printing it - useful when the target harness reads its
-instructions from a file rather than stdin. Hand this contract to that
-task's agent (as a prompt, or by pointing it at the injected doc file), then
-move to the next task in the wave and repeat.
-
-Wave 1 has three tasks (`t1-core`, `t2-cli`, `t3-docs`) with disjoint
-scopes - by construction (Step 3), none of their agents can collide even
-running fully concurrently. Only start wave 2 (`t4-tests`) once wave 1's
-writes have actually landed, since `t4-tests` reads them.
-
-For a headless Codex workflow, ScopeLock can compose each task's contract into
-an explicit argv command and write a separate plan for review:
-
-```bash
-scopelock plan fill-commands plan.json --target codex --out enriched-plan.json
-scopelock run --plan enriched-plan.json --yes
+scopelock plan compose plan.json --target codex --out enriched-plan.json
+scopelock run enriched-plan.json --yes
 ```
 
 To prevent an agent's rejected workspace changes from touching the repository
 you are using, run the same reviewable plan in isolated mode:
 
 ```bash
-scopelock run --plan enriched-plan.json --yes --isolate --receipt receipt.json
-scopelock report --open receipt.json
+scopelock run enriched-plan.json --yes --isolate --receipt receipt.json
+scopelock report receipt.json --open
 ```
 
 ScopeLock creates one temporary task worktree per runnable task. Accepted
@@ -295,8 +243,8 @@ aggregate patch to the user tree and records the result in receipt v5.
 For Cursor, composition is deliberately bound to isolated execution:
 
 ```bash
-scopelock plan fill-commands plan.json --target cursor --out cursor-plan.json
-scopelock run --plan cursor-plan.json --yes --isolate --receipt receipt.json
+scopelock plan compose plan.json --target cursor --out cursor-plan.json
+scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
 The generated file contains `execution.isolation = "required"`, so a later
@@ -308,6 +256,12 @@ still inherits the strongest requirement and must run isolated.
 Existing commands are preserved unless `--force` is passed. The original plan
 is not changed, and `run` still executes only the commands visible in the
 enriched file.
+
+For a manual single-agent handoff, `contract export --target <id>` prints the
+active contract as a prompt and `contract inject --target <id>` writes it to
+the target instruction file. Multi-task plans should normally use
+`plan compose`, which resolves each task's own approved contract without
+repeatedly switching the active contract.
 
 ## Step 5 - verify after the fact
 
@@ -344,18 +298,18 @@ them in parallel doesn't need a different verification step, just one
 
 ## Safety invariant
 
-Within a single wave, every pair of tasks is guaranteed to have
+Within a single execution stage, every pair of tasks is guaranteed to have
 **non-intersecting write scopes** - that's the entire mechanism, not a
-side effect. `plan-parallel` builds a conflict graph from pairwise glob
-intersection and colors it so that no two same-colored (same-wave) tasks
-share an edge; the coloring is what produces the wave partition in the
+side effect. `plan schedule` builds a conflict graph from pairwise glob
+intersection and colors it so that no two same-colored tasks share an edge;
+the coloring is what produces the stage partition in the
 first place. This was measured directly, not just asserted, in the M4
 mini-experiment (`memory-bank/plans/orchestration-m4-experiment.md`): H1
-(0 write-collisions within any wave) and H4 (the kill-criterion - two
-agents writing one file in the same wave - never fired) both passed on a
+(0 write-collisions within any stage) and H4 (the kill-criterion - two
+agents writing one file in the same stage - never fired) both passed on a
 real scenario.
 
-Just as important: every witness path `plan-parallel` reports is verified
+Just as important: every witness path `plan schedule` reports is verified
 against **`picomatch`** - the exact same glob matcher the runtime hook gate
 (`scopelock hook gate`, wired into Claude Code's `PreToolUse` / Cursor's
 `afterFileEdit`) uses to allow or deny a live edit. There's no separate
@@ -364,12 +318,9 @@ enforced at runtime - if the scheduler says two globs intersect at path X,
 `hook gate` will match X against both the same way. The scheduler's
 guarantee and the runtime backstop are drawing from the same ground truth.
 
-## What this doesn't cover (yet)
+## What this does not cover
 
-- **Real multi-agent timing.** The `orchestration-m5-validation.md` H3
-  measurement is a proxy (synthetic per-task delay), not actual agents. A
-  live multi-agent timed run is future work.
-- **Equivalent pre-write denial for every harness.** `plan fill-commands`
+- **Equivalent pre-write denial for every harness.** `plan compose`
   supports Codex, a restricted live-verified Claude Code profile, and Cursor
   only through an isolation-required plan. Cursor remains audit-only at hook
   time; its complete worktree patch is validated before promotion instead.
