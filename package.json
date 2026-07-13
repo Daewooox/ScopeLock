@@ -13,7 +13,10 @@
     "demo:flight-control": "pnpm build && node benchmarks/coordination/run-flight-control-demo.mjs",
     "demo:pilot": "pnpm build && node benchmarks/coordination/run-pilot-demo.mjs",
     "demo:wallet": "pnpm build && node benchmarks/coordination/run-wallet-demo.mjs",
-    "benchmark:receipt": "pnpm build && node benchmarks/coordination/run-codex-real-agent-benchmark.mjs --runs 3 --modes scopelock_run --output-dir .scopelock/reports/receipt-baseline"
+    "benchmark:receipt": "pnpm build && node benchmarks/coordination/run-codex-real-agent-benchmark.mjs --runs 3 --modes scopelock_run --output-dir .scopelock/reports/receipt-baseline",
+    "release:pack": "node scripts/release/pack.mjs",
+    "release:smoke": "node scripts/release/smoke-packed.mjs",
+    "release:evidence": "node scripts/release/generate-evidence.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

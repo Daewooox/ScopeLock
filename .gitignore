@@ -16,5 +16,8 @@ dist/
 # for a public audience, kept locally only. See AGENTS.md.
 memory-bank/
 
+# Reproducible local release output; CI uploads it as an artifact.
+.release-artifacts/
+
 # Local, machine-specific Claude Code permission overrides.
 .claude/settings.local.json

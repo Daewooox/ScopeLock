@@ -1,6 +1,6 @@
 {
   "name": "@scopelock/core",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "description": "Deterministic core for ScopeLock: contract/drift schemas, git-driven drift engine, and rule-based hook gate.",
   "license": "MIT",
   "type": "module",
@@ -16,21 +16,10 @@
     }
   },
   "files": [
-    "dist/agents",
-    "dist/drift",
-    "dist/format.d.ts",
-    "dist/format.js",
-    "dist/git",
-    "dist/harness",
-    "dist/hook",
-    "dist/index.d.ts",
-    "dist/index.js",
-    "dist/manifest",
-    "dist/render",
-    "dist/rules",
-    "dist/schedule",
-    "dist/schemas",
-    "dist/storage"
+    "dist/**/*.d.ts",
+    "dist/**/*.js",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.js"
   ],
   "repository": {
     "type": "git",
@@ -38,7 +27,8 @@
     "directory": "packages/core"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "beta"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
