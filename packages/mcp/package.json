@@ -1,6 +1,6 @@
 {
   "name": "@scopelock/mcp",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "description": "MCP stdio server for ScopeLock's narrow planning and drift-verification tools.",
   "license": "MIT",
   "type": "module",
@@ -30,7 +30,8 @@
     "directory": "packages/mcp"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "beta"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

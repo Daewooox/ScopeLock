@@ -1,6 +1,6 @@
 {
   "name": "@scopelock/cli",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "description": "Local guardrails for AI coding agents: approve a scope contract, export prompts, and enforce it with drift checks and editor hooks.",
   "license": "MIT",
   "type": "module",
@@ -11,9 +11,14 @@
     "scopelock": "./dist/index.js"
   },
   "files": [
-    "dist/*.d.ts",
-    "dist/*.js",
-    "dist/commands",
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/process-tree.d.ts",
+    "dist/process-tree.js",
+    "dist/run.d.ts",
+    "dist/run.js",
+    "dist/ui.d.ts",
+    "dist/ui.js",
     "dist/commands/*.d.ts",
     "dist/commands/*.js"
   ],
@@ -23,7 +28,8 @@
     "directory": "packages/cli"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "beta"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

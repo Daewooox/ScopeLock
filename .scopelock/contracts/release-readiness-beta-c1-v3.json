@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "release-readiness-beta-c1-v3",
+  "task": "Prepare self-contained npm release candidate without publishing",
+  "createdAt": "2026-07-13T00:49:43.627Z",
+  "baseline": {
+    "headSha": "e6177e1df60009e8a27677fa8fa60e50f211f25c",
+    "branch": "feature/release-readiness",
+    "capturedAt": "2026-07-13T00:49:43.705Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "packages/*/package.json",
+      "packages/*/LICENSE",
+      "packages/*/README.md",
+      "packages/core/src/index.ts",
+      "packages/core/src/schemas/release-evidence.ts",
+      "packages/core/src/release-evidence.test.ts",
+      "scripts/release/**",
+      ".github/workflows/release-readiness.yml",
+      ".github/workflows/publish-npm.yml",
+      "README.md",
+      "docs/reference.md",
+      "THREAT-MODEL.md",
+      "CHANGELOG.md",
+      "release-evidence/**",
+      ".gitignore"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/**",
+      "packages/mcp/src/**",
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
