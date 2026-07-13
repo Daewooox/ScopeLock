@@ -2,44 +2,44 @@
 
 A reproducible, 4-task example for the guide at
 [`docs/parallel-workflow.md`](../../docs/parallel-workflow.md). The
-contracts here are drafts (`baseline: null`, never `approve`d) scoped to
-real paths in this repo, so `plan-parallel` can run against them directly -
+contracts here are drafts (`baseline: null`, never approved) scoped to real
+paths in this repo, so `plan schedule` can run against them directly -
 no `scopelock init`, no git baseline, no approval step needed.
 
 ## Reproduce in one command
 
 Run from the **repo root** (`plan.json`'s `task.contract` entries are paths
-relative to the current working directory, same as `approve <file>` - they
+relative to the current working directory, same as `contract approve <file>` - they
 are written as `examples/parallel/*.json` here, so this only resolves from
 the root, not from inside this directory):
 
 ```bash
-scopelock plan-parallel examples/parallel/plan.json --include-read-hazards
+scopelock plan schedule examples/parallel/plan.json --include-read-hazards
 ```
 
 Not installed globally? From the repo root:
 
 ```bash
-node packages/cli/dist/index.js plan-parallel examples/parallel/plan.json --include-read-hazards
+node packages/cli/dist/index.js plan schedule examples/parallel/plan.json --include-read-hazards
 ```
 
 Expected output:
 
 ```
 plan parallel-workflow-example
-wave 1: [t1-core, t2-cli, t3-docs]
-wave 2: [t4-tests]
+stage 1: [t1-core, t2-cli, t3-docs]
+stage 2: [t4-tests]
 conflicts:
   t1-core x t4-tests [read-write]: packages/core/src/schedule
 ```
 
 Drop `--include-read-hazards` to see the F1 (write-write only) result
-instead - all four tasks land in a single wave, since none of their
+instead - all four tasks land in a single stage, since none of their
 *write* scopes overlap:
 
 ```
 plan parallel-workflow-example
-wave 1: [t1-core, t2-cli, t3-docs, t4-tests]
+stage 1: [t1-core, t2-cli, t3-docs, t4-tests]
 ```
 
 ## What's here
