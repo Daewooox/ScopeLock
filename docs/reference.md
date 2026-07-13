@@ -233,3 +233,43 @@ machine-specific, so do not commit the local form to a shared repository.
   reports/           # local, gitignored
   active             # local pointer, gitignored
 ```
+
+## Release readiness
+
+The workspace packages share one beta version and are packed together:
+
+```bash
+pnpm release:pack
+pnpm release:smoke
+pnpm release:evidence -- --smoke-dir .release-artifacts
+```
+
+`release:pack` rejects tarballs containing compiled tests or source maps and
+requires a package README, license, manifest, and runtime entrypoint. It writes
+SHA-256 digests and file counts to `.release-artifacts/pack-manifest.json`.
+`release:smoke` installs all three unpublished tarballs into a clean temporary
+project, imports core, starts the CLI, runs `scopelock init`, and completes an
+MCP initialize handshake.
+
+The `release-readiness` workflow repeats that install on Linux, macOS, and
+Windows and uploads a bounded evidence record. Evidence starts with security
+and approval fields as `pending`; configuration presence is never recorded as
+a passed check.
+
+The `stage npm beta` workflow is manual and cannot reach npm unless all of the
+following are true:
+
+- it runs from `main` and the requested version matches the packed version;
+- CodeQL, gitleaks, tests, dependency audit, pack, and smoke gates pass;
+- repository variable `NPM_PUBLISH_ENABLED` is exactly `true`;
+- confirmation is exactly `stage-<version>`;
+- the protected `npm-production` environment is approved;
+- npm trusts `publish-npm.yml` for this repository/environment through OIDC.
+
+The workflow uses `npm stage publish`, not direct publication. A maintainer
+must review and approve each staged package with npm 2FA before it becomes
+public. npm does not allow staged or trusted publishing for a brand-new
+package, so the first bootstrap publication remains a separate manual gate.
+The `@scopelock` npm scope must also be created and owned by the maintainer;
+the release preflight found no existing scope and no authenticated npm account.
+No package has been published as part of release-readiness work.

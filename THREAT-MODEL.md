@@ -68,6 +68,15 @@
   automatically or from static inspection alone.
 - MCP tools are pinned to the server repository root and reject absolute or
   escaping contract paths.
+- npm release candidates are packed and clean-installed before promotion.
+  The OIDC token permission exists only in the protected staging job; that job
+  also requires `main`, an exact version confirmation, an explicit repository
+  enable flag, and `npm-production` environment approval. It stages packages
+  for a separate npm 2FA review instead of making them public immediately.
+  The first publication cannot use npm trusted/staged publishing because the
+  packages and `@scopelock` scope do not exist yet and therefore remains a
+  separate manual bootstrap risk, never an automated fallback to a long-lived
+  token.
 
 ## Current Release Decision
 

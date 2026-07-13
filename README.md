@@ -138,6 +138,22 @@ ScopeLock reports enforcement confidence honestly. A configured hook is not
 called `live-verified` until an explicit harness probe confirms it for the
 current configuration.
 
+## Capability maturity
+
+| Capability | Current evidence |
+|---|---|
+| Contracts, scheduling, and drift checks | Pilot: cross-platform CI and dogfooded |
+| Claude Code strict hook | Live-verified |
+| Codex hook | Degraded until the current project hook passes a live probe |
+| Cursor hook | Audit-only |
+| Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
+| Receipts and local Flight Report | Pilot |
+| npm distribution | Pending: tarball install CI and manual promotion gates |
+
+`pilot` means implemented and exercised, not a production stability promise.
+See the [release-readiness reference](docs/reference.md#release-readiness) for
+the evidence and publication gates.
+
 ## Documentation
 
 - [CLI and configuration reference](docs/reference.md)
