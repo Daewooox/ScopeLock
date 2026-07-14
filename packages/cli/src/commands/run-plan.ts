@@ -24,6 +24,7 @@ import {
   type CommandSpec,
   type EnforcementMode,
   type ScopeConflict,
+  type SchedulePlanTask,
   type TaskScope,
   getActiveContractId,
   loadContract,
@@ -155,6 +156,7 @@ type TaskRun = {
     outcome:
       | "no-changes"
       | "accepted-integration"
+      | "rejected-no-changes"
       | "rejected-scope"
       | "rejected-unsupported"
       | "rejected-conflict"
@@ -463,7 +465,7 @@ function isolatedEvidence(
 async function runIsolatedTasks(input: {
   cwd: string;
   waves: string[][];
-  byId: Map<string, { id: string; contract: string; command?: CommandSpec }>;
+  byId: Map<string, SchedulePlanTask>;
   deferredSet: Set<string>;
   contracts: Map<string, ApprovedContract>;
   artifactDir: string;
@@ -501,9 +503,9 @@ async function runIsolatedTasks(input: {
       const runnable = wave
         .filter((id) => !input.deferredSet.has(id))
         .map((id) => input.byId.get(id))
-        .filter((task): task is { id: string; contract: string; command?: CommandSpec } => task !== undefined);
+        .filter((task): task is SchedulePlanTask => task !== undefined);
       const created: Array<{
-        task: { id: string; contract: string; command?: CommandSpec };
+        task: SchedulePlanTask;
         worktree: IsolatedWorktree;
       }> = [];
       try {
@@ -595,6 +597,16 @@ async function runIsolatedTasks(input: {
             continue;
           }
           if (prepared.patch === null) {
+            if (execution.task.expectsChanges === true) {
+              const detail = "task exited successfully but produced no Git changes";
+              execution.run.status = "blocked";
+              execution.run.stderr = [execution.run.stderr, detail].filter(Boolean).join("\n");
+              execution.run.isolation = isolatedEvidence(baseSha, null, "rejected-no-changes", [
+                { code: "EXPECTED_CHANGES_MISSING", path: null, detail },
+              ]);
+              taskRuns.push(execution.run);
+              continue;
+            }
             execution.run.isolation = isolatedEvidence(baseSha, null, "no-changes");
             taskRuns.push(execution.run);
             continue;
