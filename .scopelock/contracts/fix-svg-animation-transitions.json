@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-svg-animation-transitions",
+  "task": "Fix README SVG animation timing",
+  "createdAt": "2026-07-14T14:44:18.147Z",
+  "baseline": {
+    "headSha": "7177a31672ba1c3ccfbc1fff0763cc335945b334",
+    "branch": "fix/svg-animation-transitions",
+    "capturedAt": "2026-07-14T14:45:53.444Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "docs/assets/*.svg"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

@@ -1,24 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
   <title id="title">ScopeLock Guided terminal demo</title>
-  <desc id="desc">An animated terminal replay of setup, task start, and task finish. The final frame shows a cleared Flight Report and states that no agent or tests were run.</desc>
+  <desc id="desc">An animated terminal replay of setup, task start, and task finish. The final state shows a cleared Flight Report and states that no agent or tests were run.</desc>
   <style>
     .ui{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0}.mono{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace;letter-spacing:0}
     .text{fill:#e6edf3}.muted{fill:#8b949e}.blue{fill:#79c0ff}.green{fill:#7ee787}.amber{fill:#e3b341}.spinner{fill:none;stroke:#79c0ff;stroke-width:3;stroke-linecap:round;stroke-dasharray:16 10}
-    .frame{opacity:0}.f1{animation:f1 12s infinite}.f2{animation:f2 12s infinite}.f3{animation:f3 12s infinite}.f4{animation:f4 12s infinite}
-    @keyframes f1{0%,16%{opacity:1}18%,100%{opacity:0}}@keyframes f2{0%,16%{opacity:0}18%,42%{opacity:1}44%,100%{opacity:0}}@keyframes f3{0%,42%{opacity:0}44%,68%{opacity:1}70%,100%{opacity:0}}@keyframes f4{0%,68%{opacity:0}70%,97%{opacity:1}100%{opacity:0}}
-    @media (prefers-reduced-motion:reduce){.frame{display:none;animation:none}.frame.last{display:inline;opacity:1}}
+    .animated{opacity:0;animation-duration:8s;animation-timing-function:steps(1,end);animation-iteration-count:infinite}.pending1{animation-name:pending1}.after1{animation-name:after1}.pending2{animation-name:pending2}.after2{animation-name:after2}.pending3{animation-name:pending3}.after3{animation-name:after3}
+    @keyframes pending1{0%,25.25%{opacity:1}25.251%,100%{opacity:0}}@keyframes after1{0%,24.999%{opacity:0}25%,100%{opacity:1}}
+    @keyframes pending2{0%,24.999%{opacity:0}25%,50.25%{opacity:1}50.251%,100%{opacity:0}}@keyframes after2{0%,49.999%{opacity:0}50%,100%{opacity:1}}
+    @keyframes pending3{0%,49.999%{opacity:0}50%,75.25%{opacity:1}75.251%,100%{opacity:0}}@keyframes after3{0%,74.999%{opacity:0}75%,100%{opacity:1}}
+    @media (prefers-reduced-motion:reduce){.animated{animation:none;opacity:0}.final{opacity:1}}
   </style>
-  <defs>
-    <g id="chrome"><rect width="960" height="360" rx="12" fill="#0d1117"/><rect width="960" height="48" rx="12" fill="#161b22"/><circle cx="24" cy="24" r="6" fill="#ff5f56"/><circle cx="46" cy="24" r="6" fill="#ffbd2e"/><circle cx="68" cy="24" r="6" fill="#27c93f"/><text class="ui text" x="92" y="30" font-size="15" font-weight="700">Guided: one protected task</text><text class="ui muted" x="764" y="30" font-size="12">deterministic replay</text></g>
-    <g id="setup-done"><text class="mono blue" x="32" y="82" font-size="14">$ scopelock setup</text><circle cx="42" cy="108" r="10" fill="#238636"/><path d="m37 108 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/><text class="ui text" x="62" y="113" font-size="13">Repository and agent environment checked</text></g>
-    <g id="task-done"><text class="mono blue" x="32" y="154" font-size="14">$ scopelock task start "Update greeting" --agent codex</text><rect x="32" y="166" width="896" height="54" rx="7" fill="#11161d" stroke="#30363d"/><text class="ui green" x="50" y="190" font-size="13" font-weight="700">Boundary approved</text><text class="mono muted" x="50" y="210" font-size="12">may change  src/greeting.js, tests/greeting.test.js</text><text class="ui amber" x="770" y="190" font-size="12">agent started: no</text></g>
-  </defs>
 
-  <g class="frame f1"><use href="#chrome"/><text class="mono blue" x="32" y="82" font-size="14">$ scopelock setup</text><circle class="spinner" cx="42" cy="108" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 108" to="360 42 108" dur=".8s" repeatCount="indefinite"/></circle><text class="ui muted" x="62" y="113" font-size="13">Checking repository and agent environment...</text></g>
+  <rect width="960" height="360" rx="12" fill="#0d1117"/>
+  <rect width="960" height="48" rx="12" fill="#161b22"/>
+  <circle cx="24" cy="24" r="6" fill="#ff5f56"/><circle cx="46" cy="24" r="6" fill="#ffbd2e"/><circle cx="68" cy="24" r="6" fill="#27c93f"/>
+  <text class="ui text" x="92" y="30" font-size="15" font-weight="700">Guided: one protected task</text>
+  <text class="ui muted" x="764" y="30" font-size="12">deterministic replay</text>
+  <text class="mono blue" x="32" y="82" font-size="14">$ scopelock setup</text>
 
-  <g class="frame f2"><use href="#chrome"/><use href="#setup-done"/><text class="mono blue" x="32" y="154" font-size="14">$ scopelock task start "Update greeting" --agent codex</text><circle class="spinner" cx="42" cy="180" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 180" to="360 42 180" dur=".8s" repeatCount="indefinite"/></circle><text class="ui muted" x="62" y="185" font-size="13">Reviewing the task boundary...</text></g>
-
-  <g class="frame f3"><use href="#chrome"/><use href="#setup-done"/><use href="#task-done"/><text class="mono blue" x="32" y="252" font-size="14">$ scopelock task finish --open</text><circle class="spinner" cx="42" cy="278" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 278" to="360 42 278" dur=".8s" repeatCount="indefinite"/></circle><text class="ui muted" x="62" y="283" font-size="13">Checking repository evidence...</text></g>
-
-  <g class="frame f4 last"><use href="#chrome"/><use href="#setup-done"/><use href="#task-done"/><text class="mono blue" x="32" y="252" font-size="14">$ scopelock task finish --open</text><rect x="32" y="264" width="896" height="42" rx="7" fill="#0f2d1d" stroke="#238636"/><circle cx="50" cy="285" r="10" fill="#238636"/><path d="m45 285 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/><text class="ui green" x="70" y="290" font-size="14" font-weight="700">Cleared</text><text class="ui text" x="136" y="290" font-size="13">Flight Report saved</text><text class="ui amber" x="796" y="290" font-size="12">tests run: no</text><line x1="32" y1="326" x2="928" y2="326" stroke="#30363d"/><text class="ui muted" x="32" y="347" font-size="12">Same contracts and reports as Standard. No model or agent executed.</text></g>
+  <g class="animated pending1">
+    <circle class="spinner" cx="42" cy="108" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 108" to="360 42 108" dur=".8s" repeatCount="indefinite"/></circle>
+    <text class="ui muted" x="62" y="113" font-size="13">Checking repository and agent environment...</text>
+  </g>
+  <g class="animated after1 final">
+    <rect x="32" y="94" width="600" height="30" fill="#0d1117"/>
+    <circle cx="42" cy="108" r="10" fill="#238636"/><path d="m37 108 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/>
+    <text class="ui text" x="62" y="113" font-size="13">Repository and agent environment checked</text>
+    <text class="mono blue" x="32" y="154" font-size="14">$ scopelock task start "Update greeting" --agent codex</text>
+  </g>
+  <g class="animated pending2">
+    <circle class="spinner" cx="42" cy="180" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 180" to="360 42 180" dur=".8s" repeatCount="indefinite"/></circle>
+    <text class="ui muted" x="62" y="185" font-size="13">Reviewing the task boundary...</text>
+  </g>
+  <g class="animated after2 final">
+    <rect x="32" y="166" width="896" height="54" rx="7" fill="#11161d" stroke="#30363d"/>
+    <text class="ui green" x="50" y="190" font-size="13" font-weight="700">Boundary approved</text>
+    <text class="mono muted" x="50" y="210" font-size="12">may change  src/greeting.js, tests/greeting.test.js</text>
+    <text class="ui amber" x="770" y="190" font-size="12">agent started: no</text>
+    <text class="mono blue" x="32" y="252" font-size="14">$ scopelock task finish --open</text>
+  </g>
+  <g class="animated pending3">
+    <circle class="spinner" cx="42" cy="278" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 278" to="360 42 278" dur=".8s" repeatCount="indefinite"/></circle>
+    <text class="ui muted" x="62" y="283" font-size="13">Checking repository evidence...</text>
+  </g>
+  <g class="animated after3 final">
+    <rect x="32" y="264" width="896" height="42" rx="7" fill="#0f2d1d" stroke="#238636"/>
+    <circle cx="50" cy="285" r="10" fill="#238636"/><path d="m45 285 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/>
+    <text class="ui green" x="70" y="290" font-size="14" font-weight="700">Cleared</text>
+    <text class="ui text" x="136" y="290" font-size="13">Flight Report saved</text>
+    <text class="ui amber" x="796" y="290" font-size="12">tests run: no</text>
+    <line x1="32" y1="326" x2="928" y2="326" stroke="#30363d"/>
+    <text class="ui muted" x="32" y="347" font-size="12">Same contracts and reports as Standard. No model or agent executed.</text>
+  </g>
 </svg>
