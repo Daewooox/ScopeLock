@@ -184,6 +184,7 @@ describe("storage", () => {
     const paths = scopelockPaths("/repo");
     assert.equal(paths.configPath, join("/repo", ".scopelock", "config.json"));
     assert.equal(paths.contractsDir, join("/repo", ".scopelock", "contracts"));
+    assert.equal(paths.draftsDir, join("/repo", ".scopelock", "drafts"));
     assert.equal(paths.activePath, join("/repo", ".scopelock", "active"));
   });
 

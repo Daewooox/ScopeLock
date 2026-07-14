@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-cli-u3a-task-start-r2",
+  "task": "Complete guided task start with local draft storage",
+  "createdAt": "2026-07-14T11:12:32.650Z",
+  "baseline": {
+    "headSha": "2c7ef3222949c7ddb128fb09ab87e144935aae7e",
+    "branch": "feature/progressive-cli-u3a",
+    "capturedAt": "2026-07-14T11:12:32.759Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/.gitignore",
+      "packages/core/src/storage/paths.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/cli/src/commands/task-start.ts",
+      "packages/cli/src/commands/init.ts",
+      "packages/cli/src/commands/contract-new.ts",
+      "packages/cli/src/commands/approve.ts",
+      "packages/cli/src/commands/inject-contract.ts",
+      "packages/cli/src/prompts.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/reference.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
