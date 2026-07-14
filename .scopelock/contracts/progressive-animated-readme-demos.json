@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-animated-readme-demos",
+  "task": "Add progressive animated README demos",
+  "createdAt": "2026-07-14T14:03:38.660Z",
+  "baseline": {
+    "headSha": "be051282198e1081d1401e750d884e510ba50fa1",
+    "branch": "docs/animated-cli-demos",
+    "capturedAt": "2026-07-14T14:03:38.757Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/assets/**",
+      "CHANGELOG.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

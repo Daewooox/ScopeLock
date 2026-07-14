@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/assets/scopelock-demo.svg" width="960" alt="ScopeLock verifies one guided task and prepares a conflict-aware multi-agent plan">
+  <img src="./docs/assets/scopelock-demo.svg" width="900" alt="Animated ScopeLock Guided terminal replay: setup, task start, and task finish">
 </p>
 
 AI coding agents are fast, but they do not share a reliable understanding of
@@ -54,6 +54,9 @@ scopelock task finish --open
 Approval, instruction injection, and hook installation remain explicit
 decisions. `task finish` checks drift and creates a local Flight Report; it
 does not run the tests named in the contract.
+
+The animation above replays the deterministic demo output. With reduced-motion
+enabled it stays on the completed frame.
 
 ## Try the demo
 
@@ -111,6 +114,10 @@ You can now run `scopelock --help`. To avoid a global link, replace
 
 ## Coordinate several agents
 
+<p align="center">
+  <img src="./docs/assets/scopelock-plan-demo.svg" width="900" alt="Animated ScopeLock Standard terminal replay: prepare a conflict-aware two-stage plan">
+</p>
+
 ```bash
 # Validate approved contracts, order hazards, check the harness, and compile
 # shell-free commands into a separate file
@@ -127,6 +134,9 @@ Review `ready-plan.json` before running it. Nothing is silently approved or
 executed: `plan prepare` never starts an agent, and `run` still requires
 `--yes`. Read hazards are included by default; use `--no-read-hazards` only
 when stale reads are intentionally safe.
+
+For Automation, add `--json` to the preparation and inspection commands. The
+same schemas, exit codes, and artifacts are used without prompts or animation.
 
 ## Agent support
 

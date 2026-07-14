@@ -16,3 +16,5 @@ All notable changes to ScopeLock will be documented here.
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta
   validation protocol.
+- Reduced-motion-aware animated README replays for Guided task verification and
+  Standard multi-agent plan preparation.
