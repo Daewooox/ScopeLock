@@ -11,6 +11,7 @@ import {
   type AgentId,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 type FillCommandsOptions = {
   target: string;
@@ -99,14 +100,32 @@ export async function planFillCommandsCommand(
   const unsupportedLines = unsupported.map(
     (item) => `unsupported ${item.taskId}: ${item.reason}`,
   );
+  const filled = tasks.filter((task, index) => task.command !== plan.tasks[index]?.command).length;
   const human = outputPath === null
     ? [...unsupportedLines, ...(unsupportedLines.length > 0 ? [""] : []), JSON.stringify(enrichedPlan, null, 2)].join("\n")
-    : [
-        `wrote enriched plan: ${outputPath}`,
-        `filled: ${tasks.filter((task, index) => task.command !== plan.tasks[index]?.command).length}`,
-        ...(isolationBound ? ["execution: isolation required"] : []),
-        ...unsupportedLines,
-      ].join("\n");
+    : renderSections([
+        { title: "Context", lines: [`Plan  ${plan.planId}`, `Target  ${target}`] },
+        {
+          title: "Checks",
+          lines: [
+            `${filled} task command${filled === 1 ? "" : "s"} composed`,
+            ...(isolationBound ? ["Isolated execution required"] : []),
+            ...unsupportedLines,
+          ],
+        },
+        {
+          title: "Result",
+          lines: unsupported.length > 0
+            ? `Plan needs attention\nOutput  ${outputPath}`
+            : `Reviewable plan prepared\nOutput  ${outputPath}\nNo agent was started`,
+        },
+        {
+          title: "Next",
+          lines: unsupported.length > 0
+            ? "Resolve unsupported tasks, then compose the plan again"
+            : `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes${isolationBound ? " --isolate" : ""}`,
+        },
+      ]);
 
   return {
     data: { plan: enrichedPlan, outputPath, unsupported },

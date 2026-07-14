@@ -5,6 +5,7 @@ import {
   writeJsonAtomic,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 function slugify(input: string): string {
   const slug = input
@@ -70,7 +71,11 @@ export async function contractNewCommand(options: {
     await writeJsonAtomic(outPath, contract);
     return {
       data: { contract, path: outPath },
-      human: `wrote draft contract ${id} to ${outPath}\nnext: scopelock contract approve ${options.out}`,
+      human: renderSections([
+        { title: "Context", lines: `Task  ${options.task}` },
+        { title: "Result", lines: [`Draft created  ${outPath}`, "Approved       no"] },
+        { title: "Next", lines: `Review it, then run: scopelock contract approve ${JSON.stringify(options.out)}` },
+      ]),
       exitCode: 0,
     };
   }

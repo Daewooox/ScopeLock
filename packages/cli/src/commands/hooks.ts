@@ -16,6 +16,7 @@ import {
   type EnforcementMode,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 /**
  * Absolute `node "<abs>/index.js"` invocation of this very CLI. Used by
@@ -69,9 +70,23 @@ export async function hooksInstallCommand(options: {
 
   return {
     data: { target, mode, path, local: options.local === true },
-    human: `installed ${target} hooks in ${hooksConfigPath(root, target)} (${mode}${
-      options.local === true ? ", local" : ""
-    })${target === "codex" ? "; Codex project hooks still require project trust or --dangerously-bypass-hook-trust" : ""}`,
+    human: renderSections([
+      { title: "Context", lines: `Agent  ${target}` },
+      {
+        title: "Result",
+        lines: [
+          `Hooks installed  ${hooksConfigPath(root, target)}`,
+          `Mode             ${mode}${options.local === true ? ", local" : ""}`,
+          ...(target === "codex" ? ["Confidence       project trust still requires live verification"] : []),
+        ],
+      },
+      {
+        title: "Next",
+        lines: target === "codex"
+          ? "Verify the hook: scopelock hooks verify --target codex"
+          : "Check the environment: scopelock agents preflight --manifest <path>",
+      },
+    ]),
     exitCode: 0,
   };
 }
@@ -90,7 +105,11 @@ export async function hooksUninstallCommand(options: {
   if (activeId !== null) await writeApprovalSeal(root, await loadContract(scopelockPaths(root), activeId));
   return {
     data: { target, path },
-    human: `uninstalled ${target} ScopeLock hooks from ${path}`,
+    human: renderSections([
+      { title: "Context", lines: `Agent  ${target}` },
+      { title: "Result", lines: `ScopeLock hooks removed  ${path}` },
+      { title: "Next", lines: "Check the environment: scopelock agents preflight --manifest <path>" },
+    ]),
     exitCode: 0,
   };
 }

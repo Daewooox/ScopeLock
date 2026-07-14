@@ -55,12 +55,29 @@ describe("public command language", () => {
   it("shows canonical command groups and hides compatibility aliases", () => {
     const help = runCli(process.cwd(), ["--help"]);
     assert.equal(help.status, 0);
-    assert.match(help.stdout, /contract\s+create, approve, and share scope contracts/);
-    assert.match(help.stdout, /plan\s+schedule and compose multi-agent work/);
-    assert.match(help.stdout, /run \[options\] \[plan\]/);
+    assert.match(help.stdout, /Local flight control for AI coding agents/);
+    assert.match(help.stdout, /Start here:\n[\s\S]*Protect one task:\n[\s\S]*Coordinate agents:/);
+    assert.match(help.stdout, /Coordinate agents:\n[\s\S]*Inspect:\n[\s\S]*Advanced:\n[\s\S]*Help:/);
+    assert.match(
+      help.stdout,
+      /Protect one task:\n\s+contract\s+create, approve, and share task boundaries\n\s+check-drift/,
+    );
+    assert.match(help.stdout, /Quick start:\n  scopelock init\n  scopelock doctor/);
+    assert.ok(
+      help.stdout.trimEnd().split("\n").every((line) => line.length <= 80),
+      "root help must fit an 80-column terminal",
+    );
     assert.doesNotMatch(help.stdout, /\n\s+approve \[options\]/);
     assert.doesNotMatch(help.stdout, /\n\s+plan-parallel/);
     assert.doesNotMatch(help.stdout, /\n\s+hook\s/);
+  });
+
+  it("keeps JSON output free of human sections and ANSI", () => {
+    const result = runCli(process.cwd(), ["doctor", "--json"]);
+    assert.ok(result.status === 0 || result.status === 1);
+    assert.doesNotMatch(result.stdout, /\u001b\[/);
+    assert.doesNotMatch(result.stdout, /\nContext\n|\nChecks\n|\nNext\n/);
+    assert.doesNotThrow(() => JSON.parse(result.stdout));
   });
 
   it("keeps legacy commands parseable while exposing canonical equivalents", () => {
@@ -102,7 +119,10 @@ describe("cli end-to-end", () => {
       return;
     }
     try {
-      assert.equal(runCli(dir, ["init"]).status, 0);
+      const initialized = runCli(dir, ["init"]);
+      assert.equal(initialized.status, 0);
+      assert.match(initialized.stdout, /^Context\n[\s\S]*\nResult\n[\s\S]*\nNext\n/);
+      assert.equal(initialized.stdout.match(/^Next$/gm)?.length, 1);
 
       // Write the draft outside the repo so it does not itself count as drift.
       const draftPath = join(tmpdir(), `sl-draft-${Date.now()}.json`);

@@ -11,6 +11,7 @@ import {
   scopelockPaths,
 } from "@scopelock/core";
 import type { CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 type Check = {
   name: string;
@@ -197,14 +198,28 @@ export async function doctorCommand(): Promise<CommandResult> {
   }
 
   const failedErrors = checks.filter((c) => !c.ok && c.severity === "error");
-  const human = checks
+  const checkLines = checks
     .map((c) => {
       const mark = c.ok ? "ok  " : c.severity === "error" ? "FAIL" : "warn";
       const fix = c.fix !== null ? ` -> ${c.fix}` : "";
       const detail = c.detail !== null ? ` (${c.detail})` : "";
       return `${mark} ${c.name}${detail}${fix}`;
     })
-    .join("\n");
+  const human = renderSections([
+    { title: "Checks", lines: checkLines },
+    {
+      title: "Result",
+      lines: failedErrors.length > 0
+        ? `${failedErrors.length} blocking check${failedErrors.length === 1 ? "" : "s"}`
+        : "ScopeLock is ready",
+    },
+    {
+      title: "Next",
+      lines: failedErrors.length > 0
+        ? "Apply the fixes above, then run: scopelock doctor"
+        : "Create a task boundary: scopelock contract new --help",
+    },
+  ]);
 
   return {
     data: { checks },

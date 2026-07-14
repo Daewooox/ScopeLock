@@ -14,6 +14,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 async function loadConfig(paths: ReturnType<typeof scopelockPaths>) {
   try {
@@ -27,12 +28,9 @@ async function loadConfig(paths: ReturnType<typeof scopelockPaths>) {
   }
 }
 
-function humanReport(report: {
+function humanReport(contractId: string, reportPath: string, report: {
   violations: { type: string; message: string }[];
 }) {
-  if (report.violations.length === 0) {
-    return "no drift detected";
-  }
   const byType = new Map<string, string[]>();
   for (const violation of report.violations) {
     byType.set(violation.type, [
@@ -40,12 +38,30 @@ function humanReport(report: {
       violation.message,
     ]);
   }
-  return [...byType.entries()]
+  const violations = [...byType.entries()]
     .map(
       ([type, messages]) =>
         `${type}\n${messages.map((m) => `  - ${m}`).join("\n")}`,
     )
     .join("\n");
+  const clean = report.violations.length === 0;
+  return renderSections([
+    { title: "Context", lines: `Task boundary  ${contractId}` },
+    { title: "Checks", lines: clean ? "No drift detected" : violations },
+    {
+      title: "Result",
+      lines: [
+        clean ? "Cleared" : `Attention required: ${report.violations.length} violation${report.violations.length === 1 ? "" : "s"}`,
+        `Drift report  ${reportPath}`,
+      ],
+    },
+    {
+      title: "Next",
+      lines: clean
+        ? "Review and commit the accepted changes"
+        : "Review the report and revert or approve the unexpected changes",
+    },
+  ]);
 }
 
 export async function checkDriftCommand(options: {
@@ -109,7 +125,7 @@ export async function checkDriftCommand(options: {
 
   return {
     data: { reportPath, report },
-    human: humanReport(report),
+    human: humanReport(activeId, reportPath, report),
     exitCode: report.violations.length > 0 ? 1 : 0,
   };
 }

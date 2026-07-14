@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-cli-u1-pack-smoke-v2",
+  "task": "Update packed smoke for U1 CLI description",
+  "createdAt": "2026-07-14T09:59:36.998Z",
+  "baseline": {
+    "headSha": "d937bad1f243671cd65cc8fd66935ce0b0a15dd6",
+    "branch": "feature/progressive-cli-u1",
+    "capturedAt": "2026-07-14T09:59:37.084Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "scripts/release/smoke-packed.mjs"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

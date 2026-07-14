@@ -8,6 +8,7 @@ import {
   writeJsonAtomic,
 } from "@scopelock/core";
 import type { CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -26,7 +27,11 @@ export async function initCommand(): Promise<CommandResult> {
   if (await exists(paths.configPath)) {
     return {
       data: { dir: paths.dir, created: false },
-      human: `already initialized: ${paths.dir}`,
+      human: renderSections([
+        { title: "Context", lines: `Repository  ${root}` },
+        { title: "Result", lines: `ScopeLock already initialized\nFiles  ${paths.dir}` },
+        { title: "Next", lines: "Check the setup: scopelock doctor" },
+      ]),
       exitCode: 0,
     };
   }
@@ -42,12 +47,17 @@ export async function initCommand(): Promise<CommandResult> {
   await writeFile(paths.gitignorePath, SCOPELOCK_GITIGNORE, "utf8");
 
   const inRepo = findRepoRoot(cwd) !== null;
-  const warning = inRepo
-    ? ""
-    : "\nwarning: not inside a git repository; drift checks need git";
   return {
     data: { dir: paths.dir, created: true, insideGitRepo: inRepo },
-    human: `initialized ${paths.dir}${warning}`,
+    human: renderSections([
+      { title: "Context", lines: `Repository  ${root}` },
+      {
+        title: "Checks",
+        lines: inRepo ? "Git repository  ready" : "Git repository  not found; drift checks need Git",
+      },
+      { title: "Result", lines: `ScopeLock initialized\nFiles  ${paths.dir}` },
+      { title: "Next", lines: "Check the setup: scopelock doctor" },
+    ]),
     exitCode: 0,
   };
 }

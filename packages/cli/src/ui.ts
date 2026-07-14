@@ -32,6 +32,21 @@ export function renderTable(headers: string[], rows: string[][]): string {
   return [line(headers.map((header) => color(header, "dim"))), ...rows.map(line)].join("\n");
 }
 
+export type HumanSection = {
+  title: string;
+  lines: string | string[];
+};
+
+export function renderSections(sections: HumanSection[]): string {
+  return sections
+    .filter((section) => (Array.isArray(section.lines) ? section.lines.length > 0 : section.lines.length > 0))
+    .map((section) => {
+      const lines = Array.isArray(section.lines) ? section.lines : section.lines.split("\n");
+      return [color(section.title, "cyan"), ...lines.map((line) => `  ${line}`)].join("\n");
+    })
+    .join("\n\n");
+}
+
 function stripAnsi(value: string): string {
   return value.replace(/\u001b\[[0-9;]*m/g, "");
 }

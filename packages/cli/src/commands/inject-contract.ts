@@ -12,6 +12,7 @@ import {
 } from "@scopelock/core";
 import type { AgentId } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 async function readExisting(path: string): Promise<string | null> {
   try {
@@ -58,7 +59,11 @@ export async function injectContractCommand(options: {
 
   return {
     data: { target, docFile: harness.docFile, path: docPath },
-    human: `injected ScopeLock contract into ${harness.docFile}`,
+    human: renderSections([
+      { title: "Context", lines: [`Task boundary  ${contract.id}`, `Agent          ${target}`] },
+      { title: "Result", lines: `Instructions updated  ${harness.docFile}` },
+      { title: "Next", lines: "Let the agent work, then verify: scopelock check-drift" },
+    ]),
     exitCode: 0,
   };
 }
