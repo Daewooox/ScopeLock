@@ -34,8 +34,7 @@ function fail(
   return { name, ok: false, severity, detail, fix };
 }
 
-export async function doctorCommand(): Promise<CommandResult> {
-  const cwd = process.cwd();
+export async function doctorCommand(cwd: string = process.cwd()): Promise<CommandResult> {
   const checks: Check[] = [];
 
   const git = gitVersion(cwd);
