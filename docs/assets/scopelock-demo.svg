@@ -1,69 +1,75 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="560" viewBox="0 0 1080 560" role="img" aria-labelledby="title desc">
-  <title id="title">ScopeLock synthetic demo</title>
-  <desc id="desc">ScopeLock checks two AI agent tasks, detects a conflict, builds safe execution stages, blocks a forbidden edit, and writes a flight receipt.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="620" viewBox="0 0 1080 620" role="img" aria-labelledby="title desc">
+  <title id="title">ScopeLock progressive CLI demo</title>
+  <desc id="desc">The Guided flow checks a repository, approves a task boundary, and creates a Flight Report. The Standard flow detects a read-write dependency and writes a two-stage ready plan without starting an agent.</desc>
   <style>
     .ui{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0}
     .mono{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace;letter-spacing:0}
-    .muted{fill:#8b949e}.text{fill:#e6edf3}.blue{fill:#79c0ff}.green{fill:#7ee787}.amber{fill:#e3b341}.red{fill:#ff7b72}
+    .muted{fill:#8b949e}.text{fill:#e6edf3}.blue{fill:#79c0ff}.green{fill:#7ee787}.amber{fill:#e3b341}
   </style>
-  <rect width="1080" height="560" rx="12" fill="#0d1117"/>
+
+  <rect width="1080" height="620" rx="12" fill="#0d1117"/>
   <rect width="1080" height="52" rx="12" fill="#161b22"/>
-  <circle cx="26" cy="26" r="6" fill="#ff5f56"/><circle cx="48" cy="26" r="6" fill="#ffbd2e"/><circle cx="70" cy="26" r="6" fill="#27c93f"/>
-  <text class="ui text" x="94" y="32" font-size="16" font-weight="700">ScopeLock synthetic flight</text>
-  <text class="ui muted" x="895" y="32" font-size="13">local · deterministic</text>
+  <circle cx="26" cy="26" r="6" fill="#ff5f56"/>
+  <circle cx="48" cy="26" r="6" fill="#ffbd2e"/>
+  <circle cx="70" cy="26" r="6" fill="#27c93f"/>
+  <text class="ui text" x="94" y="32" font-size="16" font-weight="700">ScopeLock progressive demo</text>
+  <text class="ui muted" x="846" y="32" font-size="13">local / deterministic</text>
 
-  <text class="ui muted" x="34" y="86" font-size="13" font-weight="700">PLAN</text>
-  <rect x="34" y="102" width="310" height="92" rx="8" fill="#161b22" stroke="#30363d"/>
-  <circle cx="58" cy="128" r="7" fill="#58a6ff"/>
-  <text class="mono text" x="76" y="133" font-size="14">agent-ui</text>
-  <text class="mono muted" x="58" y="160" font-size="13">writes  src/config.json</text>
-  <text class="mono muted" x="58" y="180" font-size="13">writes  src/ui/**</text>
-  <rect x="362" y="102" width="310" height="92" rx="8" fill="#161b22" stroke="#30363d"/>
-  <circle cx="386" cy="128" r="7" fill="#d2a8ff"/>
-  <text class="mono text" x="404" y="133" font-size="14">agent-docs</text>
-  <text class="mono muted" x="386" y="160" font-size="13">reads   src/config.json</text>
-  <text class="mono muted" x="386" y="180" font-size="13">writes  docs/**</text>
-  <rect x="690" y="102" width="356" height="92" rx="8" fill="#161b22" stroke="#30363d"/>
-  <text class="ui text" x="714" y="132" font-size="14" font-weight="700">Protected</text>
-  <text class="mono red" x="714" y="160" font-size="13">forbidden  .github/**</text>
-  <text class="mono muted" x="714" y="180" font-size="13">strict pre-write policy</text>
+  <rect x="30" y="76" width="496" height="350" rx="8" fill="#11161d" stroke="#30363d"/>
+  <text class="ui text" x="54" y="106" font-size="16" font-weight="700">Guided: one protected task</text>
+  <text class="ui muted" x="54" y="128" font-size="12">Three commands, normal ScopeLock artifacts</text>
 
-  <g>
-    <animate attributeName="opacity" values="0;1;1;1;1;0" keyTimes="0;.05;.84;.9;.96;1" dur="12s" repeatCount="indefinite"/>
-    <rect x="34" y="222" width="1012" height="56" rx="8" fill="#1c2128"/>
-    <circle cx="62" cy="250" r="12" fill="#9e6a03"/><text class="ui" x="58" y="255" fill="#fff" font-size="15" font-weight="800">!</text>
-    <text class="ui amber" x="86" y="246" font-size="14" font-weight="700">Read-write hazard detected</text>
-    <text class="mono muted" x="86" y="265" font-size="12">agent-ui must finish before agent-docs reads src/config.json</text>
-  </g>
+  <text class="mono blue" x="54" y="164" font-size="13">$ scopelock setup</text>
+  <rect x="54" y="178" width="448" height="42" rx="6" fill="#0f2d1d" stroke="#238636"/>
+  <text class="ui green" x="70" y="204" font-size="13" font-weight="700">OK</text>
+  <text class="ui text" x="104" y="204" font-size="13">Repository and agent environment checked</text>
 
-  <g>
-    <animate attributeName="opacity" values="0;0;1;1;1;0" keyTimes="0;.18;.23;.84;.96;1" dur="12s" repeatCount="indefinite"/>
-    <text class="ui muted" x="34" y="316" font-size="13" font-weight="700">SAFE EXECUTION</text>
-    <rect x="34" y="332" width="284" height="54" rx="8" fill="#0f2d1d" stroke="#238636"/>
-    <text class="ui green" x="56" y="354" font-size="12" font-weight="700">STAGE 1</text>
-    <text class="mono text" x="56" y="374" font-size="13">agent-ui</text>
-    <path d="M330 359h48" stroke="#8b949e" stroke-width="2"/><path d="m372 353 8 6-8 6" fill="none" stroke="#8b949e" stroke-width="2"/>
-    <rect x="392" y="332" width="284" height="54" rx="8" fill="#0f2d1d" stroke="#238636"/>
-    <text class="ui green" x="414" y="354" font-size="12" font-weight="700">STAGE 2</text>
-    <text class="mono text" x="414" y="374" font-size="13">agent-docs</text>
-    <text class="mono green" x="710" y="364" font-size="13">✓ safe order</text>
-  </g>
+  <text class="mono blue" x="54" y="250" font-size="13">$ scopelock task start "Update greeting"</text>
+  <rect x="54" y="264" width="448" height="70" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text class="ui green" x="70" y="289" font-size="13" font-weight="700">Boundary approved</text>
+  <text class="mono muted" x="70" y="310" font-size="12">may change  src/greeting.js, tests/greeting.test.js</text>
+  <text class="mono amber" x="70" y="327" font-size="12">agent started  no</text>
 
-  <g>
-    <animate attributeName="opacity" values="0;0;0;1;1;0" keyTimes="0;.39;.44;.84;.96;1" dur="12s" repeatCount="indefinite"/>
-    <rect x="34" y="410" width="494" height="56" rx="8" fill="#2d1618" stroke="#da3633"/>
-    <text class="mono red" x="56" y="434" font-size="13">✗ agent-ui → .github/workflows/test.yml</text>
-    <text class="ui text" x="56" y="454" font-size="12">Blocked before write: outside approved scope</text>
-  </g>
+  <text class="mono blue" x="54" y="364" font-size="13">$ scopelock task finish</text>
+  <rect x="54" y="378" width="448" height="32" rx="6" fill="#0f2d1d" stroke="#238636"/>
+  <text class="ui green" x="70" y="399" font-size="13" font-weight="700">Cleared</text>
+  <text class="ui text" x="136" y="399" font-size="12">Flight Report saved</text>
+  <text class="ui amber" x="339" y="399" font-size="12">tests run: no</text>
 
-  <g>
-    <animate attributeName="opacity" values="0;0;0;0;1;0" keyTimes="0;.59;.64;.84;.96;1" dur="12s" repeatCount="indefinite"/>
-    <rect x="546" y="410" width="500" height="56" rx="8" fill="#0f2d1d" stroke="#238636"/>
-    <text class="mono green" x="568" y="434" font-size="13">✓ flight receipt created</text>
-    <text class="mono muted" x="568" y="454" font-size="12">2 tasks · 1 blocked edit · tests passed</text>
-  </g>
+  <rect x="550" y="76" width="500" height="350" rx="8" fill="#11161d" stroke="#30363d"/>
+  <text class="ui text" x="574" y="106" font-size="16" font-weight="700">Standard: prepare multiple agents</text>
+  <text class="ui muted" x="574" y="128" font-size="12">Compile first, review before execution</text>
 
-  <line x1="34" y1="502" x2="1046" y2="502" stroke="#30363d"/>
-  <text class="mono blue" x="34" y="530" font-size="13">$ scopelock run plan.json --isolate</text>
-  <text class="ui muted" x="852" y="530" font-size="12">synthetic · no API key required</text>
+  <text class="mono blue" x="574" y="164" font-size="13">$ scopelock plan prepare plan.json</text>
+  <text class="mono blue" x="594" y="184" font-size="13">--target codex --out ready-plan.json</text>
+
+  <rect x="574" y="204" width="452" height="54" rx="6" fill="#2a2112" stroke="#9e6a03"/>
+  <text class="ui amber" x="592" y="226" font-size="13" font-weight="700">Read-write dependency</text>
+  <text class="mono muted" x="592" y="246" font-size="12">config-writer before summary-reader</text>
+
+  <text class="ui muted" x="574" y="290" font-size="12" font-weight="700">EXECUTION STAGES</text>
+  <rect x="574" y="306" width="174" height="54" rx="6" fill="#0f2d1d" stroke="#238636"/>
+  <text class="ui green" x="592" y="328" font-size="11" font-weight="700">STAGE 1</text>
+  <text class="mono text" x="592" y="349" font-size="12">config-writer</text>
+  <path d="M760 333h42" stroke="#8b949e" stroke-width="2"/>
+  <path d="m796 327 8 6-8 6" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <rect x="816" y="306" width="210" height="54" rx="6" fill="#0f2d1d" stroke="#238636"/>
+  <text class="ui green" x="834" y="328" font-size="11" font-weight="700">STAGE 2</text>
+  <text class="mono text" x="834" y="349" font-size="12">summary-reader</text>
+
+  <rect x="574" y="378" width="452" height="32" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text class="ui green" x="592" y="399" font-size="13" font-weight="700">ready-plan.json written</text>
+  <text class="ui amber" x="861" y="399" font-size="12">agent run: no</text>
+
+  <rect x="30" y="450" width="1020" height="84" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text class="ui text" x="54" y="478" font-size="13" font-weight="700">Reviewable artifacts</text>
+  <text class="mono green" x="54" y="505" font-size="12">guided-drift.json</text>
+  <text class="mono blue" x="218" y="505" font-size="12">guided-report.html</text>
+  <text class="mono text" x="392" y="505" font-size="12">plan.json</text>
+  <text class="mono amber" x="482" y="505" font-size="12">ready-plan.json</text>
+  <text class="ui muted" x="766" y="505" font-size="12">no model or agent executed</text>
+
+  <line x1="30" y1="562" x2="1050" y2="562" stroke="#30363d"/>
+  <text class="mono blue" x="30" y="590" font-size="13">$ scopelock run ready-plan.json --yes --isolate</text>
+  <text class="ui muted" x="753" y="590" font-size="12">explicit next step after review</text>
 </svg>
