@@ -2542,6 +2542,45 @@ describe("run", () => {
     }
   });
 
+  it("does not apply the per-task timeout to isolation setup", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "short-timeout.json"), "short-timeout", ["result.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "short-task-timeout",
+          tasks: [{
+            id: "short-timeout",
+            contract: "short-timeout.json",
+            command: [process.execPath, "-e", "setInterval(()=>{},1000)"],
+          }],
+        }),
+      );
+      commitFixture(dir, "short timeout fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "short-timeout.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--timeout-ms", "10",
+        "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].termination.reason, "timeout");
+      assert.equal(receipt.isolation.cleanup.status, "ok");
+      const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
+      assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("keeps raw command output in artifacts and bounds receipt previews", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

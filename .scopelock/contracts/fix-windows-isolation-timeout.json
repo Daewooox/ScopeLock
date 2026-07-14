@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "fix-windows-isolation-timeout",
+  "task": "Separate task and isolation operation timeouts",
+  "createdAt": "2026-07-14T15:23:09.048Z",
+  "baseline": {
+    "headSha": "e1447140c1e9f6fa904a4eaab1cb6c66bf30dd7f",
+    "branch": "fix/windows-isolation-timeout-flake",
+    "capturedAt": "2026-07-14T15:23:22.410Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
