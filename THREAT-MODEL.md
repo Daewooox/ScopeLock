@@ -39,8 +39,9 @@
   clean repository, rejects symlink/gitlink promotion, caps plans at 32 tasks
   and patches at 50 MiB, and blocks final promotion after interruption or base
   drift. Harness-native sandboxing remains an independent required layer.
-- Commands produced by `plan compose` are reviewable argv arrays and pass
-  through the same `run <plan> --yes` trust gate as hand-written commands.
+- Commands produced by `plan prepare` or the lower-level `plan compose` are
+  reviewable argv arrays and pass through the same `run <plan> --yes` trust
+  gate as hand-written commands. Preparation never starts an agent.
 - Cursor-composed plans carry `execution.isolation = "required"` and are
   rejected before dispatch unless `--isolate` is present. The generated argv
   keeps Cursor's native sandbox enabled; `--yes` and `--allow-shell` do not

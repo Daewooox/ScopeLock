@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/assets/scopelock-demo.svg" width="960" alt="ScopeLock detects conflicts, blocks an out-of-scope edit, and creates a flight receipt">
+  <img src="./docs/assets/scopelock-demo.svg" width="960" alt="ScopeLock verifies one guided task and prepares a conflict-aware multi-agent plan">
 </p>
 
 AI coding agents are fast, but they do not share a reliable understanding of
@@ -150,7 +150,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Pending: tarball install CI and manual promotion gates |
+| npm distribution | Prepared: cross-platform tarball install CI passes; first publication remains manual |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for
