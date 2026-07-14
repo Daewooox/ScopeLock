@@ -23,6 +23,7 @@ import {
 } from "./commands/hooks.js";
 import { setupCommand } from "./commands/setup.js";
 import { taskStartCommand } from "./commands/task-start.js";
+import { taskFinishCommand } from "./commands/task-finish.js";
 import { confirmPrompt, questionPrompt } from "./prompts.js";
 
 function collect(value: string, previous: string[]): string[] {
@@ -43,6 +44,7 @@ program.addHelpText(
     "Quick start:",
     "  scopelock setup",
     "  scopelock task start --help",
+    "  scopelock task finish --help",
   ].join("\n"),
 );
 
@@ -254,6 +256,16 @@ task
     },
   );
 
+task
+  .command("finish")
+  .description("check the active task and create its Flight Report")
+  .option("--out <path>", "write HTML report to this path")
+  .option("--open", "open the generated report in the default browser")
+  .option("--json", "print machine-readable JSON")
+  .action((options: { out?: string; open?: boolean }, command: Command) =>
+    run(() => taskFinishCommand(options), jsonOf(command)),
+  );
+
 program
   .command("check-drift")
   .helpGroup("Protect one task:")
@@ -363,13 +375,13 @@ program
 program
   .command("report")
   .helpGroup("Inspect:")
-  .description("render a standalone HTML flight report from a run receipt")
-  .argument("<receipt>", "path to a ScopeLock run receipt JSON")
+  .description("render standalone HTML from a run receipt or drift report")
+  .argument("<report>", "path to a ScopeLock receipt or drift JSON")
   .option("--out <path>", "write HTML report to this path")
   .option("--open", "open the generated report in the default browser")
   .option("--json", "print machine-readable JSON")
-  .action((receipt: string, options: { out?: string; open?: boolean }, command: Command) =>
-    run(() => reportCommand(receipt, options), jsonOf(command)),
+  .action((report: string, options: { out?: string; open?: boolean }, command: Command) =>
+    run(() => reportCommand(report, options), jsonOf(command)),
   );
 
 const agents = program

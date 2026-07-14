@@ -243,7 +243,7 @@ export async function taskStartCommand(
       { title: "Review", lines: review },
       { title: "Checks", lines: resultLines },
       { title: "Result", lines: environmentReady ? "Task boundary is ready" : "Task boundary approved; environment needs attention" },
-      { title: "Next", lines: environmentReady ? "Let the agent work, then run: scopelock check-drift" : `Install ${HARNESSES[agent].label}, then run: scopelock setup --target ${agent}` },
+      { title: "Next", lines: environmentReady ? "Let the agent work, then run: scopelock task finish" : `Install ${HARNESSES[agent].label}, then run: scopelock setup --target ${agent}` },
     ]),
     exitCode: environmentReady ? 0 : 1,
   };

@@ -12,6 +12,7 @@ your installed version.
 | `scopelock init` | Create `.scopelock/` config, contracts, and reports. |
 | `scopelock doctor` | Check git, Node, config, the active contract, and hooks. |
 | `scopelock task start [description]` | Guide one task from friendly paths to a reviewed, approved contract and agent preflight. |
+| `scopelock task finish` | Check the active task boundary and create JSON and HTML drift reports. |
 | `scopelock contract new` | Create a schema-valid draft contract without an LLM. |
 | `scopelock contract approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it active. |
 | `scopelock contract rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
@@ -26,7 +27,7 @@ your installed version.
 | `scopelock plan compose <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans require isolation. |
 | `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
 | `scopelock run <plan.json>` | Dispatch a reviewed plan and write a bounded receipt. |
-| `scopelock report <receipt> --open` | Render a standalone local HTML Flight Report. |
+| `scopelock report <result.json> --open` | Render a run receipt or drift result as a standalone local HTML Flight Report. |
 
 `--json` is available on every command for machine-readable output.
 
@@ -93,6 +94,27 @@ with the exact `scopelock contract approve` command to run after review.
 `--inject` explicitly opts into updating the selected agent instruction file.
 Advanced users can continue to use `contract new`, `contract approve`, and
 `contract inject` independently.
+
+## Guided task finish
+
+`scopelock task finish` compares the current repository with the active task
+boundary, saves the drift evidence as JSON, and renders a standalone HTML
+Flight Report. It groups changed paths into allowed, blocked, and outside-scope
+changes and returns `0` only when the task is cleared. The command is
+non-interactive by default; add `--open` to open the generated report in a
+browser.
+
+```bash
+scopelock task finish
+scopelock task finish --open
+```
+
+This command verifies repository evidence only. It does not execute the tests
+listed in the contract and says so explicitly in both terminal output and
+machine-readable results. Use `check-drift` directly when only the underlying
+JSON drift primitive is needed. Existing foreign text in `AGENTS.md` or
+`CLAUDE.md` is still checked normally; only an exact change to ScopeLock's own
+injected marker block is excluded from drift.
 
 ### Legacy aliases
 

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-cli-u3b-task-finish-v2",
+  "task": "Implement guided task finish and drift report",
+  "createdAt": "2026-07-14T11:38:28.626Z",
+  "baseline": {
+    "headSha": "27693791ff839968d4e59b066e99402063309e1b",
+    "branch": "feature/progressive-cli-u3b",
+    "capturedAt": "2026-07-14T11:38:28.834Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/render/agents-md.ts",
+      "packages/core/src/drift/collect.ts",
+      "packages/core/src/drift.test.ts",
+      "packages/cli/src/commands/check-drift.ts",
+      "packages/cli/src/commands/report.ts",
+      "packages/cli/src/commands/task-start.ts",
+      "packages/cli/src/commands/task-finish.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/reference.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/git/worktree.ts"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

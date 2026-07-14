@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { platform } from "node:os";
 import { pathToFileURL } from "node:url";
+import { driftReportSchema, type DriftReport } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 
@@ -41,7 +42,7 @@ type Receipt = {
   } | null;
 };
 
-async function readReceipt(path: string): Promise<Receipt> {
+async function readReportInput(path: string): Promise<unknown> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
@@ -53,10 +54,63 @@ async function readReceipt(path: string): Promise<Receipt> {
     throw new CliError("FILE_READ_ERROR", `cannot read ${path}: ${message}`);
   }
   try {
-    return JSON.parse(raw) as Receipt;
+    return JSON.parse(raw) as unknown;
   } catch {
     throw new CliError("INVALID_JSON", `invalid JSON in ${path}`);
   }
+}
+
+function renderDriftHtml(report: DriftReport, reportPath: string): string {
+  const clean = report.violations.length === 0;
+  const raw = JSON.stringify(report, null, 2);
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScopeLock Drift Report - ${escapeHtml(report.contractId)}</title>
+<style>
+:root { color-scheme: light; --ink:#18202a; --muted:#637083; --line:#d9e1ea; --good:#127a52; --warn:#a86200; --bad:#b42318; --panel:#f7f9fb; }
+* { box-sizing: border-box; }
+body { margin:0; font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); }
+main { max-width:1040px; margin:0 auto; padding:32px 24px 48px; }
+header { padding-bottom:24px; border-bottom:1px solid var(--line); }
+.eyebrow { color:var(--muted); font-weight:700; text-transform:uppercase; font-size:12px; }
+h1 { margin:8px 0 12px; font-size:40px; letter-spacing:0; }
+.good { color:var(--good); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+.meta { color:var(--muted); overflow-wrap:anywhere; }
+.grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:22px 0; }
+.stat { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+.stat strong { display:block; font-size:28px; margin-top:8px; }
+section { margin-top:28px; } h2 { font-size:18px; }
+table { width:100%; border-collapse:collapse; border:1px solid var(--line); }
+th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { background:var(--panel); color:var(--muted); font-size:12px; text-transform:uppercase; }
+pre { overflow:auto; background:#101820; color:#f4f7fb; border-radius:8px; padding:16px; max-height:460px; }
+details { border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+summary { cursor:pointer; font-weight:700; }
+@media (max-width:700px) { .grid { grid-template-columns:1fr; } main { padding:24px 16px 36px; } }
+</style>
+</head>
+<body><main>
+  <header>
+    <div class="eyebrow">ScopeLock Drift Report</div>
+    <h1>${escapeHtml(report.contractId)}: <span class="${clean ? "good" : "warn"}">${clean ? "Cleared" : "Attention"}</span></h1>
+    <div class="meta">${escapeHtml(report.checkedAt)} · ${escapeHtml(reportPath)}</div>
+  </header>
+  <div class="grid">
+    <div class="stat">Changed files<strong>${report.changedFiles.length}</strong></div>
+    <div class="stat">Violations<strong class="${clean ? "good" : "bad"}">${report.violations.length}</strong></div>
+    <div class="stat">Repository<strong class="${report.repoState.kind === "clean" ? "good" : "warn"}">${escapeHtml(report.repoState.kind)}</strong></div>
+  </div>
+  <section><h2>Violations</h2><table><thead><tr><th>Type</th><th>Path</th><th>Detail</th></tr></thead><tbody>
+    ${report.violations.map((item) => `<tr><td class="bad">${escapeHtml(item.type)}</td><td>${escapeHtml(item.path ?? "-")}</td><td>${escapeHtml(item.message)}</td></tr>`).join("") || `<tr><td colspan="3" class="good">No violations.</td></tr>`}
+  </tbody></table></section>
+  <section><h2>Changed files</h2><table><thead><tr><th>Path</th><th>Status</th><th>Stage</th></tr></thead><tbody>
+    ${report.changedFiles.map((file) => `<tr><td>${escapeHtml(file.path)}</td><td>${escapeHtml(file.status)}</td><td>${escapeHtml(file.stage)}</td></tr>`).join("") || `<tr><td colspan="3">No changed files.</td></tr>`}
+  </tbody></table></section>
+  <section><details><summary>Technical drift JSON</summary><pre>${escapeHtml(raw)}</pre></details></section>
+</main></body></html>\n`;
 }
 
 function arrayOfStrings(value: unknown): string[] {
@@ -220,17 +274,27 @@ function openFile(path: string): void {
   child.unref();
 }
 
-export async function reportCommand(path: string, options: ReportOptions = {}): Promise<CommandResult> {
-  const receiptPath = isAbsolute(path) ? path : resolve(process.cwd(), path);
-  const receipt = await readReceipt(receiptPath);
+export async function reportCommand(
+  path: string,
+  options: ReportOptions = {},
+  cwd: string = process.cwd(),
+): Promise<CommandResult> {
+  const receiptPath = isAbsolute(path) ? path : resolve(cwd, path);
+  const input = await readReportInput(receiptPath);
+  const drift = driftReportSchema.safeParse(input);
+  const sourceType = drift.success ? "drift" : "receipt";
   const reportPath = options.out
-    ? isAbsolute(options.out) ? options.out : resolve(process.cwd(), options.out)
+    ? isAbsolute(options.out) ? options.out : resolve(cwd, options.out)
     : defaultOutPath(receiptPath);
   await mkdir(dirname(reportPath), { recursive: true });
-  await writeFile(reportPath, renderHtml(receipt, receiptPath), "utf8");
+  await writeFile(
+    reportPath,
+    drift.success ? renderDriftHtml(drift.data, receiptPath) : renderHtml(input as Receipt, receiptPath),
+    "utf8",
+  );
   if (options.open === true) openFile(reportPath);
   return {
-    data: { receiptPath, reportPath, opened: options.open === true },
+    data: { receiptPath, sourcePath: receiptPath, sourceType, reportPath, opened: options.open === true },
     human: renderSections([
       {
         title: "Result",

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { setupCommand } from "./commands/setup.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
+import { taskFinishCommand } from "./commands/task-finish.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -64,7 +65,10 @@ describe("public command language", () => {
       help.stdout,
       /Protect one task:\n\s+contract\s+create, approve, and share task boundaries\n\s+task\s+start and verify one bounded agent task\n\s+check-drift/,
     );
-    assert.match(help.stdout, /Quick start:\n  scopelock setup\n  scopelock task start --help/);
+    assert.match(
+      help.stdout,
+      /Quick start:\n  scopelock setup\n  scopelock task start --help\n  scopelock task finish --help/,
+    );
     assert.ok(
       help.stdout.trimEnd().split("\n").every((line) => line.length <= 80),
       "root help must fit an 80-column terminal",
@@ -158,6 +162,21 @@ describe("public command language", () => {
       assert.match(error.message, /scopelock contract approve/);
       assert.equal(await readFile(join(scopelockPaths(dir).draftsDir, "review-first.json"), "utf8").then(Boolean), true);
       await assert.rejects(readFile(scopelockPaths(dir).activePath, "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("task finish is non-interactive and reports a missing active task", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = runCli(dir, ["--json", "task", "finish"]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "NO_ACTIVE_CONTRACT");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -292,6 +311,7 @@ describe("guided task start", () => {
       assert.equal(result.exitCode, 0);
       assert.match(result.human ?? "", /Agent started  no/);
       assert.match(result.human ?? "", /Tests executed no/);
+      assert.match(result.human ?? "", /scopelock task finish/);
       const approved = approvedContractSchema.parse(JSON.parse(
         await readFile(join(scopelockPaths(dir).contractsDir, "bounded-task.json"), "utf8"),
       ));
@@ -368,6 +388,117 @@ describe("guided task start", () => {
       assert.equal(result.exitCode, 1);
       assert.match(result.human ?? "", /Attention:/);
       await assert.rejects(readFile(join(dir, "AGENTS.md"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("finishes a clean guided task and writes a drift Flight Report", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "app.ts"), "export const value = 1;\n");
+      await writeFile(join(dir, "src", "app.test.ts"), "test one\n");
+      commitFixture(dir, "task fixture");
+      assert.equal((await taskStartCommand({
+        description: "clean finish",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "clean-finish",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup })).exitCode, 0);
+
+      await writeFile(join(dir, "src", "app.ts"), "export const value = 2;\n");
+      await writeFile(join(dir, "src", "app.test.ts"), "test two\n");
+      const finished = await taskFinishCommand({ cwd: dir });
+      assert.equal(finished.exitCode, 0);
+      assert.match(finished.human ?? "", /Cleared/);
+      assert.match(finished.human ?? "", /Tests executed  no/);
+      const data = finished.data as { htmlPath: string; summary: { allowed: number } };
+      assert.equal(data.summary.allowed, 2);
+      assert.match(await readFile(data.htmlPath, "utf8"), /ScopeLock Drift Report/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("finishes with attention for blocked and outside-scope changes", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "app.test.ts"), "test one\n");
+      commitFixture(dir, "task fixture");
+      assert.equal((await taskStartCommand({
+        description: "attention finish",
+        agent: "codex",
+        allow: ["src"],
+        block: ["secrets"],
+        context: [],
+        test: ["unit"],
+        id: "attention-finish",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup })).exitCode, 0);
+
+      await writeFile(join(dir, "src", "app.test.ts"), "test two\n");
+      await mkdir(join(dir, "secrets"), { recursive: true });
+      await writeFile(join(dir, "secrets", "key.txt"), "secret\n");
+      await writeFile(join(dir, "outside.txt"), "outside\n");
+      const finished = await taskFinishCommand({ cwd: dir });
+      assert.equal(finished.exitCode, 1);
+      assert.match(finished.human ?? "", /Attention required/);
+      const summary = (finished.data as {
+        summary: { blocked: number; outside: number };
+      }).summary;
+      assert.equal(summary.blocked, 1);
+      assert.equal(summary.outside, 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails task finish with the existing baseline recovery guidance", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal((await taskStartCommand({
+        description: "lost baseline",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "lost-baseline",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup })).exitCode, 0);
+      const contractPath = join(scopelockPaths(dir).contractsDir, "lost-baseline.json");
+      const contract = approvedContractSchema.parse(JSON.parse(await readFile(contractPath, "utf8")));
+      const stale = approvedContractSchema.parse({
+        ...contract,
+        baseline: { ...contract.baseline, headSha: "f".repeat(40) },
+      });
+      await writeFile(contractPath, `${JSON.stringify(stale, null, 2)}\n`);
+      await writeApprovalSeal(dir, stale);
+      await assert.rejects(taskFinishCommand({ cwd: dir }), /run `scopelock contract rebaseline`/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -2520,6 +2651,47 @@ describe("run", () => {
       assert.match(html, /ScopeLock Flight Report/);
       assert.match(html, /x&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
       assert.doesNotMatch(html, /<script>alert/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("renders escaped drift evidence without fabricating run fields", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-drift-report-"));
+    try {
+      const driftPath = join(dir, "drift.json");
+      const reportPath = join(dir, "drift.html");
+      await writeFile(driftPath, JSON.stringify({
+        schemaVersion: 1,
+        contractId: "task<script>alert(1)</script>",
+        checkedAt: "2026-07-14T00:00:00.000Z",
+        repoMode: "normal",
+        repoState: { kind: "clean" },
+        changedFiles: [{
+          path: "src/<unsafe>.ts",
+          previousPath: null,
+          status: "modified",
+          stage: "unstaged",
+          isBinary: false,
+          insertions: 0,
+          deletions: 0,
+          sizeBytes: 0,
+        }],
+        violations: [{
+          type: "outside_scope",
+          path: "src/<unsafe>.ts",
+          message: "unexpected <change>",
+        }],
+      }));
+
+      const result = runCli(dir, ["--json", "report", driftPath, "--out", reportPath]);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).data.sourceType, "drift");
+      const html = await readFile(reportPath, "utf8");
+      assert.match(html, /ScopeLock Drift Report/);
+      assert.match(html, /task&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+      assert.match(html, /src\/&lt;unsafe&gt;\.ts/);
+      assert.doesNotMatch(html, /Execution Sequence|Passed tasks|<script>alert/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
