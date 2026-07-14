@@ -215,22 +215,28 @@ cycle back the other way).
 | `1` | unschedulable - `cycles` is non-empty; see Step 3b |
 | `2` | bad input - missing/invalid plan file, missing/invalid contract file, duplicate task ids |
 
-## Step 4 - compose, review, and run
+## Step 4 - prepare, review, and run
 
-ScopeLock renders every approved task contract into an explicit agent argv
-command and writes a separate plan for review. The original plan is unchanged:
+The normal path composes scheduling, read-hazard ordering, harness discovery,
+environment checks, and shell-free command generation into one explicit compile
+step. It writes a separate plan for review and leaves the original unchanged:
 
 ```bash
-scopelock plan compose plan.json --target codex --out enriched-plan.json
-scopelock run enriched-plan.json --yes
+scopelock plan prepare plan.json --target codex --out ready-plan.json
+scopelock run ready-plan.json --yes --isolate --receipt receipt.json
+scopelock report receipt.json --open
 ```
 
-To prevent an agent's rejected workspace changes from touching the repository
-you are using, run the same reviewable plan in isolated mode:
+`plan prepare` includes read hazards by default, so the writer/reader dependency
+from this example becomes two execution stages. It writes nothing if contracts
+are unapproved, the dependency graph is unschedulable, the selected harness is
+missing, or a configured workspace preflight fails. It never starts an agent.
+
+The lower-level primitives remain useful for diagnosis or custom automation:
 
 ```bash
-scopelock run enriched-plan.json --yes --isolate --receipt receipt.json
-scopelock report receipt.json --open
+scopelock plan schedule plan.json --include-read-hazards
+scopelock plan compose plan.json --target codex --out ready-plan.json
 ```
 
 ScopeLock creates one temporary task worktree per runnable task. Accepted
@@ -243,7 +249,7 @@ aggregate patch to the user tree and records the result in receipt v5.
 For Cursor, composition is deliberately bound to isolated execution:
 
 ```bash
-scopelock plan compose plan.json --target cursor --out cursor-plan.json
+scopelock plan prepare plan.json --target cursor --out cursor-plan.json
 scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
@@ -253,14 +259,15 @@ sandbox enabled, while ScopeLock validates the complete worktree patch before
 promotion. Existing explicit commands are preserved, but the whole mixed plan
 still inherits the strongest requirement and must run isolated.
 
-Existing commands are preserved unless `--force` is passed. The original plan
-is not changed, and `run` still executes only the commands visible in the
-enriched file.
+`plan prepare` regenerates every task command from its approved contract. The
+original plan is not changed, and `run` still executes only the commands visible
+in the ready file. Use the lower-level `plan compose` command when preserving
+selected manual command overrides is intentional.
 
 For a manual single-agent handoff, `contract export --target <id>` prints the
 active contract as a prompt and `contract inject --target <id>` writes it to
 the target instruction file. Multi-task plans should normally use
-`plan compose`, which resolves each task's own approved contract without
+`plan prepare`, which resolves each task's own approved contract without
 repeatedly switching the active contract.
 
 ## Step 5 - verify after the fact

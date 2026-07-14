@@ -4,6 +4,16 @@ This page contains the detailed command and configuration notes kept out of the
 main README. Run `scopelock <command> --help` for the exact options supported by
 your installed version.
 
+ScopeLock exposes the same artifacts through three levels:
+
+- **Guided:** `setup` -> `task start` -> `task finish` for one protected task.
+- **Standard:** explicit contract, hook, `plan prepare`, run, and report commands.
+- **Automation:** the same commands with stable `--json`, exit codes, schemas,
+  and MCP tools. Automation never prompts.
+
+The levels are not persistent modes. A Guided command creates normal contracts
+and reports that Standard or Automation commands can consume directly.
+
 ## Commands
 
 | Command | What it does |
