@@ -73,7 +73,7 @@ try {
     tempRoot,
   );
   const cli = resolve(tempRoot, "node_modules/@scopelock/cli/dist/index.js");
-  assertIncludes(run(process.execPath, [cli, "--help"], tempRoot), "Local guardrails");
+  assertIncludes(run(process.execPath, [cli, "--help"], tempRoot), "Local flight control");
 
   const fixture = resolve(tempRoot, "fixture");
   run("git", ["init", "-q", fixture], tempRoot);
@@ -89,7 +89,7 @@ try {
   const globalModules =
     process.platform === "win32" ? resolve(globalPrefix, "node_modules") : join(globalPrefix, "lib", "node_modules");
   const globalCli = resolve(globalModules, "@scopelock/cli/dist/index.js");
-  assertIncludes(run(process.execPath, [globalCli, "--help"], tempRoot), "Local guardrails");
+  assertIncludes(run(process.execPath, [globalCli, "--help"], tempRoot), "Local flight control");
   const npmVersion = npmInvocation(["--version"]);
 
   const result = {
