@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-cli-u5-docs-demo",
+  "task": "Document and demonstrate the progressive CLI",
+  "createdAt": "2026-07-14T13:00:58.698Z",
+  "baseline": {
+    "headSha": "e8199df091cc7026a816d424400d0b89a3065fcf",
+    "branch": "feature/progressive-cli-u5-docs-demo",
+    "capturedAt": "2026-07-14T13:00:58.817Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/reference.md",
+      "docs/parallel-workflow.md",
+      "docs/beta-validation.md",
+      "benchmarks/coordination/run-progressive-cli-demo.mjs",
+      "benchmarks/coordination/run-progressive-cli-demo.test.mjs",
+      "package.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "integration",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
