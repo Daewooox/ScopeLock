@@ -28,7 +28,8 @@ into CI or auth, and the final result is difficult to audit.
 
 ScopeLock adds deterministic guardrails around that workflow:
 
-1. **Define the scope.** Approve the files each task may read or change.
+1. **Define the scope.** Approve allowed changes, blocked changes, and task
+   context.
 2. **Coordinate the work.** Detect overlapping tasks and order them safely.
 3. **Verify the result.** Block supported out-of-scope writes, check git drift,
    and produce a local Flight Report.
@@ -36,19 +37,43 @@ ScopeLock adds deterministic guardrails around that workflow:
 ScopeLock is local-first and rule-based. Its drift engine and hooks do not need
 an LLM or cloud service.
 
+## Start here
+
+The Guided interface creates the same contracts and reports as the advanced
+commands, but keeps the normal path to three top-level commands:
+
+```bash
+scopelock setup
+scopelock task start "Add a dark mode toggle" --agent claude
+
+# Let the agent work, then verify the repository evidence
+scopelock task finish --open
+```
+
+`task start` reviews and approves the boundary but never starts an agent.
+Approval, instruction injection, and hook installation remain explicit
+decisions. `task finish` checks drift and creates a local Flight Report; it
+does not run the tests named in the contract.
+
 ## Try the demo
 
-The synthetic demo creates a temporary repository and walks through a failed
-environment check, a safe two-stage plan, a blocked forbidden edit, and a final
-receipt. It does not need an API key or a real project.
+The progressive demo creates a temporary repository and runs the shipped
+Guided flow, then prepares a two-task plan with a real read dependency. It
+saves the task report, source plan, and ready plan for inspection. It does not
+need an API key and does not start an agent.
 
 ```bash
 git clone https://github.com/Daewooox/ScopeLock.git
 cd ScopeLock
 corepack enable
 pnpm install
-pnpm demo:pilot
+pnpm demo:progressive
 ```
+
+The final output names every reviewable artifact. Add `-- --keep-fixture` to
+retain the temporary Git repository and receive an exact optional `run`
+command. For a deeper deterministic comparison with simulated agents, run
+`pnpm demo:flight-control`.
 
 `corepack` ships with Node 22, but some newer Node releases dropped it from
 the default install. If `corepack enable` reports "command not found", run
@@ -57,7 +82,8 @@ pnpm@10` directly.
 
 ## What ScopeLock does
 
-- **Scope contracts** define allowed, forbidden, and read-only paths per task.
+- **Scope contracts** define allowed changes, blocked changes, and advisory
+  read dependencies per task.
 - **Agent preflight** checks that required rules, skills, and hooks are present
   before work starts.
 - **Conflict detection** finds write-write and read-write hazards between tasks.
@@ -83,37 +109,12 @@ pnpm --filter @scopelock/cli link --global
 You can now run `scopelock --help`. To avoid a global link, replace
 `scopelock` with `node /absolute/path/to/ScopeLock/packages/cli/dist/index.js`.
 
-## Basic workflow
-
-### Guard one agent
+## Coordinate several agents
 
 ```bash
-scopelock init
-
-# Describe the task boundary, then approve its current git baseline
-scopelock contract new \
-  --task "Add a dark mode toggle" \
-  --planned "src/ui/**" \
-  --forbidden "src/auth/**" \
-  --out dark-mode.json
-scopelock contract approve dark-mode.json
-
-# Give the contract to an agent and enable enforcement
-scopelock contract inject --target claude
-scopelock hooks install --target claude --mode strict
-
-# Verify the finished work
-scopelock check-drift
-```
-
-### Coordinate several agents
-
-```bash
-# Find conflicts and build safe execution stages
-scopelock plan schedule plan.json --include-read-hazards
-
-# Add explicit agent commands to a separate, reviewable plan
-scopelock plan compose plan.json --target claude --out ready-plan.json
+# Validate approved contracts, order hazards, check the harness, and compile
+# shell-free commands into a separate file
+scopelock plan prepare plan.json --target claude --out ready-plan.json
 
 # Run each task in an isolated worktree and promote only approved patches
 scopelock run ready-plan.json --yes --isolate --receipt receipt.json
@@ -122,9 +123,10 @@ scopelock run ready-plan.json --yes --isolate --receipt receipt.json
 scopelock report receipt.json --open
 ```
 
-Nothing is silently approved or executed. `plan compose` creates a file you
-can review, and `run` still requires `--yes`. The command prints the receipt
-path and the exact report command when it finishes.
+Review `ready-plan.json` before running it. Nothing is silently approved or
+executed: `plan prepare` never starts an agent, and `run` still requires
+`--yes`. Read hazards are included by default; use `--no-read-hazards` only
+when stale reads are intentionally safe.
 
 ## Agent support
 
@@ -158,6 +160,7 @@ the evidence and publication gates.
 
 - [CLI and configuration reference](docs/reference.md)
 - [Running multiple agents safely](docs/parallel-workflow.md)
+- [Beta validation and pilot protocol](docs/beta-validation.md)
 - [Reproducible parallel example](examples/parallel/)
 - [Agent environment preflight example](examples/agent-workspace/)
 - [Security model](SECURITY.md) and [threat model](THREAT-MODEL.md)
