@@ -8,6 +8,7 @@ your installed version.
 
 | Command | What it does |
 |---|---|
+| `scopelock setup` | Initialize the repository, diagnose installed agents, and report hook confidence. |
 | `scopelock init` | Create `.scopelock/` config, contracts, and reports. |
 | `scopelock doctor` | Check git, Node, config, the active contract, and hooks. |
 | `scopelock contract new` | Create a schema-valid draft contract without an LLM. |
@@ -27,6 +28,29 @@ your installed version.
 | `scopelock report <receipt> --open` | Render a standalone local HTML Flight Report. |
 
 `--json` is available on every command for machine-readable output.
+
+## Guided setup
+
+`scopelock setup` is the idempotent starting point. It composes the existing
+`init`, doctor, and hook-probe behavior; it does not authenticate or run an
+agent. In a terminal it offers missing hooks only for detected agents and shows
+the exact config file before each confirmation. All confirmations are collected
+before the first hook file is changed.
+
+In a pipe or CI job, setup is diagnosis-only and never waits for input. An
+explicit non-interactive install requires both intent and confirmation:
+
+```bash
+scopelock setup --target claude --install-hooks --yes --mode strict
+```
+
+Use `--local` only when running ScopeLock from a source checkout before the
+`scopelock` binary is on `PATH`. Repeating setup with an already-correct config
+does not rewrite it. Existing non-ScopeLock hook entries are preserved.
+
+The readiness table distinguishes capability from evidence: Claude supports a
+documented pre-write deny, Cursor remains post-write audit-only, and Codex is
+reported as degraded unless a matching live-verification record exists.
 
 ### Legacy aliases
 

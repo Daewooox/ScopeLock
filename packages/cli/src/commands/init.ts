@@ -19,8 +19,7 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export async function initCommand(): Promise<CommandResult> {
-  const cwd = process.cwd();
+export async function initCommand(cwd: string = process.cwd()): Promise<CommandResult> {
   const root = findRepoRoot(cwd) ?? cwd;
   const paths = scopelockPaths(root);
 

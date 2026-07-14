@@ -6,6 +6,7 @@ import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { approvedContractSchema, writeApprovalSeal } from "@scopelock/core";
+import { setupCommand } from "./commands/setup.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -62,7 +63,7 @@ describe("public command language", () => {
       help.stdout,
       /Protect one task:\n\s+contract\s+create, approve, and share task boundaries\n\s+check-drift/,
     );
-    assert.match(help.stdout, /Quick start:\n  scopelock init\n  scopelock doctor/);
+    assert.match(help.stdout, /Quick start:\n  scopelock setup\n  scopelock contract new --help/);
     assert.ok(
       help.stdout.trimEnd().split("\n").every((line) => line.length <= 80),
       "root help must fit an 80-column terminal",
@@ -112,6 +113,147 @@ describe("public command language", () => {
 });
 
 describe("cli end-to-end", () => {
+  it("setup is idempotent and reports honest hook confidence", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const first = runCli(dir, ["setup", "--json"]);
+      assert.equal(first.status, 0, first.stderr);
+      const firstData = JSON.parse(first.stdout).data;
+      assert.equal(firstData.targets.length, 3);
+      assert.equal(firstData.targets.find((target: { id: string }) => target.id === "cursor").hook.capabilities.canDeny, false);
+      assert.equal(firstData.targets.find((target: { id: string }) => target.id === "codex").hook.capabilities.confidence, "degraded");
+
+      const configBefore = await readFile(join(dir, ".scopelock", "config.json"), "utf8");
+      const ignoreBefore = await readFile(join(dir, ".scopelock", ".gitignore"), "utf8");
+      const second = runCli(dir, ["setup", "--json"]);
+      assert.equal(second.status, 0, second.stderr);
+      assert.equal(await readFile(join(dir, ".scopelock", "config.json"), "utf8"), configBefore);
+      assert.equal(await readFile(join(dir, ".scopelock", ".gitignore"), "utf8"), ignoreBefore);
+
+      const human = runCli(dir, ["setup"]);
+      assert.equal(human.status, 0, human.stderr);
+      assert.match(human.stdout, /^Context\n[\s\S]*\nChecks\n[\s\S]*Claude Code[\s\S]*Codex CLI[\s\S]*Cursor/);
+      assert.match(human.stdout, /\nResult\n[\s\S]*\nNext\n/);
+      assert.equal(human.stdout.match(/^Next$/gm)?.length, 1);
+      assert.equal(await readFile(join(dir, ".scopelock", "config.json"), "utf8"), configBefore);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails before mutation when non-interactive hook installation is unconfirmed", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = runCli(dir, ["setup", "--target", "claude", "--install-hooks", "--json"]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "SETUP_CONFIRMATION_REQUIRED");
+      await assert.rejects(readFile(join(dir, ".scopelock", "config.json"), "utf8"), { code: "ENOENT" });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unknown setup mode before initialization", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = runCli(dir, ["setup", "--mode", "unsafe", "--json"]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "INVALID_INPUT");
+      await assert.rejects(readFile(join(dir, ".scopelock", "config.json"), "utf8"), { code: "ENOENT" });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("collects all confirmations before writing any hook file", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    let prompts = 0;
+    try {
+      await assert.rejects(
+        setupCommand(
+          { targets: [], mode: "warn", interactive: true, cwd: dir },
+          {
+            executable: () => "/fake/agent",
+            confirm: async () => {
+              prompts += 1;
+              if (prompts === 2) throw new Error("cancelled");
+              return true;
+            },
+          },
+        ),
+        /cancelled/,
+      );
+      assert.equal(prompts, 2);
+      for (const path of [
+        join(dir, ".claude", "settings.json"),
+        join(dir, ".codex", "hooks.json"),
+        join(dir, ".cursor", "hooks.json"),
+      ]) {
+        await assert.rejects(readFile(path, "utf8"), { code: "ENOENT" });
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves foreign hooks and skips byte churn after installation", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const settingsPath = join(dir, ".claude", "settings.json");
+      await mkdir(join(dir, ".claude"), { recursive: true });
+      await writeFile(settingsPath, JSON.stringify({
+        permissions: { allow: ["Read"] },
+        hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "foreign-hook" }] }] },
+      }, null, 2));
+
+      const installed = runCli(dir, [
+        "setup",
+        "--target", "claude",
+        "--install-hooks",
+        "--yes",
+        "--json",
+      ]);
+      assert.equal(installed.status, 0, installed.stderr);
+      const parsed = JSON.parse(await readFile(settingsPath, "utf8"));
+      assert.deepEqual(parsed.permissions, { allow: ["Read"] });
+      assert.ok(parsed.hooks.PreToolUse.some((entry: unknown) => JSON.stringify(entry).includes("foreign-hook")));
+      assert.ok(parsed.hooks.PreToolUse.some((entry: unknown) => JSON.stringify(entry).includes("hook gate")));
+
+      const bytes = await readFile(settingsPath, "utf8");
+      const repeated = runCli(dir, [
+        "setup",
+        "--target", "claude",
+        "--install-hooks",
+        "--yes",
+        "--json",
+      ]);
+      assert.equal(repeated.status, 0, repeated.stderr);
+      assert.equal(await readFile(settingsPath, "utf8"), bytes);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("init -> contract new -> approve -> check-drift respects the exit-code contract", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

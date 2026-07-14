@@ -21,6 +21,8 @@ import {
   hooksUninstallCommand,
   hooksVerifyCommand,
 } from "./commands/hooks.js";
+import { setupCommand } from "./commands/setup.js";
+import { confirmPrompt } from "./prompts.js";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -38,8 +40,7 @@ program.addHelpText(
   [
     "",
     "Quick start:",
-    "  scopelock init",
-    "  scopelock doctor",
+    "  scopelock setup",
     "  scopelock contract new --help",
   ].join("\n"),
 );
@@ -71,6 +72,45 @@ function registerRebaseline(parent: Command, name: string, hidden = false): void
     run(() => rebaselineCommand(contract), jsonOf(command)),
   );
 }
+
+program
+  .command("setup")
+  .helpGroup("Start here:")
+  .description("prepare this repository and check agent protection")
+  .option("--target <id>", "agent target: claude, codex, cursor (repeatable)", collect, [])
+  .option("--install-hooks", "install missing ScopeLock hooks after confirmation")
+  .option("--yes", "confirm the reviewed hook installation without prompting")
+  .option("--mode <mode>", "hook mode: warn or strict", "warn")
+  .option("--local", "use this local CLI path in installed hooks")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      options: {
+        target: string[];
+        installHooks?: boolean;
+        yes?: boolean;
+        mode: "warn" | "strict";
+        local?: boolean;
+      },
+      command: Command,
+    ) => {
+      const json = jsonOf(command);
+      return run(
+        () => setupCommand(
+          {
+            targets: options.target,
+            installHooks: options.installHooks,
+            yes: options.yes,
+            mode: options.mode,
+            local: options.local,
+            interactive: !json.json && process.stdin.isTTY === true && process.stdout.isTTY === true,
+          },
+          { confirm: (message) => confirmPrompt(message) },
+        ),
+        json,
+      );
+    },
+  );
 
 program
   .command("init")

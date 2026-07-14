@@ -15,6 +15,8 @@
     "dist/index.js",
     "dist/process-tree.d.ts",
     "dist/process-tree.js",
+    "dist/prompts.d.ts",
+    "dist/prompts.js",
     "dist/run.d.ts",
     "dist/run.js",
     "dist/ui.d.ts",

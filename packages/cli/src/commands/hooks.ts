@@ -54,8 +54,9 @@ export async function hooksInstallCommand(options: {
   target: string;
   mode: EnforcementMode;
   local?: boolean;
+  cwd?: string;
 }): Promise<CommandResult> {
-  const root = findRepoRoot(process.cwd());
+  const root = findRepoRoot(options.cwd ?? process.cwd());
   if (root === null) {
     throw new CliError("NOT_A_GIT_REPO", "hooks install must run inside a git repository");
   }
