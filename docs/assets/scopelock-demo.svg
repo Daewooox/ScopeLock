@@ -1,75 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="620" viewBox="0 0 1080 620" role="img" aria-labelledby="title desc">
-  <title id="title">ScopeLock progressive CLI demo</title>
-  <desc id="desc">The Guided flow checks a repository, approves a task boundary, and creates a Flight Report. The Standard flow detects a read-write dependency and writes a two-stage ready plan without starting an agent.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">ScopeLock Guided terminal demo</title>
+  <desc id="desc">An animated terminal replay of setup, task start, and task finish. The final frame shows a cleared Flight Report and states that no agent or tests were run.</desc>
   <style>
-    .ui{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0}
-    .mono{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace;letter-spacing:0}
-    .muted{fill:#8b949e}.text{fill:#e6edf3}.blue{fill:#79c0ff}.green{fill:#7ee787}.amber{fill:#e3b341}
+    .ui{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0}.mono{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace;letter-spacing:0}
+    .text{fill:#e6edf3}.muted{fill:#8b949e}.blue{fill:#79c0ff}.green{fill:#7ee787}.amber{fill:#e3b341}.spinner{fill:none;stroke:#79c0ff;stroke-width:3;stroke-linecap:round;stroke-dasharray:16 10}
+    .frame{opacity:0}.f1{animation:f1 12s infinite}.f2{animation:f2 12s infinite}.f3{animation:f3 12s infinite}.f4{animation:f4 12s infinite}
+    @keyframes f1{0%,16%{opacity:1}18%,100%{opacity:0}}@keyframes f2{0%,16%{opacity:0}18%,42%{opacity:1}44%,100%{opacity:0}}@keyframes f3{0%,42%{opacity:0}44%,68%{opacity:1}70%,100%{opacity:0}}@keyframes f4{0%,68%{opacity:0}70%,97%{opacity:1}100%{opacity:0}}
+    @media (prefers-reduced-motion:reduce){.frame{display:none;animation:none}.frame.last{display:inline;opacity:1}}
   </style>
+  <defs>
+    <g id="chrome"><rect width="960" height="360" rx="12" fill="#0d1117"/><rect width="960" height="48" rx="12" fill="#161b22"/><circle cx="24" cy="24" r="6" fill="#ff5f56"/><circle cx="46" cy="24" r="6" fill="#ffbd2e"/><circle cx="68" cy="24" r="6" fill="#27c93f"/><text class="ui text" x="92" y="30" font-size="15" font-weight="700">Guided: one protected task</text><text class="ui muted" x="764" y="30" font-size="12">deterministic replay</text></g>
+    <g id="setup-done"><text class="mono blue" x="32" y="82" font-size="14">$ scopelock setup</text><circle cx="42" cy="108" r="10" fill="#238636"/><path d="m37 108 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/><text class="ui text" x="62" y="113" font-size="13">Repository and agent environment checked</text></g>
+    <g id="task-done"><text class="mono blue" x="32" y="154" font-size="14">$ scopelock task start "Update greeting" --agent codex</text><rect x="32" y="166" width="896" height="54" rx="7" fill="#11161d" stroke="#30363d"/><text class="ui green" x="50" y="190" font-size="13" font-weight="700">Boundary approved</text><text class="mono muted" x="50" y="210" font-size="12">may change  src/greeting.js, tests/greeting.test.js</text><text class="ui amber" x="770" y="190" font-size="12">agent started: no</text></g>
+  </defs>
 
-  <rect width="1080" height="620" rx="12" fill="#0d1117"/>
-  <rect width="1080" height="52" rx="12" fill="#161b22"/>
-  <circle cx="26" cy="26" r="6" fill="#ff5f56"/>
-  <circle cx="48" cy="26" r="6" fill="#ffbd2e"/>
-  <circle cx="70" cy="26" r="6" fill="#27c93f"/>
-  <text class="ui text" x="94" y="32" font-size="16" font-weight="700">ScopeLock progressive demo</text>
-  <text class="ui muted" x="846" y="32" font-size="13">local / deterministic</text>
+  <g class="frame f1"><use href="#chrome"/><text class="mono blue" x="32" y="82" font-size="14">$ scopelock setup</text><circle class="spinner" cx="42" cy="108" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 108" to="360 42 108" dur=".8s" repeatCount="indefinite"/></circle><text class="ui muted" x="62" y="113" font-size="13">Checking repository and agent environment...</text></g>
 
-  <rect x="30" y="76" width="496" height="350" rx="8" fill="#11161d" stroke="#30363d"/>
-  <text class="ui text" x="54" y="106" font-size="16" font-weight="700">Guided: one protected task</text>
-  <text class="ui muted" x="54" y="128" font-size="12">Three commands, normal ScopeLock artifacts</text>
+  <g class="frame f2"><use href="#chrome"/><use href="#setup-done"/><text class="mono blue" x="32" y="154" font-size="14">$ scopelock task start "Update greeting" --agent codex</text><circle class="spinner" cx="42" cy="180" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 180" to="360 42 180" dur=".8s" repeatCount="indefinite"/></circle><text class="ui muted" x="62" y="185" font-size="13">Reviewing the task boundary...</text></g>
 
-  <text class="mono blue" x="54" y="164" font-size="13">$ scopelock setup</text>
-  <rect x="54" y="178" width="448" height="42" rx="6" fill="#0f2d1d" stroke="#238636"/>
-  <text class="ui green" x="70" y="204" font-size="13" font-weight="700">OK</text>
-  <text class="ui text" x="104" y="204" font-size="13">Repository and agent environment checked</text>
+  <g class="frame f3"><use href="#chrome"/><use href="#setup-done"/><use href="#task-done"/><text class="mono blue" x="32" y="252" font-size="14">$ scopelock task finish --open</text><circle class="spinner" cx="42" cy="278" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 278" to="360 42 278" dur=".8s" repeatCount="indefinite"/></circle><text class="ui muted" x="62" y="283" font-size="13">Checking repository evidence...</text></g>
 
-  <text class="mono blue" x="54" y="250" font-size="13">$ scopelock task start "Update greeting"</text>
-  <rect x="54" y="264" width="448" height="70" rx="6" fill="#161b22" stroke="#30363d"/>
-  <text class="ui green" x="70" y="289" font-size="13" font-weight="700">Boundary approved</text>
-  <text class="mono muted" x="70" y="310" font-size="12">may change  src/greeting.js, tests/greeting.test.js</text>
-  <text class="mono amber" x="70" y="327" font-size="12">agent started  no</text>
-
-  <text class="mono blue" x="54" y="364" font-size="13">$ scopelock task finish</text>
-  <rect x="54" y="378" width="448" height="32" rx="6" fill="#0f2d1d" stroke="#238636"/>
-  <text class="ui green" x="70" y="399" font-size="13" font-weight="700">Cleared</text>
-  <text class="ui text" x="136" y="399" font-size="12">Flight Report saved</text>
-  <text class="ui amber" x="339" y="399" font-size="12">tests run: no</text>
-
-  <rect x="550" y="76" width="500" height="350" rx="8" fill="#11161d" stroke="#30363d"/>
-  <text class="ui text" x="574" y="106" font-size="16" font-weight="700">Standard: prepare multiple agents</text>
-  <text class="ui muted" x="574" y="128" font-size="12">Compile first, review before execution</text>
-
-  <text class="mono blue" x="574" y="164" font-size="13">$ scopelock plan prepare plan.json</text>
-  <text class="mono blue" x="594" y="184" font-size="13">--target codex --out ready-plan.json</text>
-
-  <rect x="574" y="204" width="452" height="54" rx="6" fill="#2a2112" stroke="#9e6a03"/>
-  <text class="ui amber" x="592" y="226" font-size="13" font-weight="700">Read-write dependency</text>
-  <text class="mono muted" x="592" y="246" font-size="12">config-writer before summary-reader</text>
-
-  <text class="ui muted" x="574" y="290" font-size="12" font-weight="700">EXECUTION STAGES</text>
-  <rect x="574" y="306" width="174" height="54" rx="6" fill="#0f2d1d" stroke="#238636"/>
-  <text class="ui green" x="592" y="328" font-size="11" font-weight="700">STAGE 1</text>
-  <text class="mono text" x="592" y="349" font-size="12">config-writer</text>
-  <path d="M760 333h42" stroke="#8b949e" stroke-width="2"/>
-  <path d="m796 327 8 6-8 6" fill="none" stroke="#8b949e" stroke-width="2"/>
-  <rect x="816" y="306" width="210" height="54" rx="6" fill="#0f2d1d" stroke="#238636"/>
-  <text class="ui green" x="834" y="328" font-size="11" font-weight="700">STAGE 2</text>
-  <text class="mono text" x="834" y="349" font-size="12">summary-reader</text>
-
-  <rect x="574" y="378" width="452" height="32" rx="6" fill="#161b22" stroke="#30363d"/>
-  <text class="ui green" x="592" y="399" font-size="13" font-weight="700">ready-plan.json written</text>
-  <text class="ui amber" x="861" y="399" font-size="12">agent run: no</text>
-
-  <rect x="30" y="450" width="1020" height="84" rx="8" fill="#161b22" stroke="#30363d"/>
-  <text class="ui text" x="54" y="478" font-size="13" font-weight="700">Reviewable artifacts</text>
-  <text class="mono green" x="54" y="505" font-size="12">guided-drift.json</text>
-  <text class="mono blue" x="218" y="505" font-size="12">guided-report.html</text>
-  <text class="mono text" x="392" y="505" font-size="12">plan.json</text>
-  <text class="mono amber" x="482" y="505" font-size="12">ready-plan.json</text>
-  <text class="ui muted" x="766" y="505" font-size="12">no model or agent executed</text>
-
-  <line x1="30" y1="562" x2="1050" y2="562" stroke="#30363d"/>
-  <text class="mono blue" x="30" y="590" font-size="13">$ scopelock run ready-plan.json --yes --isolate</text>
-  <text class="ui muted" x="753" y="590" font-size="12">explicit next step after review</text>
+  <g class="frame f4 last"><use href="#chrome"/><use href="#setup-done"/><use href="#task-done"/><text class="mono blue" x="32" y="252" font-size="14">$ scopelock task finish --open</text><rect x="32" y="264" width="896" height="42" rx="7" fill="#0f2d1d" stroke="#238636"/><circle cx="50" cy="285" r="10" fill="#238636"/><path d="m45 285 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/><text class="ui green" x="70" y="290" font-size="14" font-weight="700">Cleared</text><text class="ui text" x="136" y="290" font-size="13">Flight Report saved</text><text class="ui amber" x="796" y="290" font-size="12">tests run: no</text><line x1="32" y1="326" x2="928" y2="326" stroke="#30363d"/><text class="ui muted" x="32" y="347" font-size="12">Same contracts and reports as Standard. No model or agent executed.</text></g>
 </svg>
