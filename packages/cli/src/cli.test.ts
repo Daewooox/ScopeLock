@@ -1,11 +1,11 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm, mkdir, readFile, writeFile, chmod } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { setupCommand } from "./commands/setup.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
@@ -1731,6 +1731,14 @@ describe("plan fill-commands", () => {
 });
 
 describe("plan prepare", () => {
+  let fakeCodexBinPromise: Promise<string> | null = null;
+
+  after(async () => {
+    if (fakeCodexBinPromise !== null) {
+      await rm(await fakeCodexBinPromise, { recursive: true, force: true });
+    }
+  });
+
   async function writeContract(
     dir: string,
     id: string,
@@ -1751,17 +1759,24 @@ describe("plan prepare", () => {
   }
 
   async function fakeCodexEnv(dir: string): Promise<NodeJS.ProcessEnv> {
+    if (process.platform === "win32") {
+      fakeCodexBinPromise ??= (async () => {
+        const bin = await mkdtemp(join(tmpdir(), "scopelock-fake-codex-"));
+        await copyFile(process.execPath, join(bin, "codex.exe"));
+        return bin;
+      })();
+      const bin = await fakeCodexBinPromise;
+      await writeFile(join(dir, "exec"), "require('node:fs').writeFileSync('a.txt', 'ran')\n");
+      return { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}` };
+    }
+
     const bin = join(dir, "fake-bin");
     const script = join(bin, "fake-codex.cjs");
+    const executable = join(bin, "codex");
     await mkdir(bin, { recursive: true });
     await writeFile(script, "require('node:fs').writeFileSync('a.txt', 'ran')\n");
-    if (process.platform === "win32") {
-      await writeFile(join(bin, "codex.cmd"), `@echo off\r\n"${process.execPath}" "${script}"\r\n`);
-    } else {
-      const executable = join(bin, "codex");
-      await writeFile(executable, `#!/bin/sh\nexec "${process.execPath}" "${script}"\n`);
-      await chmod(executable, 0o755);
-    }
+    await writeFile(executable, `#!/bin/sh\nexec "${process.execPath}" "${script}"\n`);
+    await chmod(executable, 0o755);
     return { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}` };
   }
 
@@ -1777,17 +1792,8 @@ describe("plan prepare", () => {
       }
       if (gitPath !== null) break;
     }
-    assert.notEqual(gitPath, null, "git must be discoverable for the fixture");
-    const bin = join(dir, "git-only-bin");
-    await mkdir(bin, { recursive: true });
-    if (process.platform === "win32") {
-      await writeFile(join(bin, "git.cmd"), `@echo off\r\n"${gitPath}" %*\r\n`);
-    } else {
-      const executable = join(bin, "git");
-      await writeFile(executable, `#!/bin/sh\nexec "${gitPath}" "$@"\n`);
-      await chmod(executable, 0o755);
-    }
-    return { ...process.env, PATH: bin };
+    assert.ok(gitPath, "git must be discoverable for the fixture");
+    return { ...process.env, PATH: dirname(gitPath) };
   }
 
   it("prepares a reviewable shell-free plan that run accepts unchanged", async (t) => {
