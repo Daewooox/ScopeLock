@@ -1,10 +1,13 @@
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import type { ChangedFile, RepoMode, RepoState } from "../schemas/drift.js";
 import { DEFAULT_DEGRADED_FILE_THRESHOLD } from "../schemas/config.js";
 import { changedSinceBaseline } from "../git/diff.js";
 import { runGitAsync } from "../git/exec.js";
 import { parsePorcelainV2 } from "../git/status.js";
+import { isOnlyContractSectionChange } from "../render/agents-md.js";
+
+const AGENT_INSTRUCTION_FILES = new Set(["AGENTS.md", "CLAUDE.md"]);
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -44,6 +47,33 @@ function isScopelockArtifact(path: string): boolean {
   return path === ".scopelock" || path.startsWith(".scopelock/");
 }
 
+async function baselineFile(
+  cwd: string,
+  baselineSha: string,
+  path: string,
+): Promise<string | null | undefined> {
+  const listed = await runGitAsync(["ls-tree", "--name-only", baselineSha, "--", path], cwd);
+  if (!listed.ok) return undefined;
+  if (listed.stdout.toString("utf8").trim().length === 0) return null;
+
+  const shown = await runGitAsync(["show", `${baselineSha}:${path}`], cwd);
+  return shown.ok ? shown.stdout.toString("utf8") : undefined;
+}
+
+async function isOwnedInstructionChange(
+  cwd: string,
+  baselineSha: string,
+  path: string,
+): Promise<boolean> {
+  const baseline = await baselineFile(cwd, baselineSha, path);
+  if (baseline === undefined) return false;
+  try {
+    return isOnlyContractSectionChange(baseline, await readFile(resolve(cwd, path), "utf8"));
+  } catch {
+    return false;
+  }
+}
+
 export async function collectChangedFiles(
   cwd: string,
   baselineSha: string | null,
@@ -69,6 +99,14 @@ export async function collectChangedFiles(
 
   for (const file of committed) byPath.set(file.path, file);
   for (const file of worktree) byPath.set(file.path, file);
+
+  if (baselineSha !== null) {
+    for (const path of AGENT_INSTRUCTION_FILES) {
+      if (byPath.has(path) && await isOwnedInstructionChange(cwd, baselineSha, path)) {
+        byPath.delete(path);
+      }
+    }
+  }
 
   const files = [...byPath.values()];
   return {

@@ -23,3 +23,15 @@ export function injectContractSection(
   const after = existing.slice(end + SCOPELOCK_CONTRACT_END.length);
   return `${before}${block}${after}`;
 }
+
+export function isOnlyContractSectionChange(
+  baseline: string | null,
+  current: string,
+): boolean {
+  const start = current.indexOf(SCOPELOCK_CONTRACT_BEGIN);
+  const end = current.indexOf(SCOPELOCK_CONTRACT_END, start + SCOPELOCK_CONTRACT_BEGIN.length);
+  if (start === -1 || end === -1) return false;
+
+  const section = current.slice(start + SCOPELOCK_CONTRACT_BEGIN.length, end);
+  return injectContractSection(baseline, section) === current;
+}

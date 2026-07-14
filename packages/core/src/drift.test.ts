@@ -11,6 +11,7 @@ import {
   collectChangedFiles,
   driftReportFileName,
   highRiskViolations,
+  injectContractSection,
   missingTestsViolation,
   parsePorcelainV2,
   type ApprovedContract,
@@ -250,6 +251,39 @@ describe("git integration", () => {
       await writeFile(join(dir, gitDir, "MERGE_HEAD"), "deadbeef\n");
       const collected = await collectChangedFiles(dir, null);
       assert.equal(collected.repoState.kind, "merge");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores only the ScopeLock-owned instruction block", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const instructions = "Foreign instruction.\n";
+      await writeFile(join(dir, "AGENTS.md"), instructions);
+      spawnSync("git", ["add", "AGENTS.md"], { cwd: dir });
+      spawnSync("git", ["commit", "-qm", "add instructions"], { cwd: dir });
+      const baseline = spawnSync("git", ["rev-parse", "HEAD"], {
+        cwd: dir,
+        encoding: "utf8",
+      }).stdout.trim();
+
+      const injected = injectContractSection(instructions, "Current ScopeLock contract");
+      await writeFile(join(dir, "AGENTS.md"), injected);
+      assert.equal(
+        (await collectChangedFiles(dir, baseline)).files.some((file) => file.path === "AGENTS.md"),
+        false,
+      );
+
+      await writeFile(join(dir, "AGENTS.md"), `${injected}Foreign mutation.\n`);
+      assert.equal(
+        (await collectChangedFiles(dir, baseline)).files.some((file) => file.path === "AGENTS.md"),
+        true,
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

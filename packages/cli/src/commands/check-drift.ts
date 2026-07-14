@@ -66,8 +66,8 @@ function humanReport(contractId: string, reportPath: string, report: {
 
 export async function checkDriftCommand(options: {
   base?: string;
-} = {}): Promise<CommandResult> {
-  const root = findRepoRoot(process.cwd());
+} = {}, cwd: string = process.cwd()): Promise<CommandResult> {
+  const root = findRepoRoot(cwd);
   if (root === null) {
     throw new CliError(
       "NOT_A_GIT_REPO",
