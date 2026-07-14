@@ -13,6 +13,7 @@ export const schedulePlanTaskSchema = z.object({
   id: z.string().min(1),
   contract: z.string().min(1),
   command: commandSpecSchema.optional(),
+  expectsChanges: z.boolean().optional(),
 });
 
 export const schedulePlanSchema = z

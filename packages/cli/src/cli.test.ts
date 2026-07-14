@@ -1510,8 +1510,12 @@ describe("plan fill-commands", () => {
       assert.equal(filled.status, 0, filled.stdout || filled.stderr);
       const enriched = JSON.parse(await readFile(join(dir, "enriched.json"), "utf8"));
       assert.deepEqual(enriched.tasks[0].command.slice(0, 2), ["codex", "exec"]);
-      assert.match(enriched.tasks[0].command[2], /# ScopeLock Contract: a/);
+      assert.deepEqual(enriched.tasks[0].command.slice(2, 4), ["--sandbox", "workspace-write"]);
+      assert.match(enriched.tasks[0].command.at(-1), /# ScopeLock Contract: a/);
+      assert.equal(enriched.tasks[0].expectsChanges, true);
       assert.deepEqual(enriched.tasks[1].command, ["manual", "b"]);
+      assert.equal(enriched.tasks[1].expectsChanges, undefined);
+      assert.equal(enriched.execution.isolation, "required");
 
       const forced = runCli(dir, [
         "--json",
@@ -1527,6 +1531,8 @@ describe("plan fill-commands", () => {
       assert.equal(forced.status, 0, forced.stdout || forced.stderr);
       const forcedPlan = JSON.parse(await readFile(join(dir, "forced.json"), "utf8"));
       assert.deepEqual(forcedPlan.tasks[1].command.slice(0, 2), ["codex", "exec"]);
+      assert.equal(forcedPlan.tasks[1].expectsChanges, true);
+      assert.equal(forcedPlan.execution.isolation, "required");
 
       // Keep the composed plan shape and replace only executables with a
       // deterministic test shim so CI does not require a Codex account.
@@ -1538,11 +1544,13 @@ describe("plan fill-commands", () => {
         ];
       }
       await writeFile(join(dir, "runnable.json"), JSON.stringify(forcedPlan));
+      commitFixture(dir, "composed runnable plan");
       const run = runCli(dir, [
         "--json",
         "run",
         "runnable.json",
         "--yes",
+        "--isolate",
         "--no-check-drift",
       ]);
       assert.equal(run.status, 0, run.stdout || run.stderr);
@@ -1821,6 +1829,9 @@ describe("plan prepare", () => {
       assert.equal(body.data.preflight.workspace, null);
       const ready = JSON.parse(await readFile(join(dir, "ready-plan.json"), "utf8"));
       assert.deepEqual(ready.tasks[0].command.slice(0, 2), ["codex", "exec"]);
+      assert.deepEqual(ready.tasks[0].command.slice(2, 4), ["--sandbox", "workspace-write"]);
+      assert.equal(ready.tasks[0].expectsChanges, true);
+      assert.equal(ready.execution.isolation, "required");
       assert.equal(Array.isArray(ready.tasks[0].command), true);
 
       commitFixture(dir, "prepared plan");
@@ -2164,11 +2175,13 @@ describe("run", () => {
             {
               id: "writer",
               contract: "writer.json",
+              expectsChanges: true,
               command: [process.execPath, "-e", "require('node:fs').writeFileSync('shared.txt','wave-one')"],
             },
             {
               id: "reader",
               contract: "reader.json",
+              expectsChanges: true,
               command: [
                 process.execPath,
                 "-e",
@@ -2211,6 +2224,105 @@ describe("run", () => {
       const html = await readFile(receiptPath.replace(/\.json$/, ".html"), "utf8");
       assert.match(html, /Final promotion/);
       assert.match(html, /accepted-integration/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks an expected-change empty diff but preserves an optional manual task", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "empty.json"), "empty", ["result.txt"]);
+      await writeContract(dir, join(dir, "manual.json"), "manual", ["manual.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-empty-diff",
+          execution: { isolation: "required" },
+          tasks: [{
+            id: "empty",
+            contract: "empty.json",
+            expectsChanges: true,
+            command: [process.execPath, "-e", "process.exit(0)"],
+          }, {
+            id: "manual",
+            contract: "manual.json",
+            command: [process.execPath, "-e", "process.exit(0)"],
+          }],
+        }),
+      );
+      commitFixture(dir, "empty diff fixture");
+
+      const receiptPath = join(dir, ".scopelock", "reports", "empty.json");
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.finalPromotion, "no-changes");
+      const empty = receipt.taskRuns.find((task: { id: string }) => task.id === "empty");
+      const manual = receipt.taskRuns.find((task: { id: string }) => task.id === "manual");
+      assert.equal(empty.status, "blocked");
+      assert.equal(empty.isolation.outcome, "rejected-no-changes");
+      assert.ok(empty.isolation.findings.some(
+        (finding: { code: string }) => finding.code === "EXPECTED_CHANGES_MISSING",
+      ));
+      assert.equal(manual.status, "passed");
+      assert.equal(manual.isolation.outcome, "no-changes");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks an expected-change task whose diff is outside planned scope", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "outside.json"), "outside", ["allowed.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-outside-diff",
+          execution: { isolation: "required" },
+          tasks: [{
+            id: "outside",
+            contract: "outside.json",
+            expectsChanges: true,
+            command: [
+              process.execPath,
+              "-e",
+              "require('node:fs').writeFileSync('outside.txt','no')",
+            ],
+          }],
+        }),
+      );
+      commitFixture(dir, "outside diff fixture");
+
+      const receiptPath = join(dir, ".scopelock", "reports", "outside.json");
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      await assert.rejects(readFile(join(dir, "outside.txt"), "utf8"));
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].status, "blocked");
+      assert.equal(receipt.taskRuns[0].isolation.outcome, "rejected-scope");
+      assert.ok(receipt.taskRuns[0].isolation.findings.some(
+        (finding: { code: string }) => finding.code === "OUTSIDE_SCOPE",
+      ));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

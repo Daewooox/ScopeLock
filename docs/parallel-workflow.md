@@ -283,14 +283,19 @@ symlink, gitlink, oversized, conflicting, or failed task results are not
 staged. After rechecking the original clean `HEAD`, ScopeLock applies one
 aggregate patch to the user tree and records the result in receipt v5.
 
-For Cursor, composition is deliberately bound to isolated execution:
+Generated agent tasks are deliberately bound to isolated execution and carry
+`expectsChanges: true`. A task that exits zero without a Git diff is blocked as
+`rejected-no-changes`; it is never reported as successfully completed. Codex
+argv explicitly selects `workspace-write` without any sandbox bypass flag.
+
+Cursor uses the same required worktree gate and also retains its native sandbox:
 
 ```bash
 scopelock plan prepare plan.json --target cursor --out cursor-plan.json
 scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
-The generated file contains `execution.isolation = "required"`, so a later
+Every generated file contains `execution.isolation = "required"`, so a later
 direct run is rejected before any agent starts. Cursor keeps its native
 sandbox enabled, while ScopeLock validates the complete worktree patch before
 promotion. Existing explicit commands are preserved, but the whole mixed plan

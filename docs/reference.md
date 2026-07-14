@@ -225,14 +225,13 @@ Compose agent commands into a separate reviewable plan before dispatch:
 ```bash
 scopelock hooks install --target claude --mode strict
 scopelock plan compose plan.json --target claude --out enriched-plan.json
-scopelock run enriched-plan.json --yes
-```
-
-For stronger workspace containment, add `--isolate`:
-
-```bash
 scopelock run enriched-plan.json --yes --isolate --receipt receipt.json
 ```
+
+Generated agent tasks are marked `expectsChanges: true`, and their plan is
+bound to isolated execution. Exit 0 without a Git diff is recorded as
+`rejected-no-changes`, not PASS. Manual plans without that expectation may
+still contain legitimate non-mutating tasks and may run directly.
 
 Each task runs in its own detached Git worktree. ScopeLock accepts only a
 whole task patch whose paths match that task's contract, carries accepted
@@ -240,9 +239,10 @@ changes into later execution steps, and applies one aggregate patch to the
 user working tree at the end. The user repository must be clean and remain at
 the same `HEAD`; otherwise dispatch or final promotion fails closed.
 
-Isolated runs are opt-in and produce receipt v5 with per-task patch digests,
-path classifications, final-promotion status, and cleanup evidence. The first
-release limits a run to 32 tasks and each task/aggregate patch to 50 MiB.
+Manual plans may opt into isolation; generated agent plans require it. Isolated
+runs produce receipt v5 with per-task patch digests, path classifications,
+final-promotion status, and cleanup evidence. The first release limits a run to
+32 tasks and each task/aggregate patch to 50 MiB.
 Gitlinks and symlinks are rejected. A signal interrupts children, blocks final
 promotion, and runs worktree cleanup. ScopeLock supervises the complete child
 process tree: timeout, `SIGINT`, and `SIGTERM` share one termination path, and
@@ -256,23 +256,26 @@ worktree. Keep harness-native sandboxes enabled and do not run untrusted plans.
 
 By default, `plan compose` preserves tasks that already have a command. Use
 `--force` to replace them. It always generates an argv array, never a shell
-string. Generated Claude invocations use `dontAsk`, disable session persistence,
-allow only file read/edit tools, and explicitly deny Bash. Put deterministic
-test commands in separate plan tasks. The installed strict hook supplies
-pre-write scope enforcement; without it, only the final drift check remains.
-Cursor composition is available only as an isolation-bound plan:
+string. Generated Codex invocations explicitly select the `workspace-write`
+sandbox; bypass flags are never added. Generated Claude invocations use
+`dontAsk`, disable session persistence, allow only file read/edit tools, and
+explicitly deny Bash. Put deterministic test commands in separate plan tasks.
+The installed strict hook supplies pre-write scope enforcement; without it,
+only the final drift check remains.
+All generated agent commands require isolated execution; Cursor also keeps its
+native sandbox enabled:
 
 ```bash
 scopelock plan compose plan.json --target cursor --out cursor-plan.json
 scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
-`plan compose --target cursor` always writes
+`plan compose` writes
 `execution.isolation = "required"`. Running that file without `--isolate`
 fails with `PLAN_REQUIRES_ISOLATION`; `--yes` and `--allow-shell` cannot bypass
-the requirement. The generated argv keeps Cursor's sandbox enabled. ScopeLock
-still treats Cursor hooks as audit-only: the worktree patch gate, rather than
-a claimed pre-write deny, is the final enforcement boundary.
+the requirement. For Cursor, the generated argv keeps its sandbox enabled.
+ScopeLock still treats Cursor hooks as audit-only: the worktree patch gate,
+rather than a claimed pre-write deny, is the final enforcement boundary.
 
 Other `run` options:
 

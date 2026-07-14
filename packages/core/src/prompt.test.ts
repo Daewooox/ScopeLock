@@ -62,8 +62,14 @@ describe("agent invocation", () => {
     assert.deepEqual(buildAgentCommand("codex", "do the task"), [
       "codex",
       "exec",
+      "--sandbox",
+      "workspace-write",
       "do the task",
     ]);
+    assert.equal(
+      buildAgentCommand("codex", "do the task").includes("--dangerously-bypass-approvals-and-sandbox"),
+      false,
+    );
   });
 
   it("builds the live-verified restricted Claude argv command", () => {

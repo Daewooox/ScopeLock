@@ -28,7 +28,9 @@ export function buildAgentCommand(
       `rendered prompt is ${promptBytes} bytes; maximum safe argv prompt is ${MAX_AGENT_PROMPT_BYTES} bytes`,
     );
   }
-  if (target === "codex") return ["codex", "exec", promptText];
+  if (target === "codex") {
+    return ["codex", "exec", "--sandbox", "workspace-write", promptText];
+  }
   if (target === "claude") {
     return [
       "claude",

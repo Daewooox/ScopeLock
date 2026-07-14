@@ -71,7 +71,11 @@ export async function planFillCommandsCommand(
     }
     const contractPath = isAbsolute(task.contract) ? task.contract : resolve(cwd, task.contract);
     try {
-      tasks.push({ ...task, command: await commandFor(contractPath, target, isolationBound) });
+      tasks.push({
+        ...task,
+        command: await commandFor(contractPath, target, isolationBound),
+        expectsChanges: true,
+      });
     } catch (error) {
       if (error instanceof AgentInvocationError && error.code === "UNSUPPORTED_TARGET") {
         unsupported.push({ taskId: task.id, target, reason: error.message });
@@ -85,9 +89,13 @@ export async function planFillCommandsCommand(
     }
   }
 
+  const requiresIsolation =
+    plan.execution?.isolation === "required"
+    || isolationBound
+    || tasks.some((task) => task.expectsChanges === true);
   const enrichedPlan = schedulePlanSchema.parse({
     ...plan,
-    ...(isolationBound ? { execution: { isolation: "required" } } : {}),
+    ...(requiresIsolation ? { execution: { isolation: "required" } } : {}),
     tasks,
   });
   const outputPath = options.out
@@ -109,7 +117,7 @@ export async function planFillCommandsCommand(
           title: "Checks",
           lines: [
             `${filled} task command${filled === 1 ? "" : "s"} composed`,
-            ...(isolationBound ? ["Isolated execution required"] : []),
+            ...(requiresIsolation ? ["Isolated execution required"] : []),
             ...unsupportedLines,
           ],
         },
@@ -123,7 +131,7 @@ export async function planFillCommandsCommand(
           title: "Next",
           lines: unsupported.length > 0
             ? "Resolve unsupported tasks, then compose the plan again"
-            : `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes${isolationBound ? " --isolate" : ""}`,
+            : `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes${requiresIsolation ? " --isolate" : ""}`,
         },
       ]);
 
