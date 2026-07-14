@@ -8,6 +8,7 @@ import {
   type TaskScope,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 async function readJsonFile(path: string, notFoundCode: string): Promise<unknown> {
   let raw: string;
@@ -44,28 +45,44 @@ function humanConflict(conflict: ScopeConflict): string {
 }
 
 function humanReport(
+  planPath: string,
   planId: string,
   waves: string[][],
   conflicts: ScopeConflict[],
   cycles: string[][],
 ): string {
-  const lines = [`plan ${planId}`];
+  const checks: string[] = [];
   if (cycles.length > 0) {
     // "Group" rather than "cycle" in the per-line label: connectedComponents
     // (scheduler.ts) also sweeps in nodes that are merely downstream of a
     // true cycle (e.g. a reader of a cycle member), not only the cycle's
     // own members, so not every listed group is a cycle in the strict
     // graph-theory sense - all of them are equally unschedulable, though.
-    lines.push(
+    checks.push(
       "error: unschedulable (read-write deadlock) - serialize or redesign contracts:",
       ...cycles.map((group) => `  stuck group: [${group.join(", ")}]`),
     );
   }
-  lines.push(...waves.map((wave, index) => `stage ${index + 1}: [${wave.join(", ")}]`));
+  if (cycles.length === 0) checks.push("No unschedulable read-write cycle found");
+  const stages = waves.map((wave, index) => `stage ${index + 1}: [${wave.join(", ")}]`);
   if (conflicts.length > 0) {
-    lines.push("conflicts:", ...conflicts.map(humanConflict));
+    checks.push("File overlaps:", ...conflicts.map(humanConflict));
   }
-  return lines.join("\n");
+  return renderSections([
+    { title: "Context", lines: `Plan  ${planId}` },
+    { title: "Checks", lines: checks },
+    { title: "Execution stages", lines: stages.length > 0 ? stages : "none" },
+    {
+      title: "Result",
+      lines: cycles.length > 0 ? "Plan needs changes before composition" : "Plan can be composed",
+    },
+    {
+      title: "Next",
+      lines: cycles.length > 0
+        ? "Adjust the task boundaries, then run plan schedule again"
+        : `Compose agent commands: scopelock plan compose ${JSON.stringify(planPath)} --target <agent> --out ready-plan.json`,
+    },
+  ]);
 }
 
 export async function planParallelCommand(
@@ -86,7 +103,7 @@ export async function planParallelCommand(
 
   return {
     data: { planId: plan.planId, waves, conflicts: graph.conflicts, cycles },
-    human: humanReport(plan.planId, waves, graph.conflicts, cycles),
+    human: humanReport(planPath, plan.planId, waves, graph.conflicts, cycles),
     exitCode: cycles.length > 0 ? 1 : 0,
   };
 }

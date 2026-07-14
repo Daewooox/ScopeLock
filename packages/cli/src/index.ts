@@ -30,8 +30,19 @@ const program = new Command();
 
 program
   .name("scopelock")
-  .description("Local guardrails for AI coding agents")
+  .description("Local flight control for AI coding agents")
   .option("--json", "print machine-readable JSON");
+
+program.addHelpText(
+  "after",
+  [
+    "",
+    "Quick start:",
+    "  scopelock init",
+    "  scopelock doctor",
+    "  scopelock contract new --help",
+  ].join("\n"),
+);
 
 function jsonOf(command: Command): { json: boolean } {
   const opts = command.optsWithGlobals<{ json?: boolean }>();
@@ -63,24 +74,17 @@ function registerRebaseline(parent: Command, name: string, hidden = false): void
 
 program
   .command("init")
-  .description("create the .scopelock directory and default config")
+  .helpGroup("Start here:")
+  .description("initialize ScopeLock in this repository")
   .option("--json", "print machine-readable JSON")
   .action((_options, command: Command) => run(initCommand, jsonOf(command)));
 
 program
   .command("doctor")
-  .description("check local ScopeLock setup")
+  .helpGroup("Start here:")
+  .description("diagnose the local ScopeLock setup")
   .option("--json", "print machine-readable JSON")
   .action((_options, command: Command) => run(doctorCommand, jsonOf(command)));
-
-program
-  .command("check-drift")
-  .description("compare the approved contract with actual repo changes")
-  .option("--base <sha>", "override the approved baseline SHA")
-  .option("--json", "print machine-readable JSON")
-  .action((options: { base?: string }, command: Command) =>
-    run(() => checkDriftCommand(options), jsonOf(command)),
-  );
 
 function registerContractExport(parent: Command, name: string, hidden = false): void {
   parent
@@ -106,7 +110,8 @@ function registerContractInject(parent: Command, name: string, hidden = false): 
 
 const contract = program
   .command("contract")
-  .description("create, approve, and share scope contracts");
+  .helpGroup("Protect one task:")
+  .description("create, approve, and share task boundaries");
 
 contract
   .command("new")
@@ -149,6 +154,16 @@ registerRebaseline(program, "rebaseline", true);
 registerContractExport(program, "export-prompt", true);
 registerContractInject(program, "inject-contract", true);
 
+program
+  .command("check-drift")
+  .helpGroup("Protect one task:")
+  .description("verify changes against the approved task boundary")
+  .option("--base <sha>", "override the approved baseline SHA")
+  .option("--json", "print machine-readable JSON")
+  .action((options: { base?: string }, command: Command) =>
+    run(() => checkDriftCommand(options), jsonOf(command)),
+  );
+
 function registerPlanSchedule(parent: Command, name: string, hidden = false): void {
   parent
   .command(name, { hidden })
@@ -182,7 +197,10 @@ function registerPlanCompose(parent: Command, name: string, hidden = false): voi
   );
 }
 
-const plan = program.command("plan").description("schedule and compose multi-agent work");
+const plan = program
+  .command("plan")
+  .helpGroup("Coordinate agents:")
+  .description("schedule and compose multi-agent work");
 
 registerPlanSchedule(plan, "schedule");
 registerPlanCompose(plan, "compose");
@@ -192,12 +210,14 @@ registerPlanSchedule(program, "plan-parallel", true);
 
 program
   .command("manifest")
+  .helpGroup("Inspect:")
   .description("build a deterministic repo manifest from tracked git files")
   .option("--json", "print machine-readable JSON")
   .action((_options, command: Command) => run(manifestCommand, jsonOf(command)));
 
 program
   .command("run")
+  .helpGroup("Coordinate agents:")
   .description("run a reviewed plan in safe execution stages and write a receipt")
   .argument("[plan]", "path to a plan JSON file")
   .option("--plan <path>", "legacy form of the plan path")
@@ -242,6 +262,7 @@ program
 
 program
   .command("report")
+  .helpGroup("Inspect:")
   .description("render a standalone HTML flight report from a run receipt")
   .argument("<receipt>", "path to a ScopeLock run receipt JSON")
   .option("--out <path>", "write HTML report to this path")
@@ -251,7 +272,10 @@ program
     run(() => reportCommand(receipt, options), jsonOf(command)),
   );
 
-const agents = program.command("agents").description("agent environment attestation");
+const agents = program
+  .command("agents")
+  .helpGroup("Advanced:")
+  .description("agent environment attestation");
 
 agents
   .command("preflight")
@@ -277,7 +301,10 @@ hook
   .description("evaluate a hook event and always audit instead of denying")
   .action(() => hookGateCommand({ forceAudit: true }));
 
-const hooks = program.command("hooks").description("manage agent enforcement hooks");
+const hooks = program
+  .command("hooks")
+  .helpGroup("Advanced:")
+  .description("manage agent enforcement hooks");
 
 hooks
   .command("install")
@@ -315,6 +342,10 @@ hooks
       command: Command,
     ) => run(() => hooksVerifyCommand(options), jsonOf(command)),
   );
+
+program
+  .commandsGroup("Help:")
+  .helpCommand("help [command]", "display help for a command");
 
 // Explicit "node" convention (argv[0]=runtime, argv[1]=script): commander
 // otherwise auto-detects Electron-based runtimes and shifts argv parsing.

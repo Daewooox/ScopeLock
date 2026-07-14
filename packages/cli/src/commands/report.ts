@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { platform } from "node:os";
 import { pathToFileURL } from "node:url";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 type ReportOptions = {
   out?: string;
@@ -230,10 +231,21 @@ export async function reportCommand(path: string, options: ReportOptions = {}): 
   if (options.open === true) openFile(reportPath);
   return {
     data: { receiptPath, reportPath, opened: options.open === true },
-    human: [
-      `report: ${reportPath}`,
-      options.open === true ? "opened in browser" : `next: scopelock report --open ${JSON.stringify(path)}`,
-    ].join("\n"),
+    human: renderSections([
+      {
+        title: "Result",
+        lines: [
+          `Flight Report  ${reportPath}`,
+          `Browser        ${options.open === true ? "opened" : "not opened"}`,
+        ],
+      },
+      {
+        title: "Next",
+        lines: options.open === true
+          ? "Review the Flight Report"
+          : `Open it: scopelock report ${JSON.stringify(path)} --open`,
+      },
+    ]),
     exitCode: 0,
   };
 }

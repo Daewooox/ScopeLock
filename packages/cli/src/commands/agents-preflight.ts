@@ -13,6 +13,7 @@ import {
   type TargetPreflightReport,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 async function readManifest(path: string): Promise<unknown> {
   let raw: string;
@@ -96,14 +97,23 @@ function humanTarget(target: TargetPreflightReport): string {
 }
 
 function humanReport(targets: TargetPreflightReport[], summary: { status: string; violationsCount: number }): string {
-  const lines = [
-    "agent environment preflight",
-    ...targets.map(humanTarget),
-    "",
-    `summary: ${summary.status} (${summary.violationsCount} violation${summary.violationsCount === 1 ? "" : "s"})`,
-    `ready to dispatch: ${summary.violationsCount === 0 ? "yes" : "no"}`,
-  ];
-  return lines.join("\n");
+  return renderSections([
+    { title: "Checks", lines: targets.map(humanTarget) },
+    {
+      title: "Result",
+      lines: [
+        `Environment  ${summary.status}`,
+        `Violations   ${summary.violationsCount}`,
+        `Dispatch     ${summary.violationsCount === 0 ? "ready" : "blocked"}`,
+      ],
+    },
+    {
+      title: "Next",
+      lines: summary.violationsCount === 0
+        ? "Compose or run the reviewed plan"
+        : "Apply the fixes above, then run: scopelock agents preflight --manifest <path>",
+    },
+  ]);
 }
 
 function filterTargets(

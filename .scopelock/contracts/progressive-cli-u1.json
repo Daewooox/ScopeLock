@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-cli-u1",
+  "task": "Progressive CLI U1 help and terminal language",
+  "createdAt": "2026-07-14T09:41:19.945Z",
+  "baseline": {
+    "headSha": "ae5df657b00ea037566a316bb3abe91496955579",
+    "branch": "feature/progressive-cli-u1",
+    "capturedAt": "2026-07-14T09:41:20.038Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/**",
+      "docs/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/mcp/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

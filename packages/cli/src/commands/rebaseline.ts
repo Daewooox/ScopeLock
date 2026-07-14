@@ -10,6 +10,7 @@ import {
   writeApprovalSeal,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 /**
  * Re-anchor an existing approved contract's baseline to the current HEAD.
@@ -82,7 +83,11 @@ export async function rebaselineCommand(
       path: savedPath,
       sealPath,
     },
-    human: `rebaselined ${id} to ${sha}`,
+    human: renderSections([
+      { title: "Context", lines: `Task boundary  ${id}` },
+      { title: "Result", lines: [`Baseline updated  ${sha}`, `Contract          ${savedPath}`] },
+      { title: "Next", lines: "Verify current changes: scopelock check-drift" },
+    ]),
     exitCode: 0,
   };
 }

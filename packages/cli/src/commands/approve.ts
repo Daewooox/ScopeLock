@@ -11,6 +11,7 @@ import {
   writeApprovalSeal,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { renderSections } from "../ui.js";
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -74,7 +75,23 @@ export async function approveCommand(
       path: savedPath,
       sealPath,
     },
-    human: `approved ${stamped.id} at ${sha}${options.activate ? " (active)" : ""}`,
+    human: renderSections([
+      { title: "Context", lines: `Task boundary  ${stamped.id}` },
+      {
+        title: "Result",
+        lines: [
+          `Approved  yes${options.activate ? ", active" : ""}`,
+          `Baseline  ${sha}`,
+          `Contract  ${savedPath}`,
+        ],
+      },
+      {
+        title: "Next",
+        lines: options.activate
+          ? "Share it with an agent: scopelock contract inject"
+          : "Activate or select the contract before starting work",
+      },
+    ]),
     exitCode: 0,
   };
 }
