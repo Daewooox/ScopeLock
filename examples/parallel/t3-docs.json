@@ -7,7 +7,7 @@
   "targetAgents": [],
   "scope": {
     "plannedPathPatterns": [
-      "memory-bank/**",
+      "docs/**",
       "README.md"
     ],
     "forbiddenPathPatterns": [],

@@ -26,7 +26,7 @@ Four subtasks, on real paths in this repo:
 |---|---|---|
 | `t1-core` | `packages/core/src/schedule/**` | - |
 | `t2-cli` | `packages/cli/src/commands/**` | - |
-| `t3-docs` | `memory-bank/**`, `README.md` | - |
+| `t3-docs` | `docs/**`, `README.md` | - |
 | `t4-tests` | `packages/core/src/schedule.test.ts` | `packages/core/src/schedule/**` |
 
 `t4-tests` is deliberately built to *read* what `t1-core` *writes* (it's
@@ -45,7 +45,7 @@ scopelock contract new --task "CLI command tweaks" \
   --out t2-cli.json
 
 scopelock contract new --task "docs updates" \
-  --id t3-docs --planned "memory-bank/**" --planned "README.md" \
+  --id t3-docs --planned "docs/**" --planned "README.md" \
   --out t3-docs.json
 
 scopelock contract new --task "scheduler tests (reads what t1-core writes)" \
@@ -108,8 +108,20 @@ scopelock plan schedule plan.json
 Real output:
 
 ```
-plan parallel-workflow-example
-stage 1: [t1-core, t2-cli, t3-docs, t4-tests]
+Context
+  Plan  parallel-workflow-example
+
+Checks
+  No unschedulable read-write cycle found
+
+Execution stages
+  stage 1: [t1-core, t2-cli, t3-docs, t4-tests]
+
+Result
+  Plan can be composed
+
+Next
+  Compose agent commands: scopelock plan compose "plan.json" --target <agent> --out ready-plan.json
 ```
 
 All four subtasks have disjoint *write* scopes, so F1 puts all of them in
@@ -124,11 +136,23 @@ scopelock plan schedule plan.json --include-read-hazards
 Real output:
 
 ```
-plan parallel-workflow-example
-stage 1: [t1-core, t2-cli, t3-docs]
-stage 2: [t4-tests]
-conflicts:
-  t1-core x t4-tests [read-write]: packages/core/src/schedule
+Context
+  Plan  parallel-workflow-example
+
+Checks
+  No unschedulable read-write cycle found
+  File overlaps:
+    t1-core x t4-tests [read-write]: packages/core/src/schedule
+
+Execution stages
+  stage 1: [t1-core, t2-cli, t3-docs]
+  stage 2: [t4-tests]
+
+Result
+  Plan can be composed
+
+Next
+  Compose agent commands: scopelock plan compose "plan.json" --target <agent> --out ready-plan.json
 ```
 
 And the `--json` form (this is what you'd script against):
@@ -155,7 +179,8 @@ And the `--json` form (this is what you'd script against):
   simply isn't checked, and everything ends up in one stage. This is the
   right default when you don't care about read staleness (e.g. independent
   features); turn it on when a subtask's correctness depends on another's
-  output already existing.
+  output already existing. The higher-level `plan prepare` command enables
+  read hazards by default.
 - **`cycles`**: non-empty only when `--include-read-hazards` finds a
   dependency loop that makes the plan unschedulable (Step 3b, below). Empty
   in ordinary F1 use and in any F2 plan without a deadlock.
@@ -173,12 +198,24 @@ scopelock plan schedule cycle-plan.json --include-read-hazards
 Real output:
 
 ```
-plan cycle-example
-error: unschedulable (read-write deadlock) - serialize or redesign contracts:
-  stuck group: [t5-cycle-a, t5-cycle-b]
-conflicts:
-  t5-cycle-a x t5-cycle-b [read-write]: src/a.ts
-  t5-cycle-b x t5-cycle-a [read-write]: src/b.ts
+Context
+  Plan  cycle-example
+
+Checks
+  error: unschedulable (read-write deadlock) - serialize or redesign contracts:
+    stuck group: [t5-cycle-a, t5-cycle-b]
+  File overlaps:
+    t5-cycle-a x t5-cycle-b [read-write]: src/a.ts
+    t5-cycle-b x t5-cycle-a [read-write]: src/b.ts
+
+Execution stages
+  none
+
+Result
+  Plan needs changes before composition
+
+Next
+  Adjust the task boundaries, then run plan schedule again
 ```
 
 ```bash
@@ -310,11 +347,10 @@ Within a single execution stage, every pair of tasks is guaranteed to have
 side effect. `plan schedule` builds a conflict graph from pairwise glob
 intersection and colors it so that no two same-colored tasks share an edge;
 the coloring is what produces the stage partition in the
-first place. This was measured directly, not just asserted, in the M4
-mini-experiment (`memory-bank/plans/orchestration-m4-experiment.md`): H1
-(0 write-collisions within any stage) and H4 (the kill-criterion - two
-agents writing one file in the same stage - never fired) both passed on a
-real scenario.
+first place. Core scheduler tests exercise this invariant, and the public
+deterministic benchmark in
+[`benchmarks/coordination/run-benchmark.mjs`](../benchmarks/coordination/run-benchmark.mjs)
+checks that no two agents write the same file in one stage.
 
 Just as important: every witness path `plan schedule` reports is verified
 against **`picomatch`** - the exact same glob matcher the runtime hook gate
@@ -327,7 +363,8 @@ guarantee and the runtime backstop are drawing from the same ground truth.
 
 ## What this does not cover
 
-- **Equivalent pre-write denial for every harness.** `plan compose`
-  supports Codex, a restricted live-verified Claude Code profile, and Cursor
-  only through an isolation-required plan. Cursor remains audit-only at hook
-  time; its complete worktree patch is validated before promotion instead.
+- **Equivalent pre-write denial for every harness.** `plan prepare` and the
+  lower-level `plan compose` support Codex, a restricted live-verified Claude
+  Code profile, and Cursor only through an isolation-required plan. Cursor
+  remains audit-only at hook time; its complete worktree patch is validated
+  before promotion instead.

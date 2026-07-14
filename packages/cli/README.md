@@ -4,9 +4,14 @@ The command-line interface for
 [ScopeLock](https://github.com/Daewooox/ScopeLock), local flight control for AI
 coding agents.
 
+The package has not been published to npm yet. Until the first beta release,
+run it from source using the repository
+[installation guide](https://github.com/Daewooox/ScopeLock#install).
+
+After publication, the intended command is:
+
 ```bash
 npm install --global @scopelock/cli@beta
-scopelock --help
 ```
 
 This beta is a guardrail, not an OS sandbox. See the repository

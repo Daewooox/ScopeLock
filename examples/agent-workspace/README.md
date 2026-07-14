@@ -27,16 +27,21 @@ node /path/to/ScopeLock/packages/cli/dist/index.js agents preflight --manifest m
 Expected output:
 
 ```
-agent environment preflight
-claude  status=pass  rules 1/1  skills 1/1
-  hook: pre-write deny (documented, not installed-checked live, not installed)
-cursor  status=pass  rules 1/1  skills 1/1
-  hook: post-write audit only (documented, not installed-checked live, not installed)
-codex  status=pass  rules 1/1  skills 1/1
-  hook: pre-write deny (degraded, unverified, not installed)
+Checks
+  claude  status=pass  rules 1/1  skills 1/1
+    hook: pre-write deny (documented, not installed-checked live, not installed)
+  cursor  status=pass  rules 1/1  skills 1/1
+    hook: post-write audit only (documented, not installed-checked live, not installed)
+  codex  status=pass  rules 1/1  skills 1/1
+    hook: pre-write deny (degraded, unverified, not installed)
 
-summary: pass (0 violations)
-ready to dispatch: yes
+Result
+  Environment  pass
+  Violations   0
+  Dispatch     ready
+
+Next
+  Compose or run the reviewed plan
 ```
 
 ## What a missing required skill looks like
@@ -45,13 +50,19 @@ Delete the skill directory (`rm -rf .agents/skills/review`) and rerun the
 same command:
 
 ```
-claude  status=fail  rules 1/1  skills 0/1
-  hook: pre-write deny (documented, not installed-checked live, not installed)
-  error  missing_required_skill  claude: required skill "review" not found (looked in: .claude/skills/review, .agents/skills/review)
-    fix: install the skill physically (e.g. `npx skills add <source> --agent claude --copy`)
+Checks
+  claude  status=fail  rules 1/1  skills 0/1
+    hook: pre-write deny (documented, not installed-checked live, not installed)
+    error  missing_required_skill  claude: required skill "review" not found
+      fix: install the skill physically (e.g. `npx skills add <source> --agent claude --copy`)
 ...
-summary: fail (3 violations)
-ready to dispatch: no
+Result
+  Environment  fail
+  Violations   3
+  Dispatch     blocked
+
+Next
+  Apply the fixes above, then run: scopelock agents preflight --manifest <path>
 ```
 
 Exit code `1`. Each violation carries a `fix` hint; `agents preflight` never

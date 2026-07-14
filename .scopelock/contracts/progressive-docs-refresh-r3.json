@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-docs-refresh-r3",
+  "task": "Refresh progressive demo SVG and public documentation including examples",
+  "createdAt": "2026-07-14T13:37:43.300Z",
+  "baseline": {
+    "headSha": "dee62afb3f556f9300884cca50fb2c3c1081ad3e",
+    "branch": "docs/refresh-progressive-demo",
+    "capturedAt": "2026-07-14T13:37:43.393Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/**",
+      "packages/*/README.md",
+      "examples/**",
+      "SECURITY.md",
+      "THREAT-MODEL.md",
+      "PRIVACY.md",
+      "CHANGELOG.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/*/src/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
