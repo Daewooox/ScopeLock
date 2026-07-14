@@ -25,6 +25,7 @@ your installed version.
 | `scopelock manifest` | Build a metadata-only manifest from tracked git files. |
 | `scopelock plan schedule <plan.json>` | Detect conflicts and build safe execution stages. |
 | `scopelock plan compose <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans require isolation. |
+| `scopelock plan prepare <plan.json> --target <id> --out <path>` | Validate, schedule, preflight, and compose a separate ready plan without running it. |
 | `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
 | `scopelock run <plan.json>` | Dispatch a reviewed plan and write a bounded receipt. |
 | `scopelock report <result.json> --open` | Render a run receipt or drift result as a standalone local HTML Flight Report. |
@@ -179,6 +180,29 @@ the same path as a read dependency.
 If the resulting read-write dependencies form a cycle, ScopeLock exits `1` and
 reports the involved tasks instead of inventing an unsafe order. See
 [parallel-workflow.md](parallel-workflow.md) for a complete walkthrough.
+
+`plan prepare` is the reviewable convenience layer over scheduling, environment
+checks, and command composition:
+
+```bash
+scopelock plan prepare plan.json \
+  --target claude \
+  --out ready-plan.json
+scopelock run ready-plan.json --yes --isolate
+```
+
+It requires approved contracts and the selected agent CLI, enables read hazards
+by default, and writes nothing when a dependency cycle or environment blocker is
+found. Add `--no-read-hazards` only when stale reads are intentionally safe. Add
+`--manifest agents.json` to make required rule/skill presence, physical-copy,
+and parity violations block preparation too. Without a manifest those static
+artifacts are explicitly reported as not configured, not as verified.
+
+Every task command is regenerated through the selected shell-free harness
+adapter, including commands already present in the input plan. The input and
+output paths must differ. The resulting file is accepted unchanged by `run`,
+but preparation does not approve a contract, repair the environment, start an
+agent, or bypass `run --yes --isolate`.
 
 ## Plan execution and receipts
 

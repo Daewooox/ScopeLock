@@ -28,9 +28,18 @@ async function readJsonFile(path: string, notFoundCode: string): Promise<unknown
   }
 }
 
-async function loadTaskScope(task: { id: string; contract: string }): Promise<TaskScope> {
+async function loadTaskScope(
+  task: { id: string; contract: string },
+  requireApproved: boolean,
+): Promise<TaskScope> {
   const raw = await readJsonFile(task.contract, "CONTRACT_NOT_FOUND");
   const contract = approvedContractSchema.parse(raw);
+  if (requireApproved && contract.baseline === null) {
+    throw new CliError(
+      "CONTRACT_NOT_APPROVED",
+      `contract ${contract.id} has no approved git baseline; run scopelock contract approve first`,
+    );
+  }
   return {
     id: task.id,
     planned: contract.scope.plannedPathPatterns,
@@ -87,14 +96,14 @@ function humanReport(
 
 export async function planParallelCommand(
   planPath: string,
-  options: { includeReadHazards?: boolean } = {},
+  options: { includeReadHazards?: boolean; requireApproved?: boolean } = {},
 ): Promise<CommandResult> {
   const planRaw = await readJsonFile(planPath, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
 
   const scopes: TaskScope[] = [];
   for (const task of plan.tasks) {
-    scopes.push(await loadTaskScope(task));
+    scopes.push(await loadTaskScope(task, options.requireApproved === true));
   }
 
   const readHazards = options.includeReadHazards === true;

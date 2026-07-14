@@ -16,6 +16,7 @@ import { agentsPreflightCommand } from "./commands/agents-preflight.js";
 import { runPlanCommand } from "./commands/run-plan.js";
 import { reportCommand } from "./commands/report.js";
 import { planFillCommandsCommand } from "./commands/plan-fill-commands.js";
+import { planPrepareCommand } from "./commands/plan-prepare.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
@@ -316,6 +317,23 @@ const plan = program
 
 registerPlanSchedule(plan, "schedule");
 registerPlanCompose(plan, "compose");
+
+plan
+  .command("prepare")
+  .description("validate, schedule, preflight, and compose a reviewable plan")
+  .argument("<plan>", "path to a plan JSON file")
+  .requiredOption("--target <id>", "agent target: codex, claude, or cursor")
+  .requiredOption("--out <path>", "write the ready plan to a separate file")
+  .option("--manifest <path>", "check rules and skills from an agent workspace manifest")
+  .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      planPath: string,
+      options: { target: string; out: string; manifest?: string; readHazards?: boolean },
+      command: Command,
+    ) => run(() => planPrepareCommand(planPath, options), jsonOf(command)),
+  );
 
 registerPlanCompose(plan, "fill-commands", true);
 registerPlanSchedule(program, "plan-parallel", true);
