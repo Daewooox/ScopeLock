@@ -105,6 +105,7 @@ function usesShellInterpreter(command: CommandSpec): boolean {
 const COMMAND_PREVIEW_BYTES = 400;
 const OUTPUT_PREVIEW_BYTES = 400;
 const DEFAULT_TASK_TIMEOUT_MS = 15 * 60_000;
+const ISOLATION_OPERATION_TIMEOUT_MS = 30_000;
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const MAX_ISOLATED_PATCH_BYTES = 50 * 1024 * 1024;
 const MAX_ISOLATED_TASKS = 32;
@@ -466,12 +467,17 @@ async function runIsolatedTasks(input: {
   deferredSet: Set<string>;
   contracts: Map<string, ApprovedContract>;
   artifactDir: string;
-  timeoutMs: number;
+  taskTimeoutMs: number;
+  isolationTimeoutMs: number;
   storeRawOutput: boolean;
   signal: AbortSignal;
   coordinator: RunSignalCoordinator;
 }): Promise<{ taskRuns: TaskRun[]; isolation: RunIsolation }> {
-  const { headSha: runBaseSha } = await assertIsolationReady(input.cwd);
+  const { headSha: runBaseSha } = await assertIsolationReady(
+    input.cwd,
+    undefined,
+    input.isolationTimeoutMs,
+  );
   const tempRoot = await createIsolationTempRoot();
   const patchDir = join(tempRoot, "patches");
   const cleanupRemaining: string[] = [];
@@ -485,13 +491,13 @@ async function runIsolatedTasks(input: {
       id: "run",
       kind: "integration",
       baseSha: runBaseSha,
-      timeoutMs: input.timeoutMs,
+      timeoutMs: input.isolationTimeoutMs,
     });
 
     for (let waveIndex = 0; waveIndex < input.waves.length; waveIndex += 1) {
       if (input.signal.aborted) break;
       const wave = input.waves[waveIndex] ?? [];
-      const baseSha = await worktreeHead(integration, input.timeoutMs);
+      const baseSha = await worktreeHead(integration, input.isolationTimeoutMs);
       const runnable = wave
         .filter((id) => !input.deferredSet.has(id))
         .map((id) => input.byId.get(id))
@@ -510,7 +516,7 @@ async function runIsolatedTasks(input: {
               id: isolatedTaskId(task.id, waveIndex),
               kind: "task",
               baseSha,
-              timeoutMs: input.timeoutMs,
+              timeoutMs: input.isolationTimeoutMs,
             }),
           });
         }
@@ -520,7 +526,7 @@ async function runIsolatedTasks(input: {
             await removeIsolatedWorktree({
               repoRoot: input.cwd,
               worktree: item.worktree,
-              timeoutMs: input.timeoutMs,
+              timeoutMs: input.isolationTimeoutMs,
             });
           } catch {
             cleanupRemaining.push(item.worktree.path);
@@ -534,7 +540,7 @@ async function runIsolatedTasks(input: {
             worktree.path,
             input.artifactDir,
             task,
-            input.timeoutMs,
+            input.taskTimeoutMs,
             input.storeRawOutput,
             input.coordinator,
           );
@@ -556,7 +562,7 @@ async function runIsolatedTasks(input: {
             scope: contract.scope,
             patchDir,
             maxPatchBytes: MAX_ISOLATED_PATCH_BYTES,
-            timeoutMs: input.timeoutMs,
+            timeoutMs: input.isolationTimeoutMs,
           });
           if (execution.run.status === "failed") {
             execution.run.isolation = isolatedEvidence(
@@ -596,7 +602,7 @@ async function runIsolatedTasks(input: {
           const applied = await applyPreparedPatch({
             repoRoot: integration.path,
             patch: prepared.patch,
-            timeoutMs: input.timeoutMs,
+            timeoutMs: input.isolationTimeoutMs,
           });
           if (!applied.applied) {
             execution.run.status = "blocked";
@@ -628,22 +634,26 @@ async function runIsolatedTasks(input: {
             await removeIsolatedWorktree({
               repoRoot: input.cwd,
               worktree: execution.worktree,
-              timeoutMs: input.timeoutMs,
+              timeoutMs: input.isolationTimeoutMs,
             });
           } catch {
             cleanupRemaining.push(execution.worktree.path);
           }
         }
       }
-      await commitIntegrationWave({ worktree: integration, waveIndex, timeoutMs: input.timeoutMs });
+      await commitIntegrationWave({
+        worktree: integration,
+        waveIndex,
+        timeoutMs: input.isolationTimeoutMs,
+      });
     }
 
-    const integrationHeadSha = await worktreeHead(integration, input.timeoutMs);
+    const integrationHeadSha = await worktreeHead(integration, input.isolationTimeoutMs);
     const aggregate = await prepareAggregatePatch({
       worktree: { ...integration, baseSha: runBaseSha },
       patchDir,
       maxPatchBytes: MAX_ISOLATED_PATCH_BYTES,
-      timeoutMs: input.timeoutMs,
+      timeoutMs: input.isolationTimeoutMs,
     });
     let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
     const aggregatePatch = aggregate.patch;
@@ -653,11 +663,11 @@ async function runIsolatedTasks(input: {
       finalPromotion = "blocked";
     } else if (aggregatePatch !== null) {
       try {
-        await assertIsolationReady(input.cwd, runBaseSha, input.timeoutMs);
+        await assertIsolationReady(input.cwd, runBaseSha, input.isolationTimeoutMs);
         const applied = await applyPreparedPatch({
           repoRoot: input.cwd,
           patch: aggregatePatch,
-          timeoutMs: input.timeoutMs,
+          timeoutMs: input.isolationTimeoutMs,
         });
         finalPromotion = applied.applied ? "applied" : "blocked";
       } catch {
@@ -705,7 +715,7 @@ async function runIsolatedTasks(input: {
       await removeIsolatedWorktree({
         repoRoot: input.cwd,
         worktree: completedIntegration,
-        timeoutMs: input.timeoutMs,
+        timeoutMs: input.isolationTimeoutMs,
       });
       integration = null;
     } catch {
@@ -743,7 +753,7 @@ async function runIsolatedTasks(input: {
         await removeIsolatedWorktree({
           repoRoot: input.cwd,
           worktree: cleanupIntegration,
-          timeoutMs: input.timeoutMs,
+          timeoutMs: input.isolationTimeoutMs,
         });
         integration = null;
       } catch {
@@ -961,7 +971,8 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           deferredSet,
           contracts: taskContracts,
           artifactDir,
-          timeoutMs,
+          taskTimeoutMs: timeoutMs,
+          isolationTimeoutMs: ISOLATION_OPERATION_TIMEOUT_MS,
           storeRawOutput,
           signal: coordinator.signal,
           coordinator,
