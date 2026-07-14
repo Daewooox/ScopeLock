@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "progressive-cli-u4-plan-prepare",
+  "task": "Implement guided multi-agent plan preparation",
+  "createdAt": "2026-07-14T12:31:02.203Z",
+  "baseline": {
+    "headSha": "13d9eee50631a560f8cc3907b4429e91ba74ce02",
+    "branch": "feature/progressive-cli-u4",
+    "capturedAt": "2026-07-14T12:31:02.291Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/plan-parallel.ts",
+      "packages/cli/src/commands/plan-fill-commands.ts",
+      "packages/cli/src/commands/agents-preflight.ts",
+      "packages/cli/src/commands/setup.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/reference.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/core/src/hook/**",
+      "packages/core/src/git/worktree.ts"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

@@ -44,6 +44,13 @@ function findExecutable(name: string, env: NodeJS.ProcessEnv = process.env): str
   return null;
 }
 
+export function findAgentExecutable(
+  target: AgentId,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  return findExecutable(EXECUTABLES[target], env);
+}
+
 export type SetupOptions = {
   targets: string[];
   installHooks?: boolean;

@@ -1,10 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { setupCommand } from "./commands/setup.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
@@ -14,11 +15,12 @@ const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
 type RunResult = { status: number; stdout: string; stderr: string };
 
-function runCli(cwd: string, args: string[]): RunResult {
+function runCli(cwd: string, args: string[], env: NodeJS.ProcessEnv = process.env): RunResult {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     cwd,
     encoding: "utf8",
     input: "",
+    env,
   });
   return {
     status: result.status ?? -1,
@@ -1722,6 +1724,226 @@ describe("plan fill-commands", () => {
       ]);
       assert.equal(result.status, 2);
       assert.equal(JSON.parse(result.stdout).error.code, "INVALID_INPUT");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("plan prepare", () => {
+  async function writeContract(
+    dir: string,
+    id: string,
+    planned: string[],
+    read: string[] = [],
+  ): Promise<string> {
+    const draftPath = join(dir, `${id}.json`);
+    const draft = runCli(dir, [
+      "contract", "new", "--task", `${id} task`, "--id", id,
+      ...planned.flatMap((path) => ["--planned", path]),
+      ...read.flatMap((path) => ["--read", path]),
+      "--out", draftPath,
+    ]);
+    assert.equal(draft.status, 0, draft.stderr);
+    const approved = runCli(dir, ["contract", "approve", draftPath]);
+    assert.equal(approved.status, 0, approved.stdout || approved.stderr);
+    return `.scopelock/contracts/${id}.json`;
+  }
+
+  async function fakeCodexEnv(dir: string): Promise<NodeJS.ProcessEnv> {
+    const bin = join(dir, "fake-bin");
+    const script = join(bin, "fake-codex.cjs");
+    await mkdir(bin, { recursive: true });
+    await writeFile(script, "require('node:fs').writeFileSync('a.txt', 'ran')\n");
+    if (process.platform === "win32") {
+      await writeFile(join(bin, "codex.cmd"), `@echo off\r\n"${process.execPath}" "${script}"\r\n`);
+    } else {
+      const executable = join(bin, "codex");
+      await writeFile(executable, `#!/bin/sh\nexec "${process.execPath}" "${script}"\n`);
+      await chmod(executable, 0o755);
+    }
+    return { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}` };
+  }
+
+  async function gitOnlyEnv(dir: string): Promise<NodeJS.ProcessEnv> {
+    const extensions = process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
+      : [""];
+    let gitPath: string | null = null;
+    for (const pathDir of (process.env.PATH ?? "").split(delimiter)) {
+      for (const extension of extensions) {
+        const candidate = join(pathDir, `git${extension}`);
+        if (existsSync(candidate)) gitPath = candidate;
+      }
+      if (gitPath !== null) break;
+    }
+    assert.notEqual(gitPath, null, "git must be discoverable for the fixture");
+    const bin = join(dir, "git-only-bin");
+    await mkdir(bin, { recursive: true });
+    if (process.platform === "win32") {
+      await writeFile(join(bin, "git.cmd"), `@echo off\r\n"${gitPath}" %*\r\n`);
+    } else {
+      const executable = join(bin, "git");
+      await writeFile(executable, `#!/bin/sh\nexec "${gitPath}" "$@"\n`);
+      await chmod(executable, 0o755);
+    }
+    return { ...process.env, PATH: bin };
+  }
+
+  it("prepares a reviewable shell-free plan that run accepts unchanged", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "prepared-demo",
+        tasks: [{ id: "a", contract, command: "echo must-be-replaced" }],
+      }));
+      const env = await fakeCodexEnv(dir);
+      const prepared = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready-plan.json",
+      ], env);
+      assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
+      const body = JSON.parse(prepared.stdout);
+      assert.deepEqual(body.data.stages, [["a"]]);
+      assert.equal(body.data.preflight.executable.found, true);
+      assert.equal(body.data.preflight.workspace, null);
+      const ready = JSON.parse(await readFile(join(dir, "ready-plan.json"), "utf8"));
+      assert.deepEqual(ready.tasks[0].command.slice(0, 2), ["codex", "exec"]);
+      assert.equal(Array.isArray(ready.tasks[0].command), true);
+
+      commitFixture(dir, "prepared plan");
+      const run = runCli(dir, [
+        "--json", "run", "ready-plan.json", "--yes", "--isolate", "--no-check-drift",
+      ], env);
+      assert.equal(run.status, 0, run.stdout || run.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "ran");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not write output for an unschedulable read-write cycle", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const a = await writeContract(dir, "a", ["a.txt"], ["b.txt"]);
+      const b = await writeContract(dir, "b", ["b.txt"], ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "cycle",
+        tasks: [{ id: "a", contract: a }, { id: "b", contract: b }],
+      }));
+      const result = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready-plan.json",
+      ], await fakeCodexEnv(dir));
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).data.cycles.length, 1);
+      await assert.rejects(readFile(join(dir, "ready-plan.json"), "utf8"));
+
+      const explicitlyIgnored = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json", "--no-read-hazards",
+        "--target", "codex", "--out", "ready-plan.json",
+      ], await fakeCodexEnv(dir));
+      assert.equal(explicitlyIgnored.status, 0, explicitlyIgnored.stdout || explicitlyIgnored.stderr);
+      assert.deepEqual(JSON.parse(explicitlyIgnored.stdout).data.stages, [["a", "b"]]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks a missing agent CLI and a failing workspace preflight", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "blocked",
+        tasks: [{ id: "a", contract }],
+      }));
+      const missingCli = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "missing-cli.json",
+      ], await gitOnlyEnv(dir));
+      assert.equal(missingCli.status, 1, missingCli.stdout || missingCli.stderr);
+      assert.equal(JSON.parse(missingCli.stdout).data.preflight.executable.found, false);
+      await assert.rejects(readFile(join(dir, "missing-cli.json"), "utf8"));
+
+      await writeFile(join(dir, "agents.json"), JSON.stringify({
+        schemaVersion: 1,
+        targets: ["codex"],
+        rules: [{ id: "missing", path: "missing-rule.md", required: true }],
+        policy: { requirePhysicalCopies: true, requireRuleParity: true, requireSkillParity: true },
+      }));
+      const badManifest = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--manifest", "agents.json", "--out", "blocked.json",
+      ], await fakeCodexEnv(dir));
+      assert.equal(badManifest.status, 1, badManifest.stdout || badManifest.stderr);
+      assert.ok(JSON.parse(badManifest.stdout).data.preflight.workspace.summary.violationsCount > 0);
+      await assert.rejects(readFile(join(dir, "blocked.json"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails actionably for an unknown target or missing contract", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "invalid",
+        tasks: [{ id: "a", contract: "missing.json" }],
+      }));
+      const target = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "other", "--out", "ready.json",
+      ]);
+      assert.equal(target.status, 2);
+      assert.equal(JSON.parse(target.stdout).error.code, "UNKNOWN_TARGET");
+
+      const contract = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ]);
+      assert.equal(contract.status, 2);
+      assert.equal(JSON.parse(contract.stdout).error.code, "CONTRACT_NOT_FOUND");
+      await assert.rejects(readFile(join(dir, "ready.json"), "utf8"));
+
+      const draft = runCli(dir, [
+        "contract", "new", "--task", "draft", "--id", "draft",
+        "--planned", "draft.txt", "--out", "draft.json",
+      ]);
+      assert.equal(draft.status, 0, draft.stderr);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "unapproved",
+        tasks: [{ id: "draft", contract: "draft.json" }],
+      }));
+      const unapproved = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ]);
+      assert.equal(unapproved.status, 2);
+      assert.equal(JSON.parse(unapproved.stdout).error.code, "CONTRACT_NOT_APPROVED");
+      await assert.rejects(readFile(join(dir, "ready.json"), "utf8"));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
