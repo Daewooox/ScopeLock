@@ -1,4 +1,4 @@
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import {
   CONFIG_SCHEMA_VERSION,
   SCOPELOCK_GITIGNORE,
@@ -19,16 +19,38 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+async function ensureGitignore(path: string): Promise<boolean> {
+  let current = "";
+  try {
+    current = await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  const present = new Set(current.split(/\r?\n/));
+  const missing = SCOPELOCK_GITIGNORE.trimEnd().split("\n").filter((line) => !present.has(line));
+  if (missing.length === 0) return false;
+
+  const prefix = current.length === 0 || current.endsWith("\n") ? current : `${current}\n`;
+  await writeFile(path, `${prefix}${missing.join("\n")}\n`, "utf8");
+  return true;
+}
+
 export async function initCommand(cwd: string = process.cwd()): Promise<CommandResult> {
   const root = findRepoRoot(cwd) ?? cwd;
   const paths = scopelockPaths(root);
 
   if (await exists(paths.configPath)) {
+    await mkdir(paths.draftsDir, { recursive: true });
+    const gitignoreUpdated = await ensureGitignore(paths.gitignorePath);
     return {
-      data: { dir: paths.dir, created: false },
+      data: { dir: paths.dir, created: false, gitignoreUpdated },
       human: renderSections([
         { title: "Context", lines: `Repository  ${root}` },
-        { title: "Result", lines: `ScopeLock already initialized\nFiles  ${paths.dir}` },
+        {
+          title: "Result",
+          lines: `ScopeLock already initialized\nFiles  ${paths.dir}${gitignoreUpdated ? "\nLocal draft ignore  updated" : ""}`,
+        },
         { title: "Next", lines: "Check the setup: scopelock doctor" },
       ]),
       exitCode: 0,
@@ -36,6 +58,7 @@ export async function initCommand(cwd: string = process.cwd()): Promise<CommandR
   }
 
   await mkdir(paths.contractsDir, { recursive: true });
+  await mkdir(paths.draftsDir, { recursive: true });
   await mkdir(paths.reportsDir, { recursive: true });
   await mkdir(paths.hooksDir, { recursive: true });
 

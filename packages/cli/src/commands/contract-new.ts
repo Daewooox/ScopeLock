@@ -32,7 +32,7 @@ export async function contractNewCommand(options: {
   agent?: string[];
   test?: string[];
   out?: string;
-}): Promise<CommandResult> {
+}, cwd: string = process.cwd()): Promise<CommandResult> {
   if (options.task.trim().length === 0) {
     throw new CliError("MISSING_TASK", "contract new requires a non-empty --task");
   }
@@ -67,7 +67,7 @@ export async function contractNewCommand(options: {
   if (options.out !== undefined) {
     const outPath = isAbsolute(options.out)
       ? options.out
-      : join(process.cwd(), options.out);
+      : join(cwd, options.out);
     await writeJsonAtomic(outPath, contract);
     return {
       data: { contract, path: outPath },

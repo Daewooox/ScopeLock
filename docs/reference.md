@@ -11,6 +11,7 @@ your installed version.
 | `scopelock setup` | Initialize the repository, diagnose installed agents, and report hook confidence. |
 | `scopelock init` | Create `.scopelock/` config, contracts, and reports. |
 | `scopelock doctor` | Check git, Node, config, the active contract, and hooks. |
+| `scopelock task start [description]` | Guide one task from friendly paths to a reviewed, approved contract and agent preflight. |
 | `scopelock contract new` | Create a schema-valid draft contract without an LLM. |
 | `scopelock contract approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it active. |
 | `scopelock contract rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
@@ -51,6 +52,47 @@ does not rewrite it. Existing non-ScopeLock hook entries are preserved.
 The readiness table distinguishes capability from evidence: Claude supports a
 documented pre-write deny, Cursor remains post-write audit-only, and Codex is
 reported as degraded unless a matching live-verification record exists.
+
+## Guided task start
+
+`scopelock task start` is the guided layer over the existing contract commands.
+It asks for a task, agent, paths that may change, blocked paths, advisory task
+context, and required test types. Friendly directory inputs such as `src` are
+compiled to the canonical `src/**` contract pattern. The review shows tracked
+file coverage and warns when the scope includes at least half the repository or
+known sensitive files.
+
+Approval and instruction injection are separate decisions. Declining approval
+leaves a local draft under `.scopelock/drafts/` and creates no approved contract.
+After approval, ScopeLock captures the Git baseline and checks the selected
+agent environment. It only offers to update `AGENTS.md` or `CLAUDE.md` after
+showing the target path. The command does not start an agent, execute tests, or
+claim OS-level read containment.
+
+Interactive use:
+
+```bash
+scopelock task start
+```
+
+Explicit non-interactive use:
+
+```bash
+scopelock task start "Add retry handling" \
+  --agent codex \
+  --allow src/network \
+  --allow tests/network \
+  --block .env \
+  --context src/shared \
+  --test unit \
+  --yes
+```
+
+Without `--yes`, a non-interactive invocation saves the draft and exits `2`
+with the exact `scopelock contract approve` command to run after review.
+`--inject` explicitly opts into updating the selected agent instruction file.
+Advanced users can continue to use `contract new`, `contract approve`, and
+`contract inject` independently.
 
 ### Legacy aliases
 

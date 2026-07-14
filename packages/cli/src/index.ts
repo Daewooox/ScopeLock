@@ -22,7 +22,8 @@ import {
   hooksVerifyCommand,
 } from "./commands/hooks.js";
 import { setupCommand } from "./commands/setup.js";
-import { confirmPrompt } from "./prompts.js";
+import { taskStartCommand } from "./commands/task-start.js";
+import { confirmPrompt, questionPrompt } from "./prompts.js";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -41,7 +42,7 @@ program.addHelpText(
     "",
     "Quick start:",
     "  scopelock setup",
-    "  scopelock contract new --help",
+    "  scopelock task start --help",
   ].join("\n"),
 );
 
@@ -193,6 +194,65 @@ registerApprove(program, "approve", true);
 registerRebaseline(program, "rebaseline", true);
 registerContractExport(program, "export-prompt", true);
 registerContractInject(program, "inject-contract", true);
+
+const task = program
+  .command("task")
+  .helpGroup("Protect one task:")
+  .description("start and verify one bounded agent task");
+
+task
+  .command("start")
+  .description("create, review, and approve a task boundary")
+  .argument("[description]", "one-line description of the task")
+  .option("--agent <id>", "agent: claude, codex, or cursor")
+  .option("--allow <path>", "file, directory, or glob the agent may change (repeatable)", collect, [])
+  .option("--block <path>", "file, directory, or glob the agent must not change (repeatable)", collect, [])
+  .option("--context <path>", "task context path, advisory (repeatable)", collect, [])
+  .option("--read <path>", "alias for --context (repeatable)", collect, [])
+  .option("--test <type>", "required test type, for example unit (repeatable)", collect, [])
+  .option("--id <id>", "contract id")
+  .option("--yes", "approve the displayed boundary without prompting")
+  .option("--inject", "update the target agent instruction file after preflight")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      description: string | undefined,
+      options: {
+        agent?: string;
+        allow: string[];
+        block: string[];
+        context: string[];
+        read: string[];
+        test: string[];
+        id?: string;
+        yes?: boolean;
+        inject?: boolean;
+      },
+      command: Command,
+    ) => {
+      const json = jsonOf(command);
+      const interactive = !json.json && process.stdin.isTTY === true && process.stdout.isTTY === true;
+      return run(
+        () => taskStartCommand(
+          {
+            description,
+            ...options,
+            context: [...options.context, ...options.read],
+            interactive,
+          },
+          {
+            question: questionPrompt,
+            confirm: (message) => confirmPrompt(message, {
+              suffix: "Continue? [y/N] ",
+              cancellationCode: "TASK_START_CANCELLED",
+              cancellationMessage: "task start cancelled before the next mutation",
+            }),
+          },
+        ),
+        json,
+      );
+    },
+  );
 
 program
   .command("check-drift")

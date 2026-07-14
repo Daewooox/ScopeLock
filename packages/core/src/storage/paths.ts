@@ -9,6 +9,7 @@ export type ScopelockPaths = {
   dir: string;
   configPath: string;
   contractsDir: string;
+  draftsDir: string;
   reportsDir: string;
   hooksDir: string;
   hookVerificationsPath: string;
@@ -23,6 +24,7 @@ export function scopelockPaths(repoRoot: string): ScopelockPaths {
     dir,
     configPath: join(dir, "config.json"),
     contractsDir: join(dir, "contracts"),
+    draftsDir: join(dir, "drafts"),
     reportsDir: join(dir, "reports"),
     hooksDir: join(dir, "hooks"),
     hookVerificationsPath: join(dir, "hook-verifications.json"),
@@ -32,10 +34,11 @@ export function scopelockPaths(repoRoot: string): ScopelockPaths {
 }
 
 /**
- * Contracts are shared artifacts and should be committed; reports and the
- * active pointer are per-machine working state.
+ * Contracts are shared artifacts and should be committed; drafts, reports,
+ * and the active pointer are per-machine working state.
  */
 export const SCOPELOCK_GITIGNORE = `reports/
+drafts/
 active
 `;
 

@@ -25,8 +25,9 @@ async function exists(path: string): Promise<boolean> {
 export async function approveCommand(
   contractPath: string,
   options: { activate: boolean },
+  cwd: string = process.cwd(),
 ): Promise<CommandResult> {
-  const root = findRepoRoot(process.cwd());
+  const root = findRepoRoot(cwd);
   if (root === null) {
     throw new CliError(
       "NOT_A_GIT_REPO",

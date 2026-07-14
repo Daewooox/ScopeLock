@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { approvedContractSchema, writeApprovalSeal } from "@scopelock/core";
+import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { setupCommand } from "./commands/setup.js";
+import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -61,9 +62,9 @@ describe("public command language", () => {
     assert.match(help.stdout, /Coordinate agents:\n[\s\S]*Inspect:\n[\s\S]*Advanced:\n[\s\S]*Help:/);
     assert.match(
       help.stdout,
-      /Protect one task:\n\s+contract\s+create, approve, and share task boundaries\n\s+check-drift/,
+      /Protect one task:\n\s+contract\s+create, approve, and share task boundaries\n\s+task\s+start and verify one bounded agent task\n\s+check-drift/,
     );
-    assert.match(help.stdout, /Quick start:\n  scopelock setup\n  scopelock contract new --help/);
+    assert.match(help.stdout, /Quick start:\n  scopelock setup\n  scopelock task start --help/);
     assert.ok(
       help.stdout.trimEnd().split("\n").every((line) => line.length <= 80),
       "root help must fit an 80-column terminal",
@@ -110,9 +111,290 @@ describe("public command language", () => {
     assert.equal(conflicting.status, 2);
     assert.equal(JSON.parse(conflicting.stdout).error.code, "CONFLICTING_PLAN_PATHS");
   });
+
+  it("exposes the guided task start without hiding the advanced contract commands", () => {
+    const help = runCli(process.cwd(), ["task", "start", "--help"]);
+    assert.equal(help.status, 0, help.stderr);
+    assert.match(help.stdout, /--allow <path>/);
+    assert.match(help.stdout, /--block <path>/);
+    assert.match(help.stdout, /--context <path>/);
+    assert.match(help.stdout, /--yes/);
+    assert.match(runCli(process.cwd(), ["contract", "new", "--help"]).stdout, /--planned <glob>/);
+  });
+
+  it("rejects incomplete non-interactive task input without hanging or creating a draft", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = runCli(dir, ["--json", "task", "start", "small change"]);
+      assert.equal(result.status, 2);
+      assert.equal(JSON.parse(result.stdout).error.code, "TASK_INPUT_REQUIRED");
+      await assert.rejects(readFile(scopelockPaths(dir).draftsDir, "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("saves a complete non-interactive draft but requires explicit approval", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = runCli(dir, [
+        "--json", "task", "start", "review first",
+        "--id", "review-first",
+        "--agent", "codex",
+        "--allow", "src",
+        "--test", "unit",
+      ]);
+      assert.equal(result.status, 2);
+      const error = JSON.parse(result.stdout).error;
+      assert.equal(error.code, "TASK_APPROVAL_REQUIRED");
+      assert.match(error.message, /scopelock contract approve/);
+      assert.equal(await readFile(join(scopelockPaths(dir).draftsDir, "review-first.json"), "utf8").then(Boolean), true);
+      await assert.rejects(readFile(scopelockPaths(dir).activePath, "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("guided task start", () => {
+  const readySetup = async () => ({
+    data: {
+      targets: [{
+        id: "codex" as const,
+        executable: "/usr/bin/codex",
+        hook: { installed: false, capabilities: { confidence: "degraded" } },
+      }],
+    },
+    human: "",
+    exitCode: 0 as const,
+  });
+
+  it("compiles friendly file and directory inputs into canonical patterns", () => {
+    assert.deepEqual(
+      compileScopeInputs(["src", "README.md", "tests/**", ".env", "src"], ["README.md", "src/app.ts"]),
+      ["src/**", "README.md", "tests/**", ".env"],
+    );
+    assert.throws(() => compileScopeInputs(["../outside"], []));
+    assert.throws(() => compileScopeInputs(["!src/**"], []));
+  });
+
+  it("keeps a reviewable draft and no approval when the user declines", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = await taskStartCommand({
+        description: "declined task",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "declined-task",
+        interactive: true,
+        cwd: dir,
+      }, { confirm: async () => false, setup: readySetup });
+      assert.equal(result.exitCode, 0);
+      assert.equal((result.data as { approved: boolean }).approved, false);
+      assert.equal(await readFile(join(scopelockPaths(dir).draftsDir, "declined-task.json"), "utf8").then(Boolean), true);
+      await assert.rejects(readFile(scopelockPaths(dir).activePath, "utf8"));
+      await assert.rejects(readFile(join(scopelockPaths(dir).contractsDir, "declined-task.json"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the draft when approval is cancelled", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await assert.rejects(
+        taskStartCommand({
+          description: "cancelled task",
+          agent: "codex",
+          allow: ["src"],
+          block: [],
+          context: [],
+          test: ["unit"],
+          id: "cancelled-task",
+          interactive: true,
+          cwd: dir,
+        }, { confirm: async () => { throw new Error("cancelled"); }, setup: readySetup }),
+        /cancelled/,
+      );
+      assert.equal(await readFile(join(scopelockPaths(dir).draftsDir, "cancelled-task.json"), "utf8").then(Boolean), true);
+      await assert.rejects(readFile(scopelockPaths(dir).activePath, "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("warns when the allowed scope covers at least half of tracked files", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "one.ts"), "one\n");
+      await writeFile(join(dir, "two.txt"), "two\n");
+      commitFixture(dir, "fixture files");
+      const result = await taskStartCommand({
+        description: "broad task",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "broad-task",
+        interactive: true,
+        cwd: dir,
+      }, { confirm: async () => false, setup: readySetup });
+      assert.match(result.human ?? "", /Broad scope: 1\/2 tracked files \(50%\)/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("approves a baseline but does not inject or start an agent by default", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = await taskStartCommand({
+        description: "bounded task",
+        agent: "codex",
+        allow: ["src"],
+        block: ["secrets"],
+        context: ["README.md"],
+        test: ["unit"],
+        id: "bounded-task",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup });
+      assert.equal(result.exitCode, 0);
+      assert.match(result.human ?? "", /Agent started  no/);
+      assert.match(result.human ?? "", /Tests executed no/);
+      const approved = approvedContractSchema.parse(JSON.parse(
+        await readFile(join(scopelockPaths(dir).contractsDir, "bounded-task.json"), "utf8"),
+      ));
+      assert.notEqual(approved.baseline, null);
+      assert.equal(JSON.parse(await readFile(scopelockPaths(dir).activePath, "utf8")), "bounded-task");
+      await assert.rejects(readFile(join(dir, "AGENTS.md"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("injects only after explicit consent and preserves foreign instructions", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeFile(join(dir, "AGENTS.md"), "Keep this line.\n", "utf8");
+      const result = await taskStartCommand({
+        description: "injected task",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "injected-task",
+        yes: true,
+        inject: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup });
+      assert.equal(result.exitCode, 0);
+      const instructions = await readFile(join(dir, "AGENTS.md"), "utf8");
+      assert.match(instructions, /^Keep this line\./);
+      assert.match(instructions, /SCOPELOCK CONTRACT/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a missing harness as attention and skips requested injection", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const result = await taskStartCommand({
+        description: "blocked environment",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "blocked-environment",
+        yes: true,
+        inject: true,
+        interactive: false,
+        cwd: dir,
+      }, {
+        setup: async () => ({
+          data: {
+            targets: [{
+              id: "codex" as const,
+              executable: null,
+              hook: { installed: false, capabilities: { confidence: "degraded" } },
+            }],
+          },
+          human: "",
+          exitCode: 0,
+        }),
+      });
+      assert.equal(result.exitCode, 1);
+      assert.match(result.human ?? "", /Attention:/);
+      await assert.rejects(readFile(join(dir, "AGENTS.md"), "utf8"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("cli end-to-end", () => {
+  it("adds the local drafts ignore without replacing foreign gitignore entries", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const path = scopelockPaths(dir).gitignorePath;
+      await writeFile(path, "custom-local-file\nreports/\nactive\n", "utf8");
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const migrated = await readFile(path, "utf8");
+      assert.equal(migrated, "custom-local-file\nreports/\nactive\ndrafts/\n");
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      assert.equal(await readFile(path, "utf8"), migrated);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("setup is idempotent and reports honest hook confidence", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

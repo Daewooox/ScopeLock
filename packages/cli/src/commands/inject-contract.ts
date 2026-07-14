@@ -27,8 +27,8 @@ async function readExisting(path: string): Promise<string | null> {
 
 export async function injectContractCommand(options: {
   target?: string;
-}): Promise<CommandResult> {
-  const root = findRepoRoot(process.cwd());
+}, cwd: string = process.cwd()): Promise<CommandResult> {
+  const root = findRepoRoot(cwd);
   if (root === null) {
     throw new CliError(
       "NOT_A_GIT_REPO",
