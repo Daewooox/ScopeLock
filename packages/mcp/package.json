@@ -29,6 +29,17 @@
     "url": "git+https://github.com/Daewooox/ScopeLock.git",
     "directory": "packages/mcp"
   },
+  "homepage": "https://github.com/Daewooox/ScopeLock#readme",
+  "bugs": {
+    "url": "https://github.com/Daewooox/ScopeLock/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-coding-agents",
+    "scope-control",
+    "developer-tools"
+  ],
   "publishConfig": {
     "access": "public",
     "tag": "beta"

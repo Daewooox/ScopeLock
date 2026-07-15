@@ -18,3 +18,6 @@ All notable changes to ScopeLock will be documented here.
   validation protocol.
 - Reduced-motion-aware animated README replays for Guided task verification and
   Standard multi-agent plan preparation.
+
+Known beta limits: Node.js 22 or 24 is required, APIs may change before 1.0,
+and ScopeLock is a workflow guardrail rather than an OS sandbox.

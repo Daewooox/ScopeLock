@@ -21,8 +21,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --prod --audit-level high
       - run: pnpm release:pack
+      - run: pnpm release:audit
       - name: Verify reproducible tarball digests
         run: |
           cp .release-artifacts/pack-manifest.json /tmp/pack-manifest-first.json

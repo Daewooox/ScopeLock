@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "npm-beta-preparation-r2-r6-v4",
+  "task": "Complete npm beta rehearsal without publishing",
+  "createdAt": "2026-07-15T07:52:53.135Z",
+  "baseline": {
+    "headSha": "f414c0bd6517e4eec91ee1857c19fba40b40df55",
+    "branch": "feature/npm-beta-preparation",
+    "capturedAt": "2026-07-15T08:01:56.362Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/npm-beta-preparation-r2-r6-v4.json",
+      "package.json",
+      "packages/*/package.json",
+      "packages/*/README.md",
+      "README.md",
+      "CHANGELOG.md",
+      "docs/release.md",
+      "scripts/release/**",
+      ".github/workflows/test.yml",
+      ".github/workflows/release-readiness.yml",
+      "release-evidence/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/*/src/**",
+      ".github/workflows/publish-npm.yml",
+      "pnpm-lock.yaml"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

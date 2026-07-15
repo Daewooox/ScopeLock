@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,7 +77,24 @@ try {
 
   const fixture = resolve(tempRoot, "fixture");
   run("git", ["init", "-q", fixture], tempRoot);
+  run("git", ["config", "user.name", "ScopeLock release smoke"], fixture);
+  run("git", ["config", "user.email", "release-smoke@scopelock.local"], fixture);
+  await writeFile(resolve(fixture, "README.md"), "# Release smoke\n");
+  run("git", ["add", "README.md"], fixture);
+  run("git", ["commit", "-qm", "test: initialize release smoke"], fixture);
   run(process.execPath, [cli, "init"], fixture);
+  run(
+    process.execPath,
+    [cli, "contract", "new", "--task", "Release smoke", "--planned", "README.md", "--out", ".scopelock/drafts/release-smoke.json"],
+    fixture,
+  );
+  run(process.execPath, [cli, "contract", "approve", ".scopelock/drafts/release-smoke.json"], fixture);
+  assertMatches(run(process.execPath, [cli, "check-drift"], fixture), /no drift detected/i);
+  const receipt = resolve(fixture, "receipt.json");
+  const report = resolve(fixture, "report.html");
+  await writeFile(receipt, '{"schemaVersion":3,"planId":"release-smoke","waves":[],"taskRuns":[]}\n');
+  run(process.execPath, [cli, "report", receipt, "--out", report], fixture);
+  await access(report);
   const mcp = resolve(tempRoot, "node_modules/@scopelock/mcp/dist/index.js");
   await probeMcp(mcp, fixture);
 
@@ -91,6 +108,17 @@ try {
   const globalCli = resolve(globalModules, "@scopelock/cli/dist/index.js");
   assertIncludes(run(process.execPath, [globalCli, "--help"], tempRoot), "Local flight control");
   const npmVersion = npmInvocation(["--version"]);
+  const packageNames = manifest.packages.map((pkg) => pkg.name);
+  const projectUninstall = npmInvocation(["uninstall", "--ignore-scripts", "--no-audit", "--no-fund", ...packageNames]);
+  run(projectUninstall.command, projectUninstall.args, tempRoot);
+  const globalUninstall = npmInvocation([
+    "uninstall", "--global", "--prefix", globalPrefix, "--ignore-scripts", "--no-audit", "--no-fund", ...packageNames,
+  ]);
+  run(globalUninstall.command, globalUninstall.args, tempRoot);
+  for (const pkg of packageNames) {
+    await assertMissing(resolve(tempRoot, "node_modules", pkg));
+    await assertMissing(resolve(globalModules, pkg));
+  }
 
   const result = {
     schemaVersion: 1,
@@ -98,7 +126,7 @@ try {
     node: process.version,
     npm: run(npmVersion.command, npmVersion.args, tempRoot).trim(),
     version: manifest.version,
-    installModes: ["project", "global-prefix"],
+    installModes: ["project", "global-prefix", "uninstall-cleanup"],
     status: "passed",
   };
   const json = `${JSON.stringify(result, null, 2)}\n`;
@@ -114,4 +142,17 @@ try {
 
 function assertIncludes(value, expected) {
   if (!value.includes(expected)) throw new Error(`expected output to include ${expected}`);
+}
+
+function assertMatches(value, expected) {
+  if (!expected.test(value)) throw new Error(`expected output to match ${expected}`);
+}
+
+async function assertMissing(path) {
+  try {
+    await access(path);
+    throw new Error(`uninstall left an unexpected package path: ${path}`);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
 }
