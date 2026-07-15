@@ -89,7 +89,7 @@ try {
     fixture,
   );
   run(process.execPath, [cli, "contract", "approve", ".scopelock/drafts/release-smoke.json"], fixture);
-  assertIncludes(run(process.execPath, [cli, "check-drift"], fixture), "no drift detected");
+  assertMatches(run(process.execPath, [cli, "check-drift"], fixture), /no drift detected/i);
   const receipt = resolve(fixture, "receipt.json");
   const report = resolve(fixture, "report.html");
   await writeFile(receipt, '{"schemaVersion":3,"planId":"release-smoke","waves":[],"taskRuns":[]}\n');
@@ -142,6 +142,10 @@ try {
 
 function assertIncludes(value, expected) {
   if (!value.includes(expected)) throw new Error(`expected output to include ${expected}`);
+}
+
+function assertMatches(value, expected) {
+  if (!expected.test(value)) throw new Error(`expected output to match ${expected}`);
 }
 
 async function assertMissing(path) {
