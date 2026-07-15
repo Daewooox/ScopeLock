@@ -29,7 +29,7 @@ async function sha256(path) {
 const outDir = resolve(repoRoot, option("--out", ".release-artifacts"));
 await mkdir(outDir, { recursive: true });
 for (const name of await readdir(outDir)) {
-  if (name.endsWith(".tgz") || name === "pack-manifest.json") {
+  if (name.endsWith(".tgz") || name === "pack-manifest.json" || name === "publish-dry-run.json") {
     await rm(resolve(outDir, name), { force: true });
   }
 }
@@ -40,6 +40,7 @@ for (const dir of packageDirs) {
 }
 
 const packages = [];
+const dryRuns = [];
 let releaseVersion = null;
 for (const dir of packageDirs) {
   const packageRoot = resolve(repoRoot, "packages", dir);
@@ -59,9 +60,40 @@ for (const dir of packageDirs) {
     throw new Error(`workspace package versions differ: ${releaseVersion} and ${packageJson.version}`);
   }
   releaseVersion = packageJson.version;
+  if (
+    packageJson.license !== "MIT" ||
+    packageJson.engines?.node !== ">=22" ||
+    packageJson.publishConfig?.access !== "public" ||
+    packageJson.publishConfig?.tag !== "beta" ||
+    typeof packageJson.homepage !== "string" ||
+    typeof packageJson.bugs?.url !== "string" ||
+    !Array.isArray(packageJson.keywords) ||
+    packageJson.keywords.length === 0
+  ) {
+    throw new Error(`${packageJson.name} is missing required public package metadata`);
+  }
   const tarballPath = resolve(packed.filename);
   if (dirname(tarballPath) !== outDir) throw new Error(`pnpm packed outside output directory: ${tarballPath}`);
-  run(npm, ["publish", tarballPath, "--dry-run", "--ignore-scripts", "--tag", "beta", "--access", "public", "--json"]);
+  const dryRunOutput = JSON.parse(
+    run(npm, ["publish", tarballPath, "--dry-run", "--ignore-scripts", "--tag", "beta", "--access", "public", "--json"]),
+  );
+  const dryRun = dryRunOutput[packageJson.name];
+  if (dryRun?.name !== packageJson.name || dryRun.version !== packageJson.version) {
+    throw new Error(`${packageJson.name} npm publish dry-run returned unexpected identity`);
+  }
+  dryRuns.push({
+    name: dryRun.name,
+    version: dryRun.version,
+    filename: dryRun.filename,
+    sizeBytes: dryRun.size,
+    unpackedSizeBytes: dryRun.unpackedSize,
+    fileCount: dryRun.entryCount,
+    integrity: dryRun.integrity,
+    files: dryRun.files.map((file) => file.path),
+    access: "public",
+    tag: "beta",
+    status: "passed",
+  });
   packages.push({
     name: packageJson.name,
     version: packageJson.version,
@@ -74,4 +106,8 @@ for (const dir of packageDirs) {
 
 const manifest = { schemaVersion: 1, version: releaseVersion, packages };
 await writeFile(resolve(outDir, "pack-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+await writeFile(
+  resolve(outDir, "publish-dry-run.json"),
+  `${JSON.stringify({ schemaVersion: 1, publication: "not-performed", packages: dryRuns }, null, 2)}\n`,
+);
 process.stdout.write(`${JSON.stringify({ outDir, ...manifest }, null, 2)}\n`);

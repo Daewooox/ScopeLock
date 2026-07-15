@@ -26,6 +26,17 @@
     "url": "git+https://github.com/Daewooox/ScopeLock.git",
     "directory": "packages/core"
   },
+  "homepage": "https://github.com/Daewooox/ScopeLock#readme",
+  "bugs": {
+    "url": "https://github.com/Daewooox/ScopeLock/issues"
+  },
+  "keywords": [
+    "ai-coding-agents",
+    "scope-control",
+    "drift-detection",
+    "git",
+    "zod"
+  ],
   "publishConfig": {
     "access": "public",
     "tag": "beta"

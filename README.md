@@ -160,7 +160,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Prepared: cross-platform tarball install CI passes; first publication remains manual |
+| npm distribution | Release candidate: reproducible tarballs, dry-run evidence, and three-OS install smoke; not published |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for
@@ -169,6 +169,7 @@ the evidence and publication gates.
 ## Documentation
 
 - [CLI and configuration reference](docs/reference.md)
+- [npm beta release runbook](docs/release.md)
 - [Running multiple agents safely](docs/parallel-workflow.md)
 - [Beta validation and pilot protocol](docs/beta-validation.md)
 - [Reproducible parallel example](examples/parallel/)
