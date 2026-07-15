@@ -119,11 +119,12 @@ You can now run `scopelock --help`. To avoid a global link, replace
 </p>
 
 ```bash
-# Validate approved contracts, order hazards, check the harness, and compile
-# shell-free commands into a separate file
+# Validate contracts, order hazards, check the harness, and compile a ready plan.
+# ScopeLock auto-detects common project checks such as npm run check or swift test.
 scopelock plan prepare plan.json --target claude --out ready-plan.json
 
-# Run each task in an isolated worktree and promote only approved patches
+# Run each task in a temporary worktree. The full repository check must pass
+# before the combined patch can reach your working tree.
 scopelock run ready-plan.json --yes --isolate --receipt receipt.json
 
 # Inspect the evidence in a standalone local report
@@ -133,7 +134,9 @@ scopelock report receipt.json --open
 Review `ready-plan.json` before running it. Nothing is silently approved or
 executed: `plan prepare` never starts an agent, and `run` still requires
 `--yes`. Read hazards are included by default; use `--no-read-hazards` only
-when stale reads are intentionally safe.
+when stale reads are intentionally safe. If ScopeLock cannot detect a project
+check, preparation stops and asks for an explicit shell-free command such as
+`--validation-command npm run check`.
 
 For Automation, add `--json` to the preparation and inspection commands. The
 same schemas, exit codes, and artifacts are used without prompts or animation.

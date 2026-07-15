@@ -17,9 +17,11 @@ test("one-command demo exercises the dispatcher and produces stable evidence", a
     assert.equal(result.withScopeLock.unresolvedConflicts, 0);
     assert.equal(result.withScopeLock.preventedHazards, 2);
     assert.equal(result.withScopeLock.failedTests, 0);
-    assert.equal(result.withScopeLock.acceptedTasks, 5);
-    assert.deepEqual(result.withScopeLock.deferredTasks, ["t4-tax-9"]);
-    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 4);
+    assert.equal(result.withScopeLock.acceptedTasks, 6);
+    assert.deepEqual(result.withScopeLock.deferredTasks, []);
+    const receipt = JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8"));
+    assert.equal(receipt.schemaVersion, 5);
+    assert.equal(receipt.isolation.validation.status, "passed");
   } finally {
     rmSync(outputDir, { recursive: true, force: true });
   }
