@@ -24,7 +24,8 @@ test("npm beta metadata stays public, reviewable, and explicitly unreleased", as
 
   for (const name of ["cli", "mcp"]) {
     const readme = await readFile(resolve(repoRoot, "packages", name, "README.md"), "utf8");
-    assert.match(readme, /After the beta is published/);
+    assert.match(readme, /has not been published to npm yet/);
+    assert.match(readme, /After publication/);
   }
 });
 
