@@ -174,11 +174,15 @@ describe("ScopeLock schemas", () => {
       planId: "validated",
       execution: {
         isolation: "required",
-        validation: { command: ["npm", "run", "check"] },
+        validation: {
+          setup: ["npm", "run", "prepare"],
+          command: ["npm", "run", "check"],
+        },
       },
       tasks: [{ id: "task", contract: "task.json" }],
     });
 
+    assert.deepEqual(parsed.execution?.validation?.setup, ["npm", "run", "prepare"]);
     assert.deepEqual(parsed.execution?.validation?.command, ["npm", "run", "check"]);
     assert.equal(schedulePlanSchema.safeParse({
       schemaVersion: 1,

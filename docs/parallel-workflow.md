@@ -299,6 +299,15 @@ is temporarily hidden. Only a passing candidate may become one aggregate patch
 in the user tree. The control directory is restored in `finally`, and the
 validation result is recorded in receipt v5.
 
+If the source checkout already has `node_modules`, ScopeLock reuses it only for
+this final validation: an ephemeral candidate link plus the checkout's
+`node_modules/.bin` on `PATH`. No install command runs, agents do not receive
+the link, cleanup is fail-closed, and receipt v5 records the borrowed paths.
+For npm repositories with a `prepare` lifecycle script, the ready plan includes
+that explicit setup argv before the main validation command. Setup is
+reviewable, runs only in the candidate, and failing setup skips validation and
+blocks promotion.
+
 Generated agent tasks are deliberately bound to isolated execution and carry
 `expectsChanges: true`. A task that exits zero without a Git diff is blocked as
 `rejected-no-changes`; it is never reported as successfully completed. Codex

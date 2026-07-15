@@ -17,7 +17,9 @@ test("progressive demo preserves reviewable artifacts without starting an agent"
     assert.equal(result.multiAgent.agentExecuted, false);
     assert.ok(Object.values(result.artifacts).every(existsSync));
     const ready = JSON.parse(readFileSync(result.artifacts.readyPlan, "utf8"));
-    assert.deepEqual(ready.execution.validation.command, ["npm", "run", "check"]);
+    assert.equal(Array.isArray(ready.execution.validation.command), true);
+    assert.deepEqual(ready.execution.validation.command.slice(-2), ["run", "check"]);
+    assert.doesNotMatch(ready.execution.validation.command[0], /\.(?:cmd|bat)$/i);
     assert.deepEqual(ready.tasks.map((task) => [
       basename(task.command[0], extname(task.command[0])).toLowerCase(),
       task.command[1],

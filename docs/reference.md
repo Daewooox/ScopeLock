@@ -263,6 +263,17 @@ combined candidate. A failure or timeout blocks the whole promotion. The user
 repository must be clean and remain at the same `HEAD`; otherwise dispatch or
 final promotion fails closed.
 
+For Node repositories with an existing checkout-local `node_modules`, final
+validation temporarily exposes that same toolchain inside the candidate
+worktree and prepends its `.bin` directory to `PATH`. Agents never see this
+link, ScopeLock does not install dependencies, and the link is removed in
+`finally` before promotion. The borrowed paths are recorded in receipt v5.
+When `package.json` declares a `prepare` script, `plan prepare` also binds the
+reviewable `npm run prepare` argv as `execution.validation.setup`; its result
+is recorded separately and a failure prevents the main validation command.
+Ignored generated artifacts may support validation, but any tracked or normal
+untracked candidate change made by setup/check blocks promotion.
+
 Manual plans may opt into isolation; generated agent plans require it. Isolated
 runs produce receipt v5 with per-task patch digests, path classifications,
 repository-validation evidence, final-promotion status, and cleanup evidence.

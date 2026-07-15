@@ -326,6 +326,7 @@ plan
   .requiredOption("--out <path>", "write the ready plan to a separate file")
   .option("--manifest <path>", "check rules and skills from an agent workspace manifest")
   .option("--validation-command <argv...>", "shell-free repository validation command")
+  .option("--validation-setup-command <argv...>", "shell-free candidate setup command")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
   .option("--json", "print machine-readable JSON")
   .action(
@@ -337,6 +338,7 @@ plan
         manifest?: string;
         readHazards?: boolean;
         validationCommand?: string[];
+        validationSetupCommand?: string[];
       },
       command: Command,
     ) => run(() => planPrepareCommand(planPath, options), jsonOf(command)),

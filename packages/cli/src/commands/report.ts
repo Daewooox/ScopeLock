@@ -38,6 +38,8 @@ type Receipt = {
     finalPromotion?: unknown;
     aggregatePatchSha256?: unknown;
     aggregatePatchBytes?: unknown;
+    validationWorkspaceClean?: unknown;
+    validationSetup?: { status?: unknown } | null;
     validation?: { status?: unknown } | null;
     cleanup?: { status?: unknown; remaining?: unknown };
   } | null;
@@ -236,7 +238,9 @@ summary { cursor: pointer; font-weight: 700; }
         <tr><th>Environment</th><td class="${statusClass(String(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured"))}">${escapeHtml(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured")}</td></tr>
         <tr><th>Drift</th><td class="${statusClass(String(summary.driftStatus ?? receipt.drift?.status ?? "not_checked"))}">${escapeHtml(summary.driftStatus ?? receipt.drift?.status ?? "not_checked")}</td></tr>
         <tr><th>Isolation</th><td>${escapeHtml(receipt.isolation?.mode ?? "off")} / ${escapeHtml(receipt.isolation?.trustTier ?? "not_applicable")}</td></tr>
+        <tr><th>Validation setup</th><td class="${statusClass(String(receipt.isolation?.validationSetup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validationSetup?.status ?? "not_applicable")}</td></tr>
         <tr><th>Repository validation</th><td class="${statusClass(String(receipt.isolation?.validation?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validation?.status ?? "not_applicable")}</td></tr>
+        <tr><th>Candidate unchanged by validation</th><td class="${statusClass(receipt.isolation?.validationWorkspaceClean === false ? "failed" : "ok")}">${escapeHtml(receipt.isolation?.validationWorkspaceClean === false ? "no" : "yes")}</td></tr>
         <tr><th>Final promotion</th><td class="${statusClass(String(receipt.isolation?.finalPromotion === "applied" || receipt.isolation?.finalPromotion === "no-changes" ? "ok" : receipt.isolation?.finalPromotion ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.finalPromotion ?? "not_applicable")}</td></tr>
         <tr><th>Cleanup</th><td class="${statusClass(String(receipt.isolation?.cleanup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.cleanup?.status ?? "not_applicable")}</td></tr>
         <tr><th>Deferred tasks</th><td>${escapeHtml(arrayOfStrings(receipt.deferredTasks).join(", ") || "none")}</td></tr>

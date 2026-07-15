@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { copyFile, mkdtemp, rm, mkdir, readFile, writeFile, chmod } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, mkdir, readFile, realpath, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { findAgentExecutable, setupCommand } from "./commands/setup.js";
+import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
 
@@ -1785,6 +1786,27 @@ describe("plan fill-commands", () => {
 });
 
 describe("plan prepare", () => {
+  it("composes Windows npm scripts without a cmd shell", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-windows-npm-"));
+    try {
+      const nodeExecutable = join(dir, "node.exe");
+      const npmCli = join(dir, "node_modules", "npm", "bin", "npm-cli.js");
+      await mkdir(dirname(npmCli), { recursive: true });
+      await writeFile(nodeExecutable, "");
+      await writeFile(npmCli, "");
+
+      assert.deepEqual(
+        await packageManagerRunCommand("npm", "check", {
+          platform: "win32",
+          nodeExecutable,
+        }),
+        [nodeExecutable, npmCli, "run", "check"],
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   let fakeCodexBinPromise: Promise<string> | null = null;
 
   after(async () => {
@@ -1917,7 +1939,7 @@ describe("plan prepare", () => {
       await assert.rejects(readFile(join(dir, "unknown.json"), "utf8"));
 
       await writeFile(join(dir, "package.json"), JSON.stringify({
-        scripts: { check: "node --test" },
+        scripts: { prepare: "node generate.cjs", check: "node --test" },
       }));
       const detected = runCli(dir, [
         "--json", "plan", "prepare", "plan.json",
@@ -1925,7 +1947,8 @@ describe("plan prepare", () => {
       ], env);
       assert.equal(detected.status, 0, detected.stdout || detected.stderr);
       const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
-      assert.deepEqual(ready.execution.validation.command, ["npm", "run", "check"]);
+      assert.deepEqual(ready.execution.validation.setup, await packageManagerRunCommand("npm", "prepare"));
+      assert.deepEqual(ready.execution.validation.command, await packageManagerRunCommand("npm", "check"));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -2405,6 +2428,188 @@ describe("run", () => {
     }
   });
 
+  it("reuses checkout-local Node tools when validating an isolated candidate", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      const binDir = join(dir, "node_modules", ".bin");
+      await mkdir(binDir, { recursive: true });
+      const tool = join(binDir, "fixture-validator");
+      await writeFile(tool, "#!/usr/bin/env node\nprocess.exit(require('node:fs').readFileSync('a.txt','utf8') === 'candidate' ? 0 : 8)\n");
+      await chmod(tool, 0o755);
+      await writeFile(
+        `${tool}.cmd`,
+        "@node -e \"process.exit(require('node:fs').readFileSync('a.txt','utf8') === 'candidate' ? 0 : 8)\"\r\n",
+      );
+      const fixtureDependency = join(dir, "node_modules", "fixture-dependency");
+      await mkdir(fixtureDependency, { recursive: true });
+      await writeFile(join(fixtureDependency, "index.js"), "module.exports = 'available'\n");
+      await writeFile(
+        join(dir, "validate.cjs"),
+        "process.exit(require('fixture-dependency') === 'available' && require('./generated.cjs') === 'generated' ? 0 : 9)\n",
+      );
+      await writeFile(
+        join(dir, "generate.cjs"),
+        "require('node:fs').writeFileSync('generated.cjs', \"module.exports = 'generated'\\n\")\n",
+      );
+      await writeFile(join(dir, "package.json"), JSON.stringify({
+        scripts: {
+          prepare: "node generate.cjs",
+          check: "fixture-validator && node validate.cjs",
+        },
+      }));
+      await writeFile(join(dir, ".gitignore"), "node_modules/\ngenerated.cjs\n");
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "checkout-toolchain-validation",
+        execution: {
+          isolation: "required",
+          validation: {
+            setup: await packageManagerRunCommand("npm", "prepare"),
+            command: await packageManagerRunCommand("npm", "check"),
+          },
+        },
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "checkout toolchain fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "checkout-toolchain.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "candidate");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.validationSetup.status, "passed");
+      assert.equal(receipt.isolation.validation.status, "passed");
+      assert.deepEqual(receipt.isolation.validation.environment.pathPrepend, [await realpath(binDir)]);
+      assert.equal(receipt.isolation.validation.environment.workspaceLinks.length, 1);
+      assert.equal(
+        receipt.isolation.validation.environment.workspaceLinks[0].source,
+        join(await realpath(dir), "node_modules"),
+      );
+      assert.match(receipt.isolation.validation.environment.workspaceLinks[0].path, /node_modules$/);
+      assert.notEqual(
+        receipt.isolation.validation.environment.workspaceLinks[0].path,
+        receipt.isolation.validation.environment.workspaceLinks[0].source,
+      );
+      assert.equal(receipt.isolation.finalPromotion, "applied");
+      assert.equal(existsSync(join(dir, "generated.cjs")), false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks promotion and skips repository validation when candidate setup fails", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-setup-failure",
+        execution: {
+          isolation: "required",
+          validation: {
+            setup: [process.execPath, "-e", "process.exit(6)"],
+            command: [process.execPath, "-e", "require('node:fs').writeFileSync('validation-ran.txt','yes')"],
+          },
+        },
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "validation setup failure fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "validation-setup-failure.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      assert.equal(existsSync(join(dir, "a.txt")), false);
+      assert.equal(existsSync(join(dir, "validation-ran.txt")), false);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.validationSetup.status, "failed");
+      assert.equal(receipt.isolation.validationSetup.exitCode, 6);
+      assert.equal(receipt.isolation.validation, null);
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+      assert.ok(receipt.taskRuns[0].isolation.findings.some(
+        (finding: { code: string }) => finding.code === "VALIDATION_SETUP_FAILED",
+      ));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks promotion when setup or validation mutates candidate files", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "tracked.txt"), "baseline\n");
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-mutation",
+        execution: {
+          isolation: "required",
+          validation: {
+            setup: [process.execPath, "-e", "require('node:fs').writeFileSync('tracked.txt','mutated')"],
+            command: [process.execPath, "-e", "process.exit(0)"],
+          },
+        },
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "validation mutation fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "validation-mutation.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      assert.equal(await readFile(join(dir, "tracked.txt"), "utf8"), "baseline\n");
+      assert.equal(existsSync(join(dir, "a.txt")), false);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.validationSetup.status, "passed");
+      assert.equal(receipt.isolation.validation.status, "passed");
+      assert.equal(receipt.isolation.validationWorkspaceClean, false);
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+      assert.ok(receipt.taskRuns[0].isolation.findings.some(
+        (finding: { code: string }) => finding.code === "VALIDATION_MUTATED_CANDIDATE",
+      ));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("blocks promotion when repository validation times out", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -2442,7 +2647,7 @@ describe("run", () => {
     }
   });
 
-  it("requires explicit shell permission for repository validation", async (t) => {
+  it("requires explicit shell permission for repository validation commands", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
       t.skip("git init failed");
@@ -2455,7 +2660,10 @@ describe("run", () => {
         planId: "validation-shell-gate",
         execution: {
           isolation: "required",
-          validation: { command: ["sh", "-c", "exit 0"] },
+          validation: {
+            setup: ["sh", "-c", "exit 0"],
+            command: [process.execPath, "-e", "process.exit(0)"],
+          },
         },
         tasks: [{
           id: "a",
