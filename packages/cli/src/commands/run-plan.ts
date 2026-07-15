@@ -1,6 +1,6 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import {
   agentEnvironmentPreflightReportSchema,
   applyPreparedPatch,
@@ -144,6 +144,10 @@ type TaskRun = {
     stdout?: OutputArtifact;
     stderr?: OutputArtifact;
   };
+  environment?: {
+    pathPrepend: string[];
+    workspaceLinks: Array<{ path: string; source: string }>;
+  };
   termination?: {
     reason: string;
     requestedSignal: NodeJS.Signals | null;
@@ -180,6 +184,8 @@ type RunIsolation = {
   aggregatePatchSha256: string | null;
   aggregatePatchBytes: number;
   finalPromotion: "applied" | "no-changes" | "blocked";
+  validationWorkspaceClean: boolean;
+  validationSetup: TaskRun | null;
   validation: TaskRun | null;
   interrupted: boolean;
   cleanup: { status: "ok" | "warning"; remaining: string[] };
@@ -366,6 +372,11 @@ async function runCommand(
   timeoutMs: number,
   storeRawOutput: boolean,
   coordinator?: RunSignalCoordinator,
+  executionEnvironment?: {
+    env: NodeJS.ProcessEnv;
+    pathPrepend: string[];
+    workspaceLinks: Array<{ path: string; source: string }>;
+  },
 ): Promise<TaskRun> {
   const started = Date.now();
   if (!task.command) {
@@ -382,7 +393,12 @@ async function runCommand(
   }
   const command = task.command;
   const persistedCommand = await persistCommand(artifactDir, task.id, command, storeRawOutput);
-  const tree = spawnProcessTree({ command, cwd, gracefulTimeoutMs: 2_000 });
+  const tree = spawnProcessTree({
+    command,
+    cwd,
+    env: executionEnvironment?.env,
+    gracefulTimeoutMs: 2_000,
+  });
   const unregister = coordinator?.register(tree);
   let stdout = "";
   let stderr = "";
@@ -414,6 +430,12 @@ async function runCommand(
       ...(persistedStdout.artifact ? { stdout: persistedStdout.artifact } : {}),
       ...(persistedStderr.artifact ? { stderr: persistedStderr.artifact } : {}),
     },
+    ...(executionEnvironment ? {
+      environment: {
+        pathPrepend: executionEnvironment.pathPrepend,
+        workspaceLinks: executionEnvironment.workspaceLinks,
+      },
+    } : {}),
     ...(termination.reason !== null ? {
       termination: {
         reason: termination.reason,
@@ -422,6 +444,48 @@ async function runCommand(
         platform: process.platform,
       },
     } : {}),
+  };
+}
+
+async function checkoutToolchainEnvironment(
+  repoRoot: string,
+  candidateRoot: string,
+): Promise<{
+  env: NodeJS.ProcessEnv;
+  pathPrepend: string[];
+  workspaceLinks: Array<{ path: string; source: string }>;
+  cleanup(): Promise<void>;
+} | undefined> {
+  const sourceModules = join(repoRoot, "node_modules");
+  const nodeBin = join(sourceModules, ".bin");
+  try {
+    if (!(await stat(sourceModules)).isDirectory() || !(await stat(nodeBin)).isDirectory()) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+
+  const candidateModules = join(candidateRoot, "node_modules");
+  let createdLink = false;
+  try {
+    await lstat(candidateModules);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    await symlink(sourceModules, candidateModules, process.platform === "win32" ? "junction" : "dir");
+    createdLink = true;
+  }
+
+  const env = { ...process.env };
+  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "PATH";
+  env[pathKey] = [nodeBin, env[pathKey]].filter(Boolean).join(delimiter);
+  return {
+    env,
+    pathPrepend: [nodeBin],
+    workspaceLinks: createdLink ? [{ path: candidateModules, source: sourceModules }] : [],
+    cleanup: async () => {
+      if (createdLink) await rm(candidateModules, { force: true });
+    },
   };
 }
 
@@ -453,14 +517,16 @@ function isolatedEvidence(
 }
 
 async function runCandidateValidation(input: {
+  repoRoot: string;
   worktree: IsolatedWorktree;
   tempRoot: string;
   artifactDir: string;
+  setup?: CommandSpec;
   command: CommandSpec;
   timeoutMs: number;
   storeRawOutput: boolean;
   coordinator: RunSignalCoordinator;
-}): Promise<TaskRun> {
+}): Promise<{ setup: TaskRun | null; validation: TaskRun | null }> {
   const controlPath = join(input.worktree.path, ".scopelock");
   const hiddenPath = join(input.tempRoot, "validation-control-state");
   let hidden = false;
@@ -471,36 +537,61 @@ async function runCandidateValidation(input: {
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
   }
 
-  let run: TaskRun | null = null;
+  let setup: TaskRun | null = null;
+  let validation: TaskRun | null = null;
   let restoreError: unknown = null;
+  const toolchain = await checkoutToolchainEnvironment(input.repoRoot, input.worktree.path);
   try {
-    run = await runCommand(
-      input.worktree.path,
-      input.artifactDir,
-      { id: "validation", contract: "", command: input.command },
-      input.timeoutMs,
-      input.storeRawOutput,
-      input.coordinator,
-    );
+    if (input.setup) {
+      setup = await runCommand(
+        input.worktree.path,
+        input.artifactDir,
+        { id: "validation-setup", contract: "", command: input.setup },
+        input.timeoutMs,
+        input.storeRawOutput,
+        input.coordinator,
+        toolchain,
+      );
+    }
+    if (setup === null || setup.status === "passed") {
+      validation = await runCommand(
+        input.worktree.path,
+        input.artifactDir,
+        { id: "validation", contract: "", command: input.command },
+        input.timeoutMs,
+        input.storeRawOutput,
+        input.coordinator,
+        toolchain,
+      );
+    }
   } finally {
+    try {
+      await toolchain?.cleanup();
+    } catch (error) {
+      restoreError = error;
+    }
     if (hidden) {
       try {
         await rename(hiddenPath, controlPath);
       } catch (error) {
-        restoreError = error;
+        restoreError ??= error;
       }
     }
   }
 
-  if (run === null) throw new Error("repository validation did not produce a result");
+  if (setup === null && validation === null) {
+    throw new Error("repository validation did not produce a result");
+  }
   if (restoreError !== null) {
     const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
-    run.status = "failed";
-    run.stderr = [run.stderr, `failed to restore ScopeLock control state: ${detail}`]
+    const failedRun = validation ?? setup;
+    if (failedRun === null) throw restoreError;
+    failedRun.status = "failed";
+    failedRun.stderr = [failedRun.stderr, `failed to restore validation workspace: ${detail}`]
       .filter(Boolean)
       .join("\n");
   }
-  return run;
+  return { setup, validation };
 }
 
 async function runIsolatedTasks(input: {
@@ -508,6 +599,7 @@ async function runIsolatedTasks(input: {
   waves: string[][];
   byId: Map<string, SchedulePlanTask>;
   contracts: Map<string, ApprovedContract>;
+  validationSetupCommand?: CommandSpec;
   validationCommand: CommandSpec;
   artifactDir: string;
   taskTimeoutMs: number;
@@ -708,23 +800,42 @@ async function runIsolatedTasks(input: {
       timeoutMs: input.isolationTimeoutMs,
     });
     const aggregatePatch = aggregate.patch;
-    const validation = aggregatePatch === null
-      ? null
+    const candidateValidation = aggregatePatch === null
+      ? { setup: null, validation: null }
       : await runCandidateValidation({
+          repoRoot: input.cwd,
           worktree: integration,
           tempRoot,
           artifactDir: input.artifactDir,
+          setup: input.validationSetupCommand,
           command: input.validationCommand,
           timeoutMs: input.taskTimeoutMs,
           storeRawOutput: input.storeRawOutput,
           coordinator: input.coordinator,
         });
+    const validationSetup = candidateValidation.setup;
+    const validation = candidateValidation.validation;
+    let validationWorkspaceClean = true;
+    if (aggregatePatch !== null) {
+      try {
+        await assertIsolationReady(integration.path, integrationHeadSha, input.isolationTimeoutMs);
+      } catch {
+        validationWorkspaceClean = false;
+      }
+    }
     let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
     if (input.signal.aborted) {
       finalPromotion = "blocked";
     } else if (!aggregate.accepted) {
       finalPromotion = "blocked";
-    } else if (aggregatePatch !== null && validation?.status !== "passed") {
+    } else if (
+      aggregatePatch !== null
+      && (
+        validationSetup?.status === "failed"
+        || validation?.status !== "passed"
+        || !validationWorkspaceClean
+      )
+    ) {
       finalPromotion = "blocked";
     } else if (aggregatePatch !== null) {
       try {
@@ -745,12 +856,20 @@ async function runIsolatedTasks(input: {
         task.status = "blocked";
         task.isolation.outcome = "not-promoted-final";
         task.isolation.findings.push({
-          code: validation !== null && validation.status !== "passed"
-            ? "VALIDATION_FAILED"
+          code: !validationWorkspaceClean
+            ? "VALIDATION_MUTATED_CANDIDATE"
+            : validationSetup?.status === "failed"
+            ? "VALIDATION_SETUP_FAILED"
+            : validation !== null && validation.status !== "passed"
+              ? "VALIDATION_FAILED"
             : "FINAL_PROMOTION_BLOCKED",
           path: null,
-          detail: validation !== null && validation.status !== "passed"
-            ? "repository validation failed; aggregate patch was not applied"
+          detail: !validationWorkspaceClean
+            ? "validation changed candidate files; aggregate patch was not applied"
+            : validationSetup?.status === "failed"
+            ? "repository validation setup failed; aggregate patch was not applied"
+            : validation !== null && validation.status !== "passed"
+              ? "repository validation failed; aggregate patch was not applied"
             : "aggregate patch was not applied to the user repository",
         });
       }
@@ -808,6 +927,8 @@ async function runIsolatedTasks(input: {
         aggregatePatchSha256: aggregatePatch?.sha256 ?? null,
         aggregatePatchBytes: aggregatePatch?.bytes ?? 0,
         finalPromotion,
+        validationWorkspaceClean,
+        validationSetup,
         validation,
         interrupted: input.signal.aborted,
         cleanup: {
@@ -876,6 +997,7 @@ function humanReport(
   deferred: string[],
   driftStatus: string,
   environmentStatus: string,
+  validationSetupStatus: string,
   validationStatus: string,
   isolationStatus: string,
 ): string {
@@ -914,6 +1036,7 @@ function humanReport(
         ["environment", environmentStatus],
         ["conflicts", conflicts.length === 0 ? "none" : String(conflicts.length)],
         ["deferred", deferred.length === 0 ? "none" : deferred.join(", ")],
+        ["validation setup", validationSetupStatus],
         ["validation", validationStatus],
         ["drift", driftStatus],
         ["isolation", isolationStatus],
@@ -952,6 +1075,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
   const byId = new Map(runTasks.map((task) => [task.id, task]));
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
+  const validationSetupCommand = plan.execution?.validation?.setup;
   const validationCommand = plan.execution?.validation?.command;
   if (options.isolate === true && executableTasks.length > 0 && validationCommand === undefined) {
     throw new CliError(
@@ -968,10 +1092,13 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const shellTasks = executableTasks.filter(
     (task) => task.command !== undefined && usesShellInterpreter(task.command),
   );
+  const validationSetupUsesShell = validationSetupCommand !== undefined
+    && usesShellInterpreter(validationSetupCommand);
   const validationUsesShell = validationCommand !== undefined && usesShellInterpreter(validationCommand);
-  if ((shellTasks.length > 0 || validationUsesShell) && options.allowShell !== true) {
+  if ((shellTasks.length > 0 || validationSetupUsesShell || validationUsesShell) && options.allowShell !== true) {
     const labels = [
       ...shellTasks.map((task) => task.id),
+      ...(validationSetupUsesShell ? ["validation-setup"] : []),
       ...(validationUsesShell ? ["validation"] : []),
     ];
     throw new CliError(
@@ -1052,6 +1179,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           waves,
           byId,
           contracts: taskContracts,
+          validationSetupCommand,
           validationCommand: validationCommand as CommandSpec,
           artifactDir,
           taskTimeoutMs: timeoutMs,
@@ -1165,6 +1293,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       deferred,
       drift?.status ?? "not_checked",
       environment?.status ?? "not_configured",
+      isolation?.validationSetup?.status ?? (validationSetupCommand ? "not-run" : "off"),
       isolation?.validation?.status ?? (options.isolate === true ? "not-run" : "off"),
       isolation?.finalPromotion ?? (options.isolate === true ? "not-run" : "off"),
     ),

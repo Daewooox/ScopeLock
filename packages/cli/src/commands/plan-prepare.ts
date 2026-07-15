@@ -25,6 +25,7 @@ type PlanPrepareOptions = {
   manifest?: string;
   readHazards?: boolean;
   validationCommand?: string[];
+  validationSetupCommand?: string[];
 };
 
 type ScheduleData = {
@@ -51,7 +52,10 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function detectValidationCommand(root: string): Promise<string[] | null> {
+async function detectValidationProfile(root: string): Promise<{
+  setup?: string[];
+  command: string[];
+} | null> {
   const packagePath = join(root, "package.json");
   if (await exists(packagePath)) {
     let parsed: unknown;
@@ -78,13 +82,16 @@ async function detectValidationCommand(root: string): Promise<string[] | null> {
             : await exists(join(root, "bun.lock")) || await exists(join(root, "bun.lockb"))
               ? "bun"
               : "npm";
-        return [manager, "run", script];
+        return {
+          ...(typeof values.prepare === "string" ? { setup: [manager, "run", "prepare"] } : {}),
+          command: [manager, "run", script],
+        };
       }
     }
   }
-  if (await exists(join(root, "Package.swift"))) return ["swift", "test"];
-  if (await exists(join(root, "Cargo.toml"))) return ["cargo", "test"];
-  if (await exists(join(root, "go.mod"))) return ["go", "test", "./..."];
+  if (await exists(join(root, "Package.swift"))) return { command: ["swift", "test"] };
+  if (await exists(join(root, "Cargo.toml"))) return { command: ["cargo", "test"] };
+  if (await exists(join(root, "go.mod"))) return { command: ["go", "test", "./..."] };
   return null;
 }
 
@@ -190,9 +197,13 @@ export async function planPrepareCommand(
     );
   }
 
+  const detectedValidation = await detectValidationProfile(root);
   const validationCommand = options.validationCommand?.length
     ? options.validationCommand
-    : composition.plan.execution?.validation?.command ?? await detectValidationCommand(root);
+    : composition.plan.execution?.validation?.command ?? detectedValidation?.command ?? null;
+  const validationSetup = options.validationSetupCommand?.length
+    ? options.validationSetupCommand
+    : composition.plan.execution?.validation?.setup ?? detectedValidation?.setup;
   if (validationCommand === null || validationCommand.length === 0) {
     checks.push("Repository validation  not detected");
     return result(
@@ -207,11 +218,15 @@ export async function planPrepareCommand(
     execution: {
       ...composition.plan.execution,
       isolation: "required",
-      validation: { command: validationCommand },
+      validation: {
+        ...(validationSetup ? { setup: validationSetup } : {}),
+        command: validationCommand,
+      },
     },
   });
   await writeJsonAtomic(outputPath, readyPlan);
   checks.push(`${readyPlan.tasks.length} shell-free agent command${readyPlan.tasks.length === 1 ? "" : "s"} composed`);
+  if (validationSetup) checks.push(`Validation setup  ${validationSetup.join(" ")}`);
   checks.push(`Validation  ${validationCommand.join(" ")}`);
   return result(
     { ...base, preflight, plan: readyPlan, outputPath },

@@ -17,6 +17,7 @@ export const schedulePlanTaskSchema = z.object({
 });
 
 export const planValidationSchema = z.object({
+  setup: z.array(z.string().min(1)).min(1).optional(),
   command: z.array(z.string().min(1)).min(1),
 });
 

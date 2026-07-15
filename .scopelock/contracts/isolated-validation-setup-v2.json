@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "isolated-validation-setup-v2",
+  "task": "Add reviewable candidate validation setup before promotion",
+  "createdAt": "2026-07-15T11:17:05.309Z",
+  "baseline": {
+    "headSha": "5f314943dc67832721166e1011c9d3f73ee64d56",
+    "branch": "fix/isolated-validation-toolchain",
+    "capturedAt": "2026-07-15T11:17:05.392Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/src/commands/report.ts",
+      "README.md",
+      "docs/**",
+      "THREAT-MODEL.md",
+      "memory-bank/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "integration",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
