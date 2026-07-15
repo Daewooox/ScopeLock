@@ -4,7 +4,8 @@ import type { ChangedFile, DriftViolation } from "../schemas/drift.js";
 import { matchesAny } from "./path-rules.js";
 
 export const TEST_PATTERNS_BY_PROJECT_TYPE: Record<ProjectType, string[]> = {
-  generic: ["**/*.{test,spec}.*", "**/__tests__/**"],
+  generic: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],
+  swift: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],
   frontend: ["**/*.{test,spec}.*", "**/__tests__/**"],
   backend: ["**/*.{test,spec}.*", "**/__tests__/**"],
   ios: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],

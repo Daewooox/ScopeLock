@@ -126,7 +126,11 @@ export async function planPrepareCommand(
     );
   }
 
-  const composed = await planFillCommandsCommand(planPath, { target, force: true });
+  const composed = await planFillCommandsCommand(planPath, {
+    target,
+    force: true,
+    executable: executablePath ?? undefined,
+  });
   const composition = composed.data as { plan: SchedulePlan; unsupported: unknown[] };
   if (composed.exitCode !== 0 || composition.unsupported.length > 0) {
     return result(

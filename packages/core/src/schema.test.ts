@@ -156,6 +156,10 @@ describe("ScopeLock schemas", () => {
     });
 
     assert.deepEqual(parsed.projectTypes, ["generic"]);
+    assert.deepEqual(
+      repoManifestSchema.parse({ schemaVersion: 1, root: "/swift", projectTypes: ["swift"] }).projectTypes,
+      ["swift"],
+    );
   });
 
   it("parses config with warn default", () => {

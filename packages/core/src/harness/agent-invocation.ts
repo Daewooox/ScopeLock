@@ -19,7 +19,7 @@ export class AgentInvocationError extends Error {
 export function buildAgentCommand(
   target: AgentId,
   promptText: string,
-  options: { isolationBound?: boolean } = {},
+  options: { isolationBound?: boolean; executable?: string } = {},
 ): string[] {
   const promptBytes = Buffer.byteLength(promptText, "utf8");
   if (promptBytes > MAX_AGENT_PROMPT_BYTES) {
@@ -29,11 +29,11 @@ export function buildAgentCommand(
     );
   }
   if (target === "codex") {
-    return ["codex", "exec", "--sandbox", "workspace-write", promptText];
+    return [options.executable ?? "codex", "exec", "--sandbox", "workspace-write", promptText];
   }
   if (target === "claude") {
     return [
-      "claude",
+      options.executable ?? "claude",
       "-p",
       "--output-format",
       "stream-json",
@@ -59,7 +59,7 @@ export function buildAgentCommand(
   }
   if (options.isolationBound === true) {
     return [
-      "agent",
+      options.executable ?? "agent",
       "--print",
       "--output-format",
       "stream-json",

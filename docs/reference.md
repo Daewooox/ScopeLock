@@ -50,6 +50,12 @@ agent. In a terminal it offers missing hooks only for detected agents and shows
 the exact config file before each confirmation. All confirmations are collected
 before the first hook file is changed.
 
+On first initialization, ScopeLock derives the project profile from tracked
+repository markers such as `Package.swift` (`swift`, not an assumed iOS app);
+an existing config is never silently rewritten. On macOS, Codex discovery
+checks `PATH` first and then the bundled executable in installed ChatGPT/Codex
+applications.
+
 In a pipe or CI job, setup is diagnosis-only and never waits for input. An
 explicit non-interactive install requires both intent and confirmation:
 
@@ -192,7 +198,9 @@ reports the involved tasks instead of inventing an unsafe order. See
 [parallel-workflow.md](parallel-workflow.md) for a complete walkthrough.
 
 `plan prepare` is the reviewable convenience layer over scheduling, environment
-checks, and command composition:
+checks, and command composition. The ready plan binds the exact discovered
+agent executable path, so execution does not depend on a later shell having the
+same `PATH`:
 
 ```bash
 scopelock plan prepare plan.json \

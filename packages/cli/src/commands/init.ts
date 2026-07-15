@@ -2,6 +2,7 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import {
   CONFIG_SCHEMA_VERSION,
   SCOPELOCK_GITIGNORE,
+  buildRepoManifest,
   findRepoRoot,
   scopelockConfigSchema,
   scopelockPaths,
@@ -37,7 +38,8 @@ async function ensureGitignore(path: string): Promise<boolean> {
 }
 
 export async function initCommand(cwd: string = process.cwd()): Promise<CommandResult> {
-  const root = findRepoRoot(cwd) ?? cwd;
+  const repoRoot = findRepoRoot(cwd);
+  const root = repoRoot ?? cwd;
   const paths = scopelockPaths(root);
 
   if (await exists(paths.configPath)) {
@@ -64,11 +66,12 @@ export async function initCommand(cwd: string = process.cwd()): Promise<CommandR
 
   const config = scopelockConfigSchema.parse({
     schemaVersion: CONFIG_SCHEMA_VERSION,
+    ...(repoRoot === null ? {} : { projectTypes: buildRepoManifest(root).projectTypes }),
   });
   await writeJsonAtomic(paths.configPath, config);
   await writeFile(paths.gitignorePath, SCOPELOCK_GITIGNORE, "utf8");
 
-  const inRepo = findRepoRoot(cwd) !== null;
+  const inRepo = repoRoot !== null;
   return {
     data: { dir: paths.dir, created: true, insideGitRepo: inRepo },
     human: renderSections([

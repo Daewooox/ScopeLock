@@ -79,4 +79,22 @@ describe("repo manifest builder", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("recognizes a Swift package and its conventional test target", async () => {
+    const root = await makeRepo();
+    try {
+      await write(root, "Package.swift", "// swift-tools-version: 6.0\n");
+      await write(root, "Sources/WalletCore/Wallet.swift", "public struct Wallet {}\n");
+      await write(root, "Tests/WalletCoreTests/WalletCoreTests.swift", "import Testing\n");
+      git(root, ["add", "."]);
+      git(root, ["commit", "-m", "fixture", "-q"]);
+
+      const manifest = buildRepoManifest(root);
+
+      assert.deepEqual(manifest.projectTypes, ["swift"]);
+      assert.deepEqual(manifest.testPaths, ["Tests/WalletCoreTests/WalletCoreTests.swift"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

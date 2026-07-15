@@ -61,10 +61,13 @@ function detectProjectTypes(files: string[], fileSet: Set<string>): ProjectType[
   if (
     hasAnySuffix(files, ".xcodeproj/project.pbxproj") ||
     hasAnySuffix(files, ".xcworkspace/contents.xcworkspacedata") ||
-    hasFile(fileSet, "Package.swift") ||
     hasFile(fileSet, "Podfile")
   ) {
     types.add("ios");
+  }
+
+  if (hasFile(fileSet, "Package.swift")) {
+    types.add("swift");
   }
 
   if (
