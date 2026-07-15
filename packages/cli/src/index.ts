@@ -325,12 +325,19 @@ plan
   .requiredOption("--target <id>", "agent target: codex, claude, or cursor")
   .requiredOption("--out <path>", "write the ready plan to a separate file")
   .option("--manifest <path>", "check rules and skills from an agent workspace manifest")
+  .option("--validation-command <argv...>", "shell-free repository validation command")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
   .option("--json", "print machine-readable JSON")
   .action(
     (
       planPath: string,
-      options: { target: string; out: string; manifest?: string; readHazards?: boolean },
+      options: {
+        target: string;
+        out: string;
+        manifest?: string;
+        readHazards?: boolean;
+        validationCommand?: string[];
+      },
       command: Command,
     ) => run(() => planPrepareCommand(planPath, options), jsonOf(command)),
   );
@@ -352,11 +359,10 @@ program
   .argument("[plan]", "path to a plan JSON file")
   .option("--plan <path>", "legacy form of the plan path")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
-  .option("--no-defer-write-conflicts", "run write-write conflicts instead of deferring one side")
   .option("--no-check-drift", "skip the final check-drift receipt step")
   .option("--receipt <path>", "write receipt to a custom path")
   .option("--yes", "confirm that reviewed plan commands may execute with current user privileges")
-  .option("--allow-shell", "allow string commands to run through the platform shell")
+  .option("--allow-shell", "allow commands that invoke a platform shell")
   .option("--timeout-ms <ms>", "per-task timeout in milliseconds", (value) => Number(value), 900_000)
   .option("--store-raw-output", "store redacted command/stdout/stderr artifacts locally")
   .option("--isolate", "run tasks in detached worktrees and promote only contract-approved diffs")
@@ -367,7 +373,6 @@ program
       options: {
         plan?: string;
         readHazards?: boolean;
-        deferWriteConflicts?: boolean;
         checkDrift?: boolean;
         receipt?: string;
         yes?: boolean;

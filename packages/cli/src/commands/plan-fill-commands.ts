@@ -97,7 +97,14 @@ export async function planFillCommandsCommand(
     || tasks.some((task) => task.expectsChanges === true);
   const enrichedPlan = schedulePlanSchema.parse({
     ...plan,
-    ...(requiresIsolation ? { execution: { isolation: "required" } } : {}),
+    ...(requiresIsolation || plan.execution !== undefined
+      ? {
+          execution: {
+            ...plan.execution,
+            ...(requiresIsolation ? { isolation: "required" } : {}),
+          },
+        }
+      : {}),
     tasks,
   });
   const outputPath = options.out

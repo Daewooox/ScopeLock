@@ -11,6 +11,7 @@ import {
   driftReportSchema,
   formatZodError,
   repoManifestSchema,
+  schedulePlanSchema,
   scopelockConfigSchema,
   scopelockPaths,
   writeJsonAtomic,
@@ -165,6 +166,29 @@ describe("ScopeLock schemas", () => {
   it("parses config with warn default", () => {
     const parsed = scopelockConfigSchema.parse({ schemaVersion: 1 });
     assert.equal(parsed.mode, "warn");
+  });
+
+  it("parses a shell-free repository validation command", () => {
+    const parsed = schedulePlanSchema.parse({
+      schemaVersion: 1,
+      planId: "validated",
+      execution: {
+        isolation: "required",
+        validation: { command: ["npm", "run", "check"] },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    });
+
+    assert.deepEqual(parsed.execution?.validation?.command, ["npm", "run", "check"]);
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "shell-string",
+      execution: {
+        isolation: "required",
+        validation: { command: "npm run check" },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
   });
 });
 
