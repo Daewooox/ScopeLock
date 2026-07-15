@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import {
   HARNESSES,
   agentIdSchema,
@@ -52,8 +52,28 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-function packageManagerExecutable(manager: string): string {
-  return process.platform === "win32" ? `${manager}.cmd` : manager;
+export async function packageManagerRunCommand(
+  manager: string,
+  script: string,
+  options: {
+    platform?: NodeJS.Platform;
+    nodeExecutable?: string;
+  } = {},
+): Promise<string[]> {
+  const platform = options.platform ?? process.platform;
+  if (platform !== "win32" || manager !== "npm") return [manager, "run", script];
+
+  // Windows cannot spawn npm.cmd with shell:false. Invoke npm's JavaScript
+  // entrypoint directly so generated plans remain shell-free and reviewable.
+  const nodeExecutable = options.nodeExecutable ?? process.execPath;
+  const npmCli = join(dirname(nodeExecutable), "node_modules", "npm", "bin", "npm-cli.js");
+  if (!(await exists(npmCli))) {
+    throw new CliError(
+      "NPM_CLI_NOT_FOUND",
+      `cannot compose a shell-free npm command; npm-cli.js was not found beside ${nodeExecutable}`,
+    );
+  }
+  return [nodeExecutable, npmCli, "run", script];
 }
 
 async function detectValidationProfile(root: string): Promise<{
@@ -86,10 +106,12 @@ async function detectValidationProfile(root: string): Promise<{
             : await exists(join(root, "bun.lock")) || await exists(join(root, "bun.lockb"))
               ? "bun"
               : "npm";
-        const executable = packageManagerExecutable(manager);
+        const command = await packageManagerRunCommand(manager, script);
         return {
-          ...(typeof values.prepare === "string" ? { setup: [executable, "run", "prepare"] } : {}),
-          command: [executable, "run", script],
+          ...(typeof values.prepare === "string"
+            ? { setup: await packageManagerRunCommand(manager, "prepare") }
+            : {}),
+          command,
         };
       }
     }

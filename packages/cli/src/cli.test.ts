@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { findAgentExecutable, setupCommand } from "./commands/setup.js";
+import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
 
@@ -53,8 +54,6 @@ function isolatedExecution(validationSource = "process.exit(0)") {
     validation: { command: [process.execPath, "-e", validationSource] },
   };
 }
-
-const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function processIsAlive(pid: number): boolean {
   try {
@@ -1787,6 +1786,27 @@ describe("plan fill-commands", () => {
 });
 
 describe("plan prepare", () => {
+  it("composes Windows npm scripts without a cmd shell", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-windows-npm-"));
+    try {
+      const nodeExecutable = join(dir, "node.exe");
+      const npmCli = join(dir, "node_modules", "npm", "bin", "npm-cli.js");
+      await mkdir(dirname(npmCli), { recursive: true });
+      await writeFile(nodeExecutable, "");
+      await writeFile(npmCli, "");
+
+      assert.deepEqual(
+        await packageManagerRunCommand("npm", "check", {
+          platform: "win32",
+          nodeExecutable,
+        }),
+        [nodeExecutable, npmCli, "run", "check"],
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   let fakeCodexBinPromise: Promise<string> | null = null;
 
   after(async () => {
@@ -1927,8 +1947,8 @@ describe("plan prepare", () => {
       ], env);
       assert.equal(detected.status, 0, detected.stdout || detected.stderr);
       const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
-      assert.deepEqual(ready.execution.validation.setup, [npmExecutable, "run", "prepare"]);
-      assert.deepEqual(ready.execution.validation.command, [npmExecutable, "run", "check"]);
+      assert.deepEqual(ready.execution.validation.setup, await packageManagerRunCommand("npm", "prepare"));
+      assert.deepEqual(ready.execution.validation.command, await packageManagerRunCommand("npm", "check"));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -2449,8 +2469,8 @@ describe("run", () => {
         execution: {
           isolation: "required",
           validation: {
-            setup: [npmExecutable, "run", "prepare"],
-            command: [npmExecutable, "run", "check"],
+            setup: await packageManagerRunCommand("npm", "prepare"),
+            command: await packageManagerRunCommand("npm", "check"),
           },
         },
         tasks: [{
