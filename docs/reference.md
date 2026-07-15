@@ -216,6 +216,18 @@ found. Add `--no-read-hazards` only when stale reads are intentionally safe. Add
 and parity violations block preparation too. Without a manifest those static
 artifacts are explicitly reported as not configured, not as verified.
 
+Preparation also binds one repository validation command to the ready plan. It
+detects `check` or `test` scripts from common JavaScript package managers, then
+Swift, Cargo, and Go project checks. If detection is not possible, preparation
+fails without writing the output file. Supply an explicit argv instead:
+
+```bash
+scopelock plan prepare plan.json \
+  --target claude \
+  --out ready-plan.json \
+  --validation-command npm run check
+```
+
 Every task command is regenerated through the selected shell-free harness
 adapter, including commands already present in the input plan. The input and
 output paths must differ. The resulting file is accepted unchanged by `run`,
@@ -244,13 +256,18 @@ still contain legitimate non-mutating tasks and may run directly.
 Each task runs in its own detached Git worktree. ScopeLock accepts only a
 whole task patch whose paths match that task's contract, carries accepted
 changes into later execution steps, and applies one aggregate patch to the
-user working tree at the end. The user repository must be clean and remain at
-the same `HEAD`; otherwise dispatch or final promotion fails closed.
+user working tree at the end. Every safe scheduler step runs, including both
+sides of a write-write conflict in their computed order. Before promotion,
+ScopeLock runs the ready plan's repository validation command against the
+combined candidate. A failure or timeout blocks the whole promotion. The user
+repository must be clean and remain at the same `HEAD`; otherwise dispatch or
+final promotion fails closed.
 
 Manual plans may opt into isolation; generated agent plans require it. Isolated
 runs produce receipt v5 with per-task patch digests, path classifications,
-final-promotion status, and cleanup evidence. The first release limits a run to
-32 tasks and each task/aggregate patch to 50 MiB.
+repository-validation evidence, final-promotion status, and cleanup evidence.
+The first release limits a run to 32 tasks and each task/aggregate patch to 50
+MiB.
 Gitlinks and symlinks are rejected. A signal interrupts children, blocks final
 promotion, and runs worktree cleanup. ScopeLock supervises the complete child
 process tree: timeout, `SIGINT`, and `SIGTERM` share one termination path, and
@@ -295,8 +312,6 @@ Other `run` options:
   includes.
 - `--no-read-hazards` schedules using only write-write conflicts (F1),
   ignoring each contract's `readPathPatterns` (F2).
-- `--no-defer-write-conflicts` runs write-write conflicts instead of deferring
-  one side to a later execution stage.
 
 Receipts contain bounded, redacted previews by default. Raw redacted output is
 written only when `--store-raw-output` is explicitly enabled.

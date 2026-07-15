@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import {
@@ -50,7 +50,6 @@ import {
 type RunPlanOptions = {
   plan: string;
   readHazards?: boolean;
-  deferWriteConflicts?: boolean;
   checkDrift?: boolean;
   receipt?: string;
   allowShell?: boolean;
@@ -181,6 +180,7 @@ type RunIsolation = {
   aggregatePatchSha256: string | null;
   aggregatePatchBytes: number;
   finalPromotion: "applied" | "no-changes" | "blocked";
+  validation: TaskRun | null;
   interrupted: boolean;
   cleanup: { status: "ok" | "warning"; remaining: string[] };
 };
@@ -269,16 +269,6 @@ async function maybeEnvironment(cwd: string): Promise<ReceiptEnvironment | null>
       violations: target.violations.map((violation) => violation.code),
     })),
   };
-}
-
-function deferredWriteConflictTasks(conflicts: ScopeConflict[]): string[] {
-  const deferred = new Set<string>();
-  for (const conflict of conflicts) {
-    if (conflict.kind === "write-write") {
-      deferred.add([conflict.a, conflict.b].sort()[1]);
-    }
-  }
-  return [...deferred].sort();
 }
 
 function resolveReceiptPath(cwd: string, receipt: string | undefined): string {
@@ -462,12 +452,63 @@ function isolatedEvidence(
   };
 }
 
+async function runCandidateValidation(input: {
+  worktree: IsolatedWorktree;
+  tempRoot: string;
+  artifactDir: string;
+  command: CommandSpec;
+  timeoutMs: number;
+  storeRawOutput: boolean;
+  coordinator: RunSignalCoordinator;
+}): Promise<TaskRun> {
+  const controlPath = join(input.worktree.path, ".scopelock");
+  const hiddenPath = join(input.tempRoot, "validation-control-state");
+  let hidden = false;
+  try {
+    await rename(controlPath, hiddenPath);
+    hidden = true;
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+
+  let run: TaskRun | null = null;
+  let restoreError: unknown = null;
+  try {
+    run = await runCommand(
+      input.worktree.path,
+      input.artifactDir,
+      { id: "validation", contract: "", command: input.command },
+      input.timeoutMs,
+      input.storeRawOutput,
+      input.coordinator,
+    );
+  } finally {
+    if (hidden) {
+      try {
+        await rename(hiddenPath, controlPath);
+      } catch (error) {
+        restoreError = error;
+      }
+    }
+  }
+
+  if (run === null) throw new Error("repository validation did not produce a result");
+  if (restoreError !== null) {
+    const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
+    run.status = "failed";
+    run.stderr = [run.stderr, `failed to restore ScopeLock control state: ${detail}`]
+      .filter(Boolean)
+      .join("\n");
+  }
+  return run;
+}
+
 async function runIsolatedTasks(input: {
   cwd: string;
   waves: string[][];
   byId: Map<string, SchedulePlanTask>;
-  deferredSet: Set<string>;
   contracts: Map<string, ApprovedContract>;
+  validationCommand: CommandSpec;
   artifactDir: string;
   taskTimeoutMs: number;
   isolationTimeoutMs: number;
@@ -501,7 +542,6 @@ async function runIsolatedTasks(input: {
       const wave = input.waves[waveIndex] ?? [];
       const baseSha = await worktreeHead(integration, input.isolationTimeoutMs);
       const runnable = wave
-        .filter((id) => !input.deferredSet.has(id))
         .map((id) => input.byId.get(id))
         .filter((task): task is SchedulePlanTask => task !== undefined);
       const created: Array<{
@@ -667,11 +707,24 @@ async function runIsolatedTasks(input: {
       maxPatchBytes: MAX_ISOLATED_PATCH_BYTES,
       timeoutMs: input.isolationTimeoutMs,
     });
-    let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
     const aggregatePatch = aggregate.patch;
+    const validation = aggregatePatch === null
+      ? null
+      : await runCandidateValidation({
+          worktree: integration,
+          tempRoot,
+          artifactDir: input.artifactDir,
+          command: input.validationCommand,
+          timeoutMs: input.taskTimeoutMs,
+          storeRawOutput: input.storeRawOutput,
+          coordinator: input.coordinator,
+        });
+    let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
     if (input.signal.aborted) {
       finalPromotion = "blocked";
     } else if (!aggregate.accepted) {
+      finalPromotion = "blocked";
+    } else if (aggregatePatch !== null && validation?.status !== "passed") {
       finalPromotion = "blocked";
     } else if (aggregatePatch !== null) {
       try {
@@ -692,16 +745,20 @@ async function runIsolatedTasks(input: {
         task.status = "blocked";
         task.isolation.outcome = "not-promoted-final";
         task.isolation.findings.push({
-          code: "FINAL_PROMOTION_BLOCKED",
+          code: validation !== null && validation.status !== "passed"
+            ? "VALIDATION_FAILED"
+            : "FINAL_PROMOTION_BLOCKED",
           path: null,
-          detail: "aggregate patch was not applied to the user repository",
+          detail: validation !== null && validation.status !== "passed"
+            ? "repository validation failed; aggregate patch was not applied"
+            : "aggregate patch was not applied to the user repository",
         });
       }
     }
     if (input.signal.aborted) {
       const recorded = new Set(taskRuns.map((task) => task.id));
       for (const task of input.byId.values()) {
-        if (recorded.has(task.id) || input.deferredSet.has(task.id)) continue;
+        if (recorded.has(task.id)) continue;
         const persistedCommand = await persistCommand(
           input.artifactDir,
           task.id,
@@ -751,6 +808,7 @@ async function runIsolatedTasks(input: {
         aggregatePatchSha256: aggregatePatch?.sha256 ?? null,
         aggregatePatchBytes: aggregatePatch?.bytes ?? 0,
         finalPromotion,
+        validation,
         interrupted: input.signal.aborted,
         cleanup: {
           status: cleanupRemaining.length === 0 ? "ok" : "warning",
@@ -818,6 +876,7 @@ function humanReport(
   deferred: string[],
   driftStatus: string,
   environmentStatus: string,
+  validationStatus: string,
   isolationStatus: string,
 ): string {
   const failed = taskRuns.filter((task) => task.status === "failed").map((task) => task.id);
@@ -855,6 +914,7 @@ function humanReport(
         ["environment", environmentStatus],
         ["conflicts", conflicts.length === 0 ? "none" : String(conflicts.length)],
         ["deferred", deferred.length === 0 ? "none" : deferred.join(", ")],
+        ["validation", validationStatus],
         ["drift", driftStatus],
         ["isolation", isolationStatus],
       ],
@@ -892,6 +952,13 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
   const byId = new Map(runTasks.map((task) => [task.id, task]));
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
+  const validationCommand = plan.execution?.validation?.command;
+  if (options.isolate === true && executableTasks.length > 0 && validationCommand === undefined) {
+    throw new CliError(
+      "VALIDATION_REQUIRED",
+      "isolated execution requires execution.validation.command before any agent starts",
+    );
+  }
   if (executableTasks.length > 0 && options.yes !== true) {
     throw new CliError(
       "PLAN_CONFIRMATION_REQUIRED",
@@ -901,10 +968,15 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const shellTasks = executableTasks.filter(
     (task) => task.command !== undefined && usesShellInterpreter(task.command),
   );
-  if (shellTasks.length > 0 && options.allowShell !== true) {
+  const validationUsesShell = validationCommand !== undefined && usesShellInterpreter(validationCommand);
+  if ((shellTasks.length > 0 || validationUsesShell) && options.allowShell !== true) {
+    const labels = [
+      ...shellTasks.map((task) => task.id),
+      ...(validationUsesShell ? ["validation"] : []),
+    ];
     throw new CliError(
       "SHELL_COMMAND_NOT_ALLOWED",
-      `commands that run through a shell require --allow-shell (tasks: ${shellTasks.map((task) => task.id).join(", ")})`,
+      `commands that run through a shell require --allow-shell (tasks: ${labels.join(", ")})`,
     );
   }
   const activeId = await getActiveContractId(scopelockPaths(cwd));
@@ -944,8 +1016,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
 
   const graph = buildConflictGraph(scopes, { readHazards: options.readHazards !== false });
   const { waves, cycles } = schedule(graph);
-  const deferred = options.deferWriteConflicts === false ? [] : deferredWriteConflictTasks(graph.conflicts);
-  const deferredSet = new Set(deferred);
+  const deferred: string[] = [];
   const receiptPath = resolveReceiptPath(cwd, options.receipt);
   const artifactDir = join(dirname(receiptPath), `${basename(receiptPath, ".json")}-artifacts`);
   const startedAt = new Date().toISOString();
@@ -980,8 +1051,8 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           cwd,
           waves,
           byId,
-          deferredSet,
           contracts: taskContracts,
+          validationCommand: validationCommand as CommandSpec,
           artifactDir,
           taskTimeoutMs: timeoutMs,
           isolationTimeoutMs: ISOLATION_OPERATION_TIMEOUT_MS,
@@ -1000,7 +1071,6 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     } else {
       for (const wave of waves) {
         const runnable = wave
-          .filter((id) => !deferredSet.has(id))
           .map((id) => byId.get(id))
           .filter((task): task is (typeof runTasks)[number] => task !== undefined);
         taskRuns.push(
@@ -1019,22 +1089,6 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     } finally {
       coordinator.dispose();
     }
-  }
-
-  for (const id of deferred) {
-    const persistedCommand = await persistCommand(artifactDir, id, byId.get(id)?.command ?? null, storeRawOutput);
-    taskRuns.push({
-      id,
-      status: "skipped",
-      command: persistedCommand.preview,
-      exitCode: null,
-      durationMs: 0,
-      stdout: "",
-      stderr: "deferred due to write-write conflict",
-      outputArtifacts: {
-        ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
-      },
-    });
   }
 
   let drift: { status: "ok" | "violations" | "error"; data?: unknown; error?: string } | null = null;
@@ -1111,6 +1165,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       deferred,
       drift?.status ?? "not_checked",
       environment?.status ?? "not_configured",
+      isolation?.validation?.status ?? (options.isolate === true ? "not-run" : "off"),
       isolation?.finalPromotion ?? (options.isolate === true ? "not-run" : "off"),
     ),
     exitCode,

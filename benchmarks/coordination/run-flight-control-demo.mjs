@@ -76,13 +76,15 @@ async function runWorker(taskId, coordinated) {
     write(root, "src/strings.mjs", "export const lower = (value) => value.toLowerCase();\nexport const slugify = (value) => lower(value).replaceAll(' ', '-');\n");
     write(root, "tests/strings.test.mjs", "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { slugify } from '../src/strings.mjs';\ntest('slugify', () => assert.equal(slugify('Hello World'), 'hello-world'));\n");
     if (!coordinated) write(root, "docs/telemetry.md", "Unplanned telemetry note.\n");
-  } else if (taskId === "t3-tax-8" || taskId === "t4-tax-9") {
-    await sleep(taskId === "t3-tax-8" ? 20 : 40);
-    const rate = taskId === "t3-tax-8" ? "0.08" : "0.09";
-    const expected = taskId === "t3-tax-8" ? "108" : "109";
-    const testName = taskId === "t3-tax-8" ? "tax-8" : "tax-9";
-    write(root, "src/pricing.mjs", `export const TAX_RATE = ${rate};\nexport const total = (value) => Math.round(value * (1 + TAX_RATE));\n`);
-    write(root, `tests/${testName}.test.mjs`, `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { total } from '../src/pricing.mjs';\ntest('${testName}', () => assert.equal(total(100), ${expected}));\n`);
+  } else if (taskId === "t3-tax-8") {
+    await sleep(20);
+    write(root, "src/pricing.mjs", "export const TAX_RATE = 0.08;\nexport const total = (value) => Math.round(value * (1 + TAX_RATE));\n");
+    write(root, "tests/tax-8.test.mjs", "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { total } from '../src/pricing.mjs';\ntest('tax-8', () => assert.equal(total(100), 108));\n");
+  } else if (taskId === "t4-tax-9") {
+    await sleep(40);
+    const existing = coordinated ? readFileSync(join(root, "src/pricing.mjs"), "utf8") : "";
+    write(root, "src/pricing.mjs", `${existing}export const PREMIUM_TAX_RATE = 0.09;\nexport const premiumTotal = (value) => Math.round(value * (1 + PREMIUM_TAX_RATE));\n`);
+    write(root, "tests/tax-9.test.mjs", "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { premiumTotal } from '../src/pricing.mjs';\ntest('tax-9', () => assert.equal(premiumTotal(100), 109));\n");
   } else if (taskId === "t5-user-migration") {
     await sleep(20);
     write(root, "src/user.mjs", "export const formatUser = (user) => `${user.firstName} ${user.lastName}`;\n");
@@ -162,6 +164,10 @@ function setupScopeLock(root) {
   write(root, "plan.json", JSON.stringify({
     schemaVersion: 1,
     planId: "flight-control-demo",
+    execution: {
+      isolation: "required",
+      validation: { command: [process.execPath, "--test"] },
+    },
     tasks: tasks.map((task, index) => ({
       id: task.id,
       contract: contractPaths[index],
@@ -179,6 +185,8 @@ function setupScopeLock(root) {
   ]);
   sh(root, process.execPath, [scopelockCli, "approve", runDraft]);
   rmSync(runDraft);
+  git(root, ["add", ".scopelock/contracts/demo-run.json"]);
+  git(root, ["commit", "-m", "Approve demo run", "-q"]);
 }
 
 async function runDemo(argv) {
@@ -198,7 +206,7 @@ async function runDemo(argv) {
     let dispatcherOutput = "";
     try {
       dispatcherOutput = sh(controlledRoot, process.execPath, [
-        scopelockCli, "--json", "run", "--yes", "--plan", "plan.json", "--receipt", ".scopelock/reports/demo-receipt.json",
+        scopelockCli, "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--receipt", ".scopelock/reports/demo-receipt.json",
       ]);
     } catch (error) {
       if (!error.stdout || error.status !== 1) throw error;

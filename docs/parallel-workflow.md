@@ -269,6 +269,18 @@ from this example becomes two execution stages. It writes nothing if contracts
 are unapproved, the dependency graph is unschedulable, the selected harness is
 missing, or a configured workspace preflight fails. It never starts an agent.
 
+The prepared plan also contains the exact repository validation argv. ScopeLock
+auto-detects common JavaScript `check`/`test` scripts, `swift test`, `cargo
+test`, and `go test ./...`. If the repository has a different canonical gate,
+declare it explicitly and review it in the generated JSON:
+
+```bash
+scopelock plan prepare plan.json \
+  --target codex \
+  --out ready-plan.json \
+  --validation-command npm run check
+```
+
 The lower-level primitives remain useful for diagnosis or custom automation:
 
 ```bash
@@ -280,8 +292,12 @@ ScopeLock creates one temporary task worktree per runnable task. Accepted
 patches are staged in an integration worktree at the end of each execution
 step, so later tasks see earlier accepted output. Forbidden, outside-scope,
 symlink, gitlink, oversized, conflicting, or failed task results are not
-staged. After rechecking the original clean `HEAD`, ScopeLock applies one
-aggregate patch to the user tree and records the result in receipt v5.
+staged. All acyclic scheduler steps run; write-write conflicts are serialized,
+not silently skipped. ScopeLock then runs the declared repository validation
+against the combined candidate while its own `.scopelock/` control directory
+is temporarily hidden. Only a passing candidate may become one aggregate patch
+in the user tree. The control directory is restored in `finally`, and the
+validation result is recorded in receipt v5.
 
 Generated agent tasks are deliberately bound to isolated execution and carry
 `expectsChanges: true`. A task that exits zero without a Git diff is blocked as
@@ -298,8 +314,10 @@ scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 Every generated file contains `execution.isolation = "required"`, so a later
 direct run is rejected before any agent starts. Cursor keeps its native
 sandbox enabled, while ScopeLock validates the complete worktree patch before
-promotion. Existing explicit commands are preserved, but the whole mixed plan
-still inherits the strongest requirement and must run isolated.
+promotion. An isolated mutating plan without `execution.validation.command` is
+rejected before dispatch. Existing explicit commands are preserved, but the
+whole mixed plan still inherits the strongest requirement and must run
+isolated.
 
 `plan prepare` regenerates every task command from its approved contract. The
 original plan is not changed, and `run` still executes only the commands visible

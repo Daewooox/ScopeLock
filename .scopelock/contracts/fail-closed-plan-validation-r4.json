@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "fail-closed-plan-validation-r4",
+  "task": "Require repository validation before isolated promotion and execute every safe scheduler stage",
+  "createdAt": "2026-07-15T10:03:26.924Z",
+  "baseline": {
+    "headSha": "7b390662b62d39605f521e25478f712e51bc7e42",
+    "branch": "fix/fail-closed-plan-validation",
+    "capturedAt": "2026-07-15T10:03:27.020Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/plan-fill-commands.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/commands/report.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "benchmarks/coordination/run-flight-control-demo.mjs",
+      "benchmarks/coordination/run-flight-control-demo.test.mjs",
+      "benchmarks/coordination/run-progressive-cli-demo.mjs",
+      "benchmarks/coordination/run-progressive-cli-demo.test.mjs",
+      "README.md",
+      "docs/reference.md",
+      "docs/parallel-workflow.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

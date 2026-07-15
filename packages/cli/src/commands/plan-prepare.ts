@@ -1,9 +1,11 @@
-import { isAbsolute, resolve } from "node:path";
+import { access, readFile } from "node:fs/promises";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   HARNESSES,
   agentIdSchema,
   findRepoRoot,
   probeHookConfig,
+  schedulePlanSchema,
   writeJsonAtomic,
   type AgentEnvironmentPreflightReport,
   type AgentId,
@@ -22,6 +24,7 @@ type PlanPrepareOptions = {
   out: string;
   manifest?: string;
   readHazards?: boolean;
+  validationCommand?: string[];
 };
 
 type ScheduleData = {
@@ -37,6 +40,52 @@ function parseTarget(raw: string): AgentId {
     throw new CliError("UNKNOWN_TARGET", `unknown agent target: ${raw}`);
   }
   return parsed.data;
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function detectValidationCommand(root: string): Promise<string[] | null> {
+  const packagePath = join(root, "package.json");
+  if (await exists(packagePath)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await readFile(packagePath, "utf8"));
+    } catch {
+      throw new CliError("INVALID_PACKAGE_JSON", `cannot detect validation from ${packagePath}`);
+    }
+    const scripts = typeof parsed === "object" && parsed !== null && "scripts" in parsed
+      ? (parsed as { scripts?: unknown }).scripts
+      : null;
+    if (typeof scripts === "object" && scripts !== null) {
+      const values = scripts as Record<string, unknown>;
+      const script = typeof values.check === "string"
+        ? "check"
+        : typeof values.test === "string"
+          ? "test"
+          : null;
+      if (script !== null) {
+        const manager = await exists(join(root, "pnpm-lock.yaml"))
+          ? "pnpm"
+          : await exists(join(root, "yarn.lock"))
+            ? "yarn"
+            : await exists(join(root, "bun.lock")) || await exists(join(root, "bun.lockb"))
+              ? "bun"
+              : "npm";
+        return [manager, "run", script];
+      }
+    }
+  }
+  if (await exists(join(root, "Package.swift"))) return ["swift", "test"];
+  if (await exists(join(root, "Cargo.toml"))) return ["cargo", "test"];
+  if (await exists(join(root, "go.mod"))) return ["go", "test", "./..."];
+  return null;
 }
 
 function stageLines(stages: string[][]): string[] {
@@ -141,10 +190,31 @@ export async function planPrepareCommand(
     );
   }
 
-  await writeJsonAtomic(outputPath, composition.plan);
-  checks.push(`${composition.plan.tasks.length} shell-free agent command${composition.plan.tasks.length === 1 ? "" : "s"} composed`);
+  const validationCommand = options.validationCommand?.length
+    ? options.validationCommand
+    : composition.plan.execution?.validation?.command ?? await detectValidationCommand(root);
+  if (validationCommand === null || validationCommand.length === 0) {
+    checks.push("Repository validation  not detected");
+    return result(
+      { ...base, preflight, composition, outputPath: null },
+      "Validation command is required; no ready plan was written",
+      `Run again with: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)} --validation-command <executable> [args...]`,
+      1,
+    );
+  }
+  const readyPlan = schedulePlanSchema.parse({
+    ...composition.plan,
+    execution: {
+      ...composition.plan.execution,
+      isolation: "required",
+      validation: { command: validationCommand },
+    },
+  });
+  await writeJsonAtomic(outputPath, readyPlan);
+  checks.push(`${readyPlan.tasks.length} shell-free agent command${readyPlan.tasks.length === 1 ? "" : "s"} composed`);
+  checks.push(`Validation  ${validationCommand.join(" ")}`);
   return result(
-    { ...base, preflight, plan: composition.plan, outputPath },
+    { ...base, preflight, plan: readyPlan, outputPath },
     `Ready plan written  ${outputPath}\nNo agent was started`,
     `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes --isolate`,
     0,

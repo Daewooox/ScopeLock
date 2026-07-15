@@ -47,6 +47,13 @@ function commitFixture(dir: string, message: string): void {
   assert.equal(spawnSync("git", ["commit", "-qm", message], { cwd: dir }).status, 0);
 }
 
+function isolatedExecution(validationSource = "process.exit(0)") {
+  return {
+    isolation: "required" as const,
+    validation: { command: [process.execPath, "-e", validationSource] },
+  };
+}
+
 function processIsAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -1528,6 +1535,7 @@ describe("plan fill-commands", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "compose-demo",
+          execution: isolatedExecution(),
           tasks: [
             { id: "a", contract: ".scopelock/contracts/a.json" },
             { id: "b", contract: ".scopelock/contracts/b.json", command: ["manual", "b"] },
@@ -1859,6 +1867,7 @@ describe("plan prepare", () => {
       const prepared = runCli(dir, [
         "--json", "plan", "prepare", "plan.json",
         "--target", "codex", "--out", "ready-plan.json",
+        "--validation-command", process.execPath,
       ], env);
       assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
       const body = JSON.parse(prepared.stdout);
@@ -1870,6 +1879,7 @@ describe("plan prepare", () => {
       assert.deepEqual(ready.tasks[0].command.slice(2, 4), ["--sandbox", "workspace-write"]);
       assert.equal(ready.tasks[0].expectsChanges, true);
       assert.equal(ready.execution.isolation, "required");
+      assert.deepEqual(ready.execution.validation.command, [process.execPath]);
       assert.equal(Array.isArray(ready.tasks[0].command), true);
 
       commitFixture(dir, "prepared plan");
@@ -1878,6 +1888,44 @@ describe("plan prepare", () => {
       ], await gitOnlyEnv(dir));
       assert.equal(run.status, 0, run.stdout || run.stderr);
       assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "ran");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects an npm check script and refuses to guess when validation is unknown", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-detection",
+        tasks: [{ id: "a", contract }],
+      }));
+      const env = await fakeCodexEnv(dir);
+
+      const unknown = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "unknown.json",
+      ], env);
+      assert.equal(unknown.status, 1, unknown.stdout || unknown.stderr);
+      assert.match(JSON.parse(unknown.stdout).data.checks.at(-1), /not detected/);
+      await assert.rejects(readFile(join(dir, "unknown.json"), "utf8"));
+
+      await writeFile(join(dir, "package.json"), JSON.stringify({
+        scripts: { check: "node --test" },
+      }));
+      const detected = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ], env);
+      assert.equal(detected.status, 0, detected.stdout || detected.stderr);
+      const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
+      assert.deepEqual(ready.execution.validation.command, ["npm", "run", "check"]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -1908,6 +1956,7 @@ describe("plan prepare", () => {
       const explicitlyIgnored = runCli(dir, [
         "--json", "plan", "prepare", "plan.json", "--no-read-hazards",
         "--target", "codex", "--out", "ready-plan.json",
+        "--validation-command", process.execPath,
       ], await fakeCodexEnv(dir));
       assert.equal(explicitlyIgnored.status, 0, explicitlyIgnored.stdout || explicitlyIgnored.stderr);
       assert.deepEqual(JSON.parse(explicitlyIgnored.stdout).data.stages, [["a", "b"]]);
@@ -2088,6 +2137,42 @@ describe("run", () => {
     }
   });
 
+  it("requires validation before isolated dispatch starts", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "missing-validation",
+        execution: { isolation: "required" },
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','bad')"],
+        }],
+      }));
+      commitFixture(dir, "missing validation fixture");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--no-check-drift",
+      ]);
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).error.code, "VALIDATION_REQUIRED");
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+      assert.doesNotMatch(
+        spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" }).stdout,
+        /scopelock-isolate-/,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects an argv-array shell invocation (sh -c ...) as a shell command too (M0.9)", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -2208,7 +2293,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-waves",
-          execution: { isolation: "required" },
+          execution: isolatedExecution(),
           tasks: [
             {
               id: "writer",
@@ -2253,6 +2338,7 @@ describe("run", () => {
       assert.equal(receipt.inputs.effectiveExecutionMode, "isolated");
       assert.deepEqual(receipt.waves, [["writer"], ["reader"]]);
       assert.equal(receipt.isolation.finalPromotion, "applied");
+      assert.equal(receipt.isolation.validation.status, "passed");
       assert.equal(receipt.isolation.cleanup.status, "ok");
       assert.match(receipt.isolation.aggregatePatchSha256, /^[a-f0-9]{64}$/);
       assert.ok(receipt.taskRuns.every((task: { isolation: { outcome: string } }) =>
@@ -2261,7 +2347,131 @@ describe("run", () => {
       assert.equal(report.status, 0, report.stdout || report.stderr);
       const html = await readFile(receiptPath.replace(/\.json$/, ".html"), "utf8");
       assert.match(html, /Final promotion/);
+      assert.match(html, /Repository validation/);
+      assert.match(html, />passed</);
       assert.match(html, /accepted-integration/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks promotion when repository validation fails and hides control state", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      const validation = [
+        "const fs=require('node:fs');",
+        "if(fs.existsSync('.scopelock'))process.exit(9);",
+        "process.exit(7);",
+      ].join("");
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-failure",
+        execution: isolatedExecution(validation),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      await writeFile(join(dir, ".scopelock", "validation-marker.txt"), "control-state\n");
+      commitFixture(dir, "validation failure fixture");
+      const markerBefore = await readFile(join(dir, ".scopelock", "validation-marker.txt"), "utf8");
+      const receiptPath = join(dir, ".scopelock", "reports", "validation-failure.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+      assert.equal(await readFile(join(dir, ".scopelock", "validation-marker.txt"), "utf8"), markerBefore);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.validation.status, "failed");
+      assert.equal(receipt.isolation.validation.exitCode, 7);
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+      assert.equal(receipt.taskRuns[0].status, "blocked");
+      assert.equal(receipt.taskRuns[0].isolation.outcome, "not-promoted-final");
+      assert.ok(receipt.taskRuns[0].isolation.findings.some(
+        (finding: { code: string }) => finding.code === "VALIDATION_FAILED",
+      ));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks promotion when repository validation times out", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-timeout",
+        execution: isolatedExecution("setInterval(()=>{},1000)"),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "validation timeout fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "validation-timeout.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--timeout-ms", "250",
+        "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift",
+      ]);
+      assert.equal(result.status, 1, result.stdout || result.stderr);
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.validation.status, "failed");
+      assert.equal(receipt.isolation.validation.termination.reason, "timeout");
+      assert.equal(receipt.isolation.finalPromotion, "blocked");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("requires explicit shell permission for repository validation", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-shell-gate",
+        execution: {
+          isolation: "required",
+          validation: { command: ["sh", "-c", "exit 0"] },
+        },
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "validation shell fixture");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--no-check-drift",
+      ]);
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(JSON.parse(result.stdout).error.code, "SHELL_COMMAND_NOT_ALLOWED");
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -2281,7 +2491,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-empty-diff",
-          execution: { isolation: "required" },
+          execution: isolatedExecution(),
           tasks: [{
             id: "empty",
             contract: "empty.json",
@@ -2332,7 +2542,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-outside-diff",
-          execution: { isolation: "required" },
+          execution: isolatedExecution(),
           tasks: [{
             id: "outside",
             contract: "outside.json",
@@ -2387,6 +2597,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-forbidden",
+          execution: isolatedExecution(),
           tasks: [{
             id: "mixed",
             contract: "mixed.json",
@@ -2434,6 +2645,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-dirty",
+          execution: isolatedExecution(),
           tasks: [{
             id: "a",
             contract: "a.json",
@@ -2500,6 +2712,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-signal",
+          execution: isolatedExecution(),
           tasks: [{
             id: "slow",
             contract: "slow.json",
@@ -2577,6 +2790,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-second-signal",
+          execution: isolatedExecution(),
           tasks: [{
             id: "stubborn",
             contract: "stubborn.json",
@@ -2661,6 +2875,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "isolated-timeout-tree",
+          execution: isolatedExecution(),
           tasks: [{
             id: "slow-tree",
             contract: "slow-tree.json",
@@ -2705,6 +2920,7 @@ describe("run", () => {
         JSON.stringify({
           schemaVersion: 1,
           planId: "short-task-timeout",
+          execution: isolatedExecution(),
           tasks: [{
             id: "short-timeout",
             contract: "short-timeout.json",
@@ -2969,7 +3185,7 @@ describe("run", () => {
     }
   });
 
-  it("defers one side of a write-write conflict before dispatch", async (t) => {
+  it("runs write-write conflicts in separate scheduler stages", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
       t.skip("git init failed");
@@ -3017,15 +3233,15 @@ describe("run", () => {
         receiptPath,
         "--no-check-drift",
       ]);
-      assert.equal(res.status, 1);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
       const body = JSON.parse(res.stdout);
-      assert.equal(body.status, "violations");
-      assert.deepEqual(body.data.receipt.deferredTasks, ["b"]);
-      assert.equal(await readFile(join(dir, "shared.txt"), "utf8"), "a");
-      assert.equal(
-        body.data.receipt.taskRuns.find((task: { id: string }) => task.id === "b").status,
-        "skipped",
-      );
+      assert.equal(body.status, "ok");
+      assert.deepEqual(body.data.receipt.waves, [["a"], ["b"]]);
+      assert.deepEqual(body.data.receipt.deferredTasks, []);
+      assert.equal(await readFile(join(dir, "shared.txt"), "utf8"), "b");
+      assert.ok(body.data.receipt.taskRuns.every(
+        (task: { status: string }) => task.status === "passed",
+      ));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

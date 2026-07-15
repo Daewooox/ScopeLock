@@ -77,6 +77,10 @@ function createFixture() {
   git(root, ["init", "-q"]);
   git(root, ["config", "user.name", "ScopeLock Demo"]);
   git(root, ["config", "user.email", "demo@scopelock.local"]);
+  write(root, "package.json", `${JSON.stringify({
+    private: true,
+    scripts: { check: "node --test" },
+  }, null, 2)}\n`);
   write(root, "src/greeting.js", "export const greeting = 'Hello';\n");
   git(root, ["add", "."]);
   git(root, ["commit", "-qm", "fixture"]);
