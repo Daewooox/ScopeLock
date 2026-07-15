@@ -4,9 +4,9 @@
   "task": "Complete npm beta rehearsal without publishing",
   "createdAt": "2026-07-15T07:52:53.135Z",
   "baseline": {
-    "headSha": "0fb5cc3a269272391ce486a02d3a5d7a0b340a0a",
+    "headSha": "f414c0bd6517e4eec91ee1857c19fba40b40df55",
     "branch": "feature/npm-beta-preparation",
-    "capturedAt": "2026-07-15T08:01:56.229Z"
+    "capturedAt": "2026-07-15T08:01:56.362Z"
   },
   "targetAgents": [
     "codex"
