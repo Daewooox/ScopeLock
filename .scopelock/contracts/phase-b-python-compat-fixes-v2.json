@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "phase-b-python-compat-fixes-v2",
+  "task": "Phase B: recognize pytest test files and preserve option-like child argv in plan prepare",
+  "createdAt": "2026-07-15T17:08:12.368Z",
+  "baseline": {
+    "headSha": "fbd3f430c6d39454a08866e8419c9993fa2ebc11",
+    "branch": "fix/pilot-4-phase-b-python-compat",
+    "capturedAt": "2026-07-15T17:08:12.451Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/rules/test-heuristics.ts",
+      "packages/core/src/drift.test.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/plan-prepare-argv.ts",
+      "packages/cli/src/plan-prepare-argv.test.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/package.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/drift/**",
+      "packages/core/src/storage/**",
+      "packages/core/src/schedule/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

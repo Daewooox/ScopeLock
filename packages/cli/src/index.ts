@@ -26,6 +26,7 @@ import { setupCommand } from "./commands/setup.js";
 import { taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
 import { confirmPrompt, questionPrompt } from "./prompts.js";
+import { extractPlanPrepareValidationArgv } from "./plan-prepare-argv.js";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -37,6 +38,30 @@ program
   .name("scopelock")
   .description("Local flight control for AI coding agents")
   .option("--json", "print machine-readable JSON");
+
+// `plan prepare --validation-command`/`--validation-setup-command` need to
+// accept option-like child argv (e.g. `uv run --frozen pytest`) that
+// Commander's own variadic option parsing cannot represent - see
+// plan-prepare-argv.ts. Extract them from raw process.argv, and strip their
+// tokens out, before Commander ever parses this invocation. The "plan"
+// "prepare" pair can appear anywhere (e.g. after a global `--json` flag), so
+// search for it instead of assuming a fixed position.
+let planPrepareValidationArgv: ReturnType<
+  typeof extractPlanPrepareValidationArgv
+> | null = null;
+{
+  const rawArgs = process.argv.slice(2);
+  const prepareIndex = rawArgs.findIndex(
+    (token, i) => token === "plan" && rawArgs[i + 1] === "prepare",
+  );
+  if (prepareIndex !== -1) {
+    const head = rawArgs.slice(0, prepareIndex + 2); // up to and including "plan" "prepare"
+    const tail = rawArgs.slice(prepareIndex + 2);
+    const extraction = extractPlanPrepareValidationArgv(tail);
+    planPrepareValidationArgv = extraction;
+    process.argv = [...process.argv.slice(0, 2), ...head, ...extraction.rest];
+  }
+}
 
 program.addHelpText(
   "after",
@@ -341,7 +366,22 @@ plan
         validationSetupCommand?: string[];
       },
       command: Command,
-    ) => run(() => planPrepareCommand(planPath, options), jsonOf(command)),
+    ) =>
+      run(
+        () =>
+          planPrepareCommand(planPath, {
+            ...options,
+            // Commander never sees these two flags' own tokens for `plan
+            // prepare` (extracted from argv before parseAsync below), so its
+            // own parsed values are always undefined here; use the
+            // pre-extracted ones instead. See plan-prepare-argv.ts.
+            validationCommand:
+              planPrepareValidationArgv?.validationCommand ?? options.validationCommand,
+            validationSetupCommand:
+              planPrepareValidationArgv?.validationSetupCommand ?? options.validationSetupCommand,
+          }),
+        jsonOf(command),
+      ),
   );
 
 registerPlanCompose(plan, "fill-commands", true);
