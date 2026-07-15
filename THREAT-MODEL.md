@@ -39,6 +39,19 @@
   clean repository, rejects symlink/gitlink promotion, caps plans at 32 tasks
   and patches at 50 MiB, and blocks final promotion after interruption or base
   drift. Harness-native sandboxing remains an independent required layer.
+- Node candidate validation may temporarily link the checkout's existing
+  `node_modules` into the integration worktree and prepend its `.bin` to
+  `PATH`. This happens after agents finish, runs no installer, is recorded in
+  the receipt, and is removed before promotion. Validation still executes with
+  the user's privileges, so this reuses a trusted local toolchain; it is not a
+  dependency sandbox or an integrity claim about installed packages.
+- Candidate setup is executable plan content under the same `--yes` and
+  `--allow-shell` gates as validation. Auto-detected npm `prepare` remains
+  visible in the ready plan, runs only after agents finish, and fails closed
+  before repository validation or promotion. After setup/check, the candidate
+  must still be Git-clean (ignored generated artifacts excepted), preventing a
+  command from validating bytes that are absent from the sealed aggregate
+  patch.
 - Commands produced by `plan prepare` or the lower-level `plan compose` are
   reviewable argv arrays and pass through the same `run <plan> --yes` trust
   gate as hand-written commands. Preparation never starts an agent.
