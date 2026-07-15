@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "go-test-drift-ci-stability",
+  "task": "Stabilize the cross-platform synthetic flight-control assertion without changing benchmark behavior",
+  "createdAt": "2026-07-15T13:54:43.402Z",
+  "baseline": {
+    "headSha": "a1c346a9d613d9642fbd399c787ac1911efec3ff",
+    "branch": "fix/go-test-drift-heuristic",
+    "capturedAt": "2026-07-15T13:54:43.505Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "benchmarks/coordination/run-flight-control-demo.test.mjs",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
