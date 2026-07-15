@@ -7,7 +7,7 @@ import { copyFile, mkdtemp, rm, mkdir, readFile, writeFile, chmod } from "node:f
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
-import { setupCommand } from "./commands/setup.js";
+import { findAgentExecutable, setupCommand } from "./commands/setup.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
 
@@ -508,6 +508,23 @@ describe("guided task start", () => {
 });
 
 describe("cli end-to-end", () => {
+  it("finds the bundled macOS Codex executable outside PATH", async () => {
+    const root = await mkdtemp(join(tmpdir(), "scopelock-apps-"));
+    try {
+      const executable = join(root, "ChatGPT.app", "Contents", "Resources", "codex");
+      await mkdir(dirname(executable), { recursive: true });
+      await writeFile(executable, "#!/bin/sh\nexit 0\n");
+      await chmod(executable, 0o755);
+
+      assert.equal(
+        findAgentExecutable("codex", { PATH: "" }, { platform: "darwin", applicationDirs: [root] }),
+        executable,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("adds the local drafts ignore without replacing foreign gitignore entries", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -555,6 +572,27 @@ describe("cli end-to-end", () => {
       assert.match(human.stdout, /\nResult\n[\s\S]*\nNext\n/);
       assert.equal(human.stdout.match(/^Next$/gm)?.length, 1);
       assert.equal(await readFile(join(dir, ".scopelock", "config.json"), "utf8"), configBefore);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("setup records the detected Swift package profile on first initialization", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "Tests", "WalletCoreTests"), { recursive: true });
+      await writeFile(join(dir, "Package.swift"), "// swift-tools-version: 6.0\n");
+      await writeFile(join(dir, "Tests", "WalletCoreTests", "WalletCoreTests.swift"), "import Testing\n");
+      commitFixture(dir, "swift package");
+
+      const setup = runCli(dir, ["setup", "--json"]);
+      assert.equal(setup.status, 0, setup.stderr);
+      const config = JSON.parse(await readFile(join(dir, ".scopelock", "config.json"), "utf8"));
+      assert.deepEqual(config.projectTypes, ["swift"]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -1828,7 +1866,7 @@ describe("plan prepare", () => {
       assert.equal(body.data.preflight.executable.found, true);
       assert.equal(body.data.preflight.workspace, null);
       const ready = JSON.parse(await readFile(join(dir, "ready-plan.json"), "utf8"));
-      assert.deepEqual(ready.tasks[0].command.slice(0, 2), ["codex", "exec"]);
+      assert.deepEqual(ready.tasks[0].command.slice(0, 2), [body.data.preflight.executable.path, "exec"]);
       assert.deepEqual(ready.tasks[0].command.slice(2, 4), ["--sandbox", "workspace-write"]);
       assert.equal(ready.tasks[0].expectsChanges, true);
       assert.equal(ready.execution.isolation, "required");
@@ -1837,7 +1875,7 @@ describe("plan prepare", () => {
       commitFixture(dir, "prepared plan");
       const run = runCli(dir, [
         "--json", "run", "ready-plan.json", "--yes", "--isolate", "--no-check-drift",
-      ], env);
+      ], await gitOnlyEnv(dir));
       assert.equal(run.status, 0, run.stdout || run.stderr);
       assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "ran");
     } finally {
@@ -1893,7 +1931,7 @@ describe("plan prepare", () => {
       }));
       const missingCli = runCli(dir, [
         "--json", "plan", "prepare", "plan.json",
-        "--target", "codex", "--out", "missing-cli.json",
+        "--target", "claude", "--out", "missing-cli.json",
       ], await gitOnlyEnv(dir));
       assert.equal(missingCli.status, 1, missingCli.stdout || missingCli.stderr);
       assert.equal(JSON.parse(missingCli.stdout).data.preflight.executable.found, false);

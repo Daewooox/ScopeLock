@@ -4,6 +4,7 @@ export const REPO_MANIFEST_SCHEMA_VERSION = 1;
 
 export const packageManagerSchema = z.enum(["npm", "pnpm", "yarn", "bun"]);
 export const projectTypeSchema = z.enum([
+  "swift",
   "ios",
   "android",
   "kmp",

@@ -141,6 +141,14 @@ describe("rules and engine", () => {
       ),
       null,
     );
+    assert.equal(
+      missingTestsViolation(
+        [{ ...changed[0], path: "Tests/WalletCoreTests/WalletCoreTests.swift" }],
+        contract(),
+        ["generic"],
+      ),
+      null,
+    );
   });
 
   it("builds a drift report with outside scope, high-risk and repo state violations", () => {

@@ -17,6 +17,7 @@ type FillCommandsOptions = {
   target: string;
   out?: string;
   force?: boolean;
+  executable?: string;
 };
 
 async function readJson(path: string, notFoundCode: string): Promise<unknown> {
@@ -41,6 +42,7 @@ async function commandFor(
   contractPath: string,
   target: AgentId,
   isolationBound: boolean,
+  executable?: string,
 ): Promise<string[]> {
   const raw = await readJson(contractPath, "CONTRACT_NOT_FOUND");
   const contract = approvedContractSchema.parse(raw);
@@ -50,7 +52,7 @@ async function commandFor(
       `contract ${contract.id} has no approved git baseline; run scopelock contract approve first`,
     );
   }
-  return buildAgentCommand(target, renderAgentPrompt(contract, target), { isolationBound });
+  return buildAgentCommand(target, renderAgentPrompt(contract, target), { isolationBound, executable });
 }
 
 export async function planFillCommandsCommand(
@@ -73,7 +75,7 @@ export async function planFillCommandsCommand(
     try {
       tasks.push({
         ...task,
-        command: await commandFor(contractPath, target, isolationBound),
+        command: await commandFor(contractPath, target, isolationBound, options.executable),
         expectsChanges: true,
       });
     } catch (error) {

@@ -70,6 +70,10 @@ describe("agent invocation", () => {
       buildAgentCommand("codex", "do the task").includes("--dangerously-bypass-approvals-and-sandbox"),
       false,
     );
+    assert.deepEqual(
+      buildAgentCommand("codex", "do the task", { executable: "/Applications/ChatGPT.app/Contents/Resources/codex" }).slice(0, 2),
+      ["/Applications/ChatGPT.app/Contents/Resources/codex", "exec"],
+    );
   });
 
   it("builds the live-verified restricted Claude argv command", () => {

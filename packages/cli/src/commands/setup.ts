@@ -1,4 +1,5 @@
 import { accessSync, constants } from "node:fs";
+import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 import {
   HARNESSES,
@@ -24,8 +25,12 @@ const EXECUTABLES: Record<AgentId, string> = {
 
 const TARGETS: AgentId[] = ["claude", "codex", "cursor"];
 
-function findExecutable(name: string, env: NodeJS.ProcessEnv = process.env): string | null {
-  const extensions = process.platform === "win32"
+function findExecutable(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  const extensions = platform === "win32"
     ? (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
     : [""];
   for (const rawDir of (env.PATH ?? "").split(delimiter)) {
@@ -34,7 +39,7 @@ function findExecutable(name: string, env: NodeJS.ProcessEnv = process.env): str
     for (const extension of extensions) {
       const candidate = join(dir, `${name}${extension}`);
       try {
-        accessSync(candidate, process.platform === "win32" ? constants.F_OK : constants.X_OK);
+        accessSync(candidate, platform === "win32" ? constants.F_OK : constants.X_OK);
         return candidate;
       } catch {
         // Keep looking along PATH.
@@ -47,8 +52,25 @@ function findExecutable(name: string, env: NodeJS.ProcessEnv = process.env): str
 export function findAgentExecutable(
   target: AgentId,
   env: NodeJS.ProcessEnv = process.env,
+  options: { platform?: NodeJS.Platform; applicationDirs?: string[] } = {},
 ): string | null {
-  return findExecutable(EXECUTABLES[target], env);
+  const platform = options.platform ?? process.platform;
+  const fromPath = findExecutable(EXECUTABLES[target], env, platform);
+  if (fromPath !== null || platform !== "darwin" || target !== "codex") return fromPath;
+
+  const applicationDirs = options.applicationDirs ?? ["/Applications", join(homedir(), "Applications")];
+  for (const applications of applicationDirs) {
+    for (const bundle of ["ChatGPT.app", "Codex.app"]) {
+      const candidate = join(applications, bundle, "Contents", "Resources", "codex");
+      try {
+        accessSync(candidate, constants.X_OK);
+        return candidate;
+      } catch {
+        // Keep looking through known local app bundles.
+      }
+    }
+  }
+  return null;
 }
 
 export type SetupOptions = {
@@ -87,12 +109,14 @@ export async function setupCommand(
     ? TARGETS
     : [...new Set(options.targets.map((target) => agentIdSchema.parse(target)))];
   const mode = enforcementModeSchema.parse(options.mode);
-  const executable = dependencies.executable ?? findExecutable;
+  const executable = dependencies.executable === undefined
+    ? (target: AgentId) => findAgentExecutable(target)
+    : (target: AgentId) => dependencies.executable?.(EXECUTABLES[target]) ?? null;
 
   const initialized = await initCommand(cwd);
   const before = selected.map((id) => ({
     id,
-    executable: executable(EXECUTABLES[id]),
+    executable: executable(id),
     hook: probeHookConfig(root, id),
   }));
   const explicitTargets = options.targets.length > 0;
