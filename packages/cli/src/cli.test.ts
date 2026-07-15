@@ -1915,6 +1915,43 @@ describe("plan prepare", () => {
     }
   });
 
+  it("preserves option-like child tokens in --validation-command/--validation-setup-command byte-for-byte", async (t) => {
+    // Regression test for the Pilot 4 readiness spike finding: Commander's
+    // variadic <argv...> option stops collecting values at the first token
+    // that looks like a flag (e.g. `--frozen`), then tries to parse it as an
+    // unknown top-level ScopeLock option and fails before the command runs.
+    // Reproduced live against a real pinned Python fixture with
+    // `uv sync --frozen --group tests` / `uv run --frozen pytest`; this test
+    // exercises the same shape with a deterministic executable so CI does
+    // not depend on `uv` being installed.
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "option-like-validation-argv",
+        tasks: [{ id: "a", contract, command: "echo must-be-replaced" }],
+      }));
+      const env = await fakeCodexEnv(dir);
+      const prepared = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready-plan.json",
+        "--validation-setup-command", process.execPath, "--version",
+        "--validation-command", process.execPath, "--version",
+      ], env);
+      assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
+      const ready = JSON.parse(await readFile(join(dir, "ready-plan.json"), "utf8"));
+      assert.deepEqual(ready.execution.validation.setup, [process.execPath, "--version"]);
+      assert.deepEqual(ready.execution.validation.command, [process.execPath, "--version"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("detects an npm check script and refuses to guess when validation is unknown", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

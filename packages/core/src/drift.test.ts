@@ -157,6 +157,33 @@ describe("rules and engine", () => {
       ),
       null,
     );
+    assert.equal(
+      missingTestsViolation(
+        [{ ...changed[0], path: "tests/test_termui.py" }],
+        contract(),
+        ["backend"],
+      ),
+      null,
+    );
+    assert.equal(
+      missingTestsViolation(
+        [{ ...changed[0], path: "tests/test_formatting.py" }],
+        contract(),
+        ["generic"],
+      ),
+      null,
+    );
+    // A production-only change without a matching test-file change must
+    // still be flagged - the pytest patterns must not become so broad that
+    // they swallow non-test .py files.
+    assert.notEqual(
+      missingTestsViolation(
+        [{ ...changed[0], path: "src/click/_termui_impl.py" }],
+        contract(),
+        ["backend"],
+      ),
+      null,
+    );
   });
 
   it("builds a drift report with outside scope, high-risk and repo state violations", () => {

@@ -9,10 +9,17 @@ export const TEST_PATTERNS_BY_PROJECT_TYPE: Record<ProjectType, string[]> = {
     "**/__tests__/**",
     "**/*Tests.swift",
     "**/*_test.go",
+    "**/test_*.py",
+    "**/*_test.py",
   ],
   swift: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],
   frontend: ["**/*.{test,spec}.*", "**/__tests__/**"],
-  backend: ["**/*.{test,spec}.*", "**/__tests__/**"],
+  backend: [
+    "**/*.{test,spec}.*",
+    "**/__tests__/**",
+    "**/test_*.py",
+    "**/*_test.py",
+  ],
   ios: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],
   android: [
     "**/*.{test,spec}.*",
