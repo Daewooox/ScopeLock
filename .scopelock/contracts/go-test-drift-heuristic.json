@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "go-test-drift-heuristic",
+  "task": "Recognize canonical Go *_test.go files in the generic missing-tests drift heuristic and add regression coverage",
+  "createdAt": "2026-07-15T13:29:57.968Z",
+  "baseline": {
+    "headSha": "be7e254764660b6b9a4fe2db1f19ff7ee0d7b5f8",
+    "branch": "fix/go-test-drift-heuristic",
+    "capturedAt": "2026-07-15T13:29:58.069Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/rules/test-heuristics.ts",
+      "packages/core/src/drift.test.ts",
+      "memory-bank/tasks.md",
+      "memory-bank/activeContext.md",
+      "memory-bank/plans/pilot-3-4-candidate-selection.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
