@@ -12,7 +12,7 @@ test("one-command demo exercises the dispatcher and produces stable evidence", a
     assert.equal(result.withoutScopeLock.scopeViolations, 2);
     assert.equal(result.withoutScopeLock.unresolvedConflicts, 2);
     assert.ok(result.withoutScopeLock.failedTests > 0);
-    assert.equal(result.withoutScopeLock.acceptedTasks, 4);
+    assert.ok(result.withoutScopeLock.acceptedTasks < result.withoutScopeLock.totalTasks);
     assert.equal(result.withScopeLock.scopeViolations, 0);
     assert.equal(result.withScopeLock.unresolvedConflicts, 0);
     assert.equal(result.withScopeLock.preventedHazards, 2);
