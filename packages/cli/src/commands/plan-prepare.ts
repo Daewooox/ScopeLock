@@ -52,6 +52,10 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+function packageManagerExecutable(manager: string): string {
+  return process.platform === "win32" ? `${manager}.cmd` : manager;
+}
+
 async function detectValidationProfile(root: string): Promise<{
   setup?: string[];
   command: string[];
@@ -82,9 +86,10 @@ async function detectValidationProfile(root: string): Promise<{
             : await exists(join(root, "bun.lock")) || await exists(join(root, "bun.lockb"))
               ? "bun"
               : "npm";
+        const executable = packageManagerExecutable(manager);
         return {
-          ...(typeof values.prepare === "string" ? { setup: [manager, "run", "prepare"] } : {}),
-          command: [manager, "run", script],
+          ...(typeof values.prepare === "string" ? { setup: [executable, "run", "prepare"] } : {}),
+          command: [executable, "run", script],
         };
       }
     }

@@ -54,6 +54,8 @@ function isolatedExecution(validationSource = "process.exit(0)") {
   };
 }
 
+const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
+
 function processIsAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -1925,8 +1927,8 @@ describe("plan prepare", () => {
       ], env);
       assert.equal(detected.status, 0, detected.stdout || detected.stderr);
       const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
-      assert.deepEqual(ready.execution.validation.setup, ["npm", "run", "prepare"]);
-      assert.deepEqual(ready.execution.validation.command, ["npm", "run", "check"]);
+      assert.deepEqual(ready.execution.validation.setup, [npmExecutable, "run", "prepare"]);
+      assert.deepEqual(ready.execution.validation.command, [npmExecutable, "run", "check"]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -2447,8 +2449,8 @@ describe("run", () => {
         execution: {
           isolation: "required",
           validation: {
-            setup: ["npm", "run", "prepare"],
-            command: ["npm", "run", "check"],
+            setup: [npmExecutable, "run", "prepare"],
+            command: [npmExecutable, "run", "check"],
           },
         },
         tasks: [{
