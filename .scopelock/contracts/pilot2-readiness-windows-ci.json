@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "pilot2-readiness-windows-ci",
+  "task": "Make prepared-plan demo assertion platform-neutral",
+  "createdAt": "2026-07-15T08:40:35.029Z",
+  "baseline": {
+    "headSha": "602d26cb14b881eb9ad4d65e9e7baf66bedb9950",
+    "branch": "fix/pilot2-readiness",
+    "capturedAt": "2026-07-15T08:40:35.153Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".scopelock/contracts/pilot2-readiness-windows-ci.json",
+      "benchmarks/coordination/run-progressive-cli-demo.test.mjs"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

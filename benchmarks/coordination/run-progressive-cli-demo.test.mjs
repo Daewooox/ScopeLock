@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import test from "node:test";
 import { runProgressiveDemo } from "./run-progressive-cli-demo.mjs";
 
@@ -17,7 +17,10 @@ test("progressive demo preserves reviewable artifacts without starting an agent"
     assert.equal(result.multiAgent.agentExecuted, false);
     assert.ok(Object.values(result.artifacts).every(existsSync));
     const ready = JSON.parse(readFileSync(result.artifacts.readyPlan, "utf8"));
-    assert.deepEqual(ready.tasks.map((task) => [basename(task.command[0]), task.command[1]]), [
+    assert.deepEqual(ready.tasks.map((task) => [
+      basename(task.command[0], extname(task.command[0])).toLowerCase(),
+      task.command[1],
+    ]), [
       ["codex", "exec"],
       ["codex", "exec"],
     ]);
