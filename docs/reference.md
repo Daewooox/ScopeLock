@@ -324,8 +324,10 @@ Other `run` options:
 - `--no-read-hazards` schedules using only write-write conflicts (F1),
   ignoring each contract's `readPathPatterns` (F2).
 
-Receipts contain bounded, redacted previews by default. Raw redacted output is
-written only when `--store-raw-output` is explicitly enabled.
+Receipts contain bounded, best-effort redacted previews by default. Raw
+best-effort redacted output is written only when `--store-raw-output` is
+explicitly enabled. Redaction recognizes a small set of common credential
+shapes; see THREAT-MODEL.md for what it does and does not catch.
 
 Each `task.contract` path resolves from the current working directory, not from
 the directory containing `plan.json`.

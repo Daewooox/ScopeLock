@@ -48,6 +48,7 @@ import {
   spawnProcessTree,
   type RunSignalCoordinator,
 } from "../process-tree.js";
+import { redactSecrets } from "../redaction.js";
 
 type RunPlanOptions = {
   plan: string;
@@ -111,13 +112,6 @@ const ISOLATION_OPERATION_TIMEOUT_MS = 30_000;
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const MAX_ISOLATED_PATCH_BYTES = 50 * 1024 * 1024;
 const MAX_ISOLATED_TASKS = 32;
-
-function redactSecrets(value: string): string {
-  return value
-    .replace(/\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{16,}|AKIA[0-9A-Z]{16})\b/g, "[REDACTED]")
-    .replace(/\b(OPENAI_API_KEY|ANTHROPIC_API_KEY|NPM_TOKEN|GITHUB_TOKEN)\s*[:=]\s*\S+/gi, "$1=[REDACTED]")
-    .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/g, "$1[REDACTED]@");
-}
 
 function appendCaptured(current: string, chunk: Buffer): string {
   const remaining = MAX_CAPTURE_BYTES - Buffer.byteLength(current);

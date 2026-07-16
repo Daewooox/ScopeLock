@@ -17,6 +17,8 @@
     "dist/plan-prepare-argv.js",
     "dist/process-tree.d.ts",
     "dist/process-tree.js",
+    "dist/redaction.d.ts",
+    "dist/redaction.js",
     "dist/prompts.d.ts",
     "dist/prompts.js",
     "dist/run.d.ts",
