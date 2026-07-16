@@ -13,6 +13,14 @@ import { runGitAsync } from "./exec.js";
 const objectIdPattern = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i;
 const worktreeIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 
+// `.scopelock/active` is per-machine bookkeeping that `createIsolatedWorktree`
+// callers mint fresh inside each isolated worktree (see run-plan.ts) so the
+// in-worktree agent hook can resolve the task's already-approved contract.
+// It must never be treated as agent-authored output: excluded here so it
+// can't trip a false scope violation or leak into a promoted patch, even in
+// repos where `.scopelock/.gitignore` is missing or stale.
+const EXCLUDE_ACTIVE_POINTER_PATHSPEC = ":(exclude).scopelock/active";
+
 export type IsolationPreflight = {
   headSha: string;
 };
@@ -235,7 +243,16 @@ async function streamPatch(input: {
   const handle = await open(path, "wx", 0o600);
   const child = spawn(
     "git",
-    ["diff", "--binary", "--full-index", "--find-renames", input.worktree.baseSha, "--"],
+    [
+      "diff",
+      "--binary",
+      "--full-index",
+      "--find-renames",
+      input.worktree.baseSha,
+      "--",
+      ".",
+      EXCLUDE_ACTIVE_POINTER_PATHSPEC,
+    ],
     { cwd: input.worktree.path, stdio: ["ignore", "pipe", "pipe"] },
   );
   const stderr: Buffer[] = [];
@@ -458,6 +475,11 @@ export async function prepareScopedPatch(input: {
   maxPatchBytes: number;
   timeoutMs?: number;
 }): Promise<ScopedPatchResult> {
+  // Deliberately no exclude pathspec here: `git add -N` already skips
+  // gitignored paths silently under a wildcard, but naming an ignored path
+  // explicitly (even via `:(exclude)`) makes Git treat it as an explicit
+  // target and fail with "paths are ignored by one of your .gitignore
+  // files". The diff commands below carry the exclusion instead.
   const intent = await runGitAsync(["add", "-N", "--", "."], input.worktree.path, {
     timeoutMs: input.timeoutMs,
   });
@@ -466,12 +488,31 @@ export async function prepareScopedPatch(input: {
   }
   const [raw, numstat] = await Promise.all([
     runGitAsync(
-      ["diff", "--raw", "-z", "--no-abbrev", "--find-renames", input.worktree.baseSha, "--"],
+      [
+        "diff",
+        "--raw",
+        "-z",
+        "--no-abbrev",
+        "--find-renames",
+        input.worktree.baseSha,
+        "--",
+        ".",
+        EXCLUDE_ACTIVE_POINTER_PATHSPEC,
+      ],
       input.worktree.path,
       { timeoutMs: input.timeoutMs },
     ),
     runGitAsync(
-      ["diff", "--numstat", "-z", "--find-renames", input.worktree.baseSha, "--"],
+      [
+        "diff",
+        "--numstat",
+        "-z",
+        "--find-renames",
+        input.worktree.baseSha,
+        "--",
+        ".",
+        EXCLUDE_ACTIVE_POINTER_PATHSPEC,
+      ],
       input.worktree.path,
       { timeoutMs: input.timeoutMs },
     ),

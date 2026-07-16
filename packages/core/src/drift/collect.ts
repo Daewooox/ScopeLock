@@ -43,8 +43,21 @@ async function repoState(cwd: string): Promise<RepoState> {
   return { kind: "clean" };
 }
 
+// Hook config files installed by `scopelock hooks install` (see
+// isSelfProtected in ../hook/gate.ts) are ScopeLock's own control-plane
+// state, not agent-authored output - the live hook already refuses to let an
+// agent touch them. When a contract's baseline predates local hook
+// installation (e.g. a pilot that commits `.scopelock/` and hook config
+// after capturing its baseline), these files would otherwise show up as a
+// false "outside scope" drift violation purely because of setup ordering.
+const HARNESS_HOOK_CONFIG_PATHS = new Set([
+  ".claude/settings.json",
+  ".cursor/hooks.json",
+  ".codex/hooks.json",
+]);
+
 function isScopelockArtifact(path: string): boolean {
-  return path === ".scopelock" || path.startsWith(".scopelock/");
+  return path === ".scopelock" || path.startsWith(".scopelock/") || HARNESS_HOOK_CONFIG_PATHS.has(path);
 }
 
 async function baselineFile(

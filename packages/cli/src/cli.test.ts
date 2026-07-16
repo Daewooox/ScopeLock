@@ -2415,6 +2415,75 @@ describe("run", () => {
     }
   });
 
+  it("lets a real agent hook invocation pass inside an isolated task worktree (Pilot 4 P0 regression)", async (t) => {
+    // .scopelock/active and the OS-level approval seal are per-machine state
+    // that `git worktree add` never copies into an isolated task worktree.
+    // Before this was fixed, a real Claude/Cursor/Codex hook running inside
+    // one always saw "no active contract" in strict mode and denied every
+    // edit, even though the task's own contract was already approved -
+    // discovered live during Pilot 4 when two real Claude Code agents found
+    // the right upstream fix but could not save it. This drives the actual
+    // `scopelock hook gate` entrypoint (what a real hook shells out to) from
+    // inside the task's own command, through the real `run --isolate`
+    // pipeline, instead of calling `evaluateHookGate` directly.
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      await writeFile(
+        join(dir, ".scopelock", "config.json"),
+        JSON.stringify({ schemaVersion: 1, mode: "strict" }),
+      );
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      const hookProbe = [
+        "const { spawnSync } = require('node:child_process');",
+        "const fs = require('node:fs');",
+        `const r = spawnSync(${JSON.stringify(process.execPath)}, [${JSON.stringify(CLI)}, 'hook', 'gate'], { input: JSON.stringify({ tool_input: { file_path: 'a.txt' } }), encoding: 'utf8' });`,
+        "if (r.status !== 0) { process.stderr.write('HOOK_DENIED: ' + r.status + ' ' + r.stderr); process.exit(1); }",
+        "fs.writeFileSync('a.txt', 'allowed-by-hook');",
+      ].join("\n");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-hook-passthrough",
+          execution: isolatedExecution(),
+          tasks: [
+            {
+              id: "a",
+              // References the approved copy under .scopelock/contracts/,
+              // not the unstamped draft at a.json - the fix requires a real
+              // baseline (see run-plan.ts's `contract.baseline !== null`
+              // guard), matching exactly how a real `plan prepare` ready
+              // plan references contracts in production.
+              contract: ".scopelock/contracts/a.json",
+              expectsChanges: true,
+              command: [process.execPath, "-e", hookProbe],
+            },
+          ],
+        }),
+      );
+      commitFixture(dir, "isolated hook passthrough fixture");
+
+      const receiptPath = join(dir, "receipt.json");
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "allowed-by-hook");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns[0].status, "passed");
+      assert.equal(receipt.taskRuns[0].isolation.outcome, "accepted-integration");
+      assert.equal(receipt.isolation.finalPromotion, "applied");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("blocks promotion when repository validation fails and hides control state", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
