@@ -178,6 +178,7 @@ the evidence and publication gates.
 
 ## Documentation
 
+- [Contributing](CONTRIBUTING.md)
 - [Private beta quick start](docs/beta-quickstart.md)
 - [Five-minute silent demo script](docs/beta-demo.md)
 - [Private beta feedback](docs/beta-feedback.md)

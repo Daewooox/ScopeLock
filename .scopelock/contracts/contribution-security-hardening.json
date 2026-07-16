@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "contribution-security-hardening",
+  "task": "Harden contribution workflow",
+  "createdAt": "2026-07-16T17:19:30.062Z",
+  "baseline": {
+    "headSha": "cc06cc2769f931c833d7bf023ce9a23851c2d7b0",
+    "branch": "docs/contribution-security-hardening",
+    "capturedAt": "2026-07-16T17:19:30.163Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "CONTRIBUTING.md",
+      ".github/pull_request_template.md",
+      "README.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/workflows/**",
+      "scripts/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
