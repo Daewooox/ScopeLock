@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "security-redaction-command-artifact-test",
+  "task": "Cover redacted persisted command artifact",
+  "createdAt": "2026-07-16T16:14:07.696Z",
+  "baseline": {
+    "headSha": "8211bf126be722a77969184d91fe79e25662fd44",
+    "branch": "security/redaction-coverage-and-threat-model",
+    "capturedAt": "2026-07-16T16:14:07.789Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/cli.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/redaction.ts",
+      "packages/cli/package.json",
+      "THREAT-MODEL.md",
+      "docs/reference.md"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

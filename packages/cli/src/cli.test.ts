@@ -3360,6 +3360,7 @@ describe("run", () => {
       // token) so this fixture doesn't itself trip secret-scanning on push,
       // the same lesson learned from redaction.test.ts fixtures.
       const fakeSecret = ["sk-", "y".repeat(24)].join("");
+      const commandPadding = `/* ${"x".repeat(500)} */`;
       await writeFile(
         join(dir, "plan.json"),
         JSON.stringify({
@@ -3371,7 +3372,7 @@ describe("run", () => {
             command: [
               process.execPath,
               "-e",
-              `process.stdout.write('${fakeSecret}'); process.stderr.write('${fakeSecret}')`,
+              `process.stdout.write('${fakeSecret}'); process.stderr.write('${fakeSecret}');${commandPadding}`,
             ],
           }],
         }),
@@ -3390,6 +3391,13 @@ describe("run", () => {
       // Preview in the receipt itself (the persisted command representation).
       assert.match(JSON.stringify(task.command), /\[REDACTED\]/);
       assert.doesNotMatch(JSON.stringify(task.command), new RegExp(fakeSecret));
+
+      // A command larger than the receipt preview limit gets its own artifact.
+      // Verify that path independently instead of only checking the preview.
+      assert.ok(task.outputArtifacts.command, "expected a stored command artifact");
+      const storedCommand = await readFile(task.outputArtifacts.command.path, "utf8");
+      assert.doesNotMatch(storedCommand, new RegExp(fakeSecret));
+      assert.match(storedCommand, /\[REDACTED\]/);
 
       // Preview in the receipt for stdout/stderr.
       assert.match(task.stdout, /\[REDACTED\]/);
