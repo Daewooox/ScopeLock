@@ -3348,6 +3348,77 @@ describe("run", () => {
     }
   });
 
+  it("redacts secrets in the persisted command, stdout, and stderr raw artifacts under --store-raw-output", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "secret2.json"), "secret2", ["out.txt"]);
+      // Built from parts at test-authoring time (not a literal realistic
+      // token) so this fixture doesn't itself trip secret-scanning on push,
+      // the same lesson learned from redaction.test.ts fixtures.
+      const fakeSecret = ["sk-", "y".repeat(24)].join("");
+      const commandPadding = `/* ${"x".repeat(500)} */`;
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "raw-redaction-demo",
+          tasks: [{
+            id: "secret2",
+            contract: "secret2.json",
+            command: [
+              process.execPath,
+              "-e",
+              `process.stdout.write('${fakeSecret}'); process.stderr.write('${fakeSecret}');${commandPadding}`,
+            ],
+          }],
+        }),
+      );
+      const receiptPath = join(dir, "receipt.json");
+      const res = runCli(dir, [
+        "--json", "run", "--yes", "--plan", "plan.json",
+        "--receipt", receiptPath, "--store-raw-output", "--no-check-drift",
+      ]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      const rawReceipt = await readFile(receiptPath, "utf8");
+      assert.doesNotMatch(rawReceipt, new RegExp(fakeSecret));
+      const receipt = JSON.parse(rawReceipt);
+      const task = receipt.taskRuns[0];
+
+      // Preview in the receipt itself (the persisted command representation).
+      assert.match(JSON.stringify(task.command), /\[REDACTED\]/);
+      assert.doesNotMatch(JSON.stringify(task.command), new RegExp(fakeSecret));
+
+      // A command larger than the receipt preview limit gets its own artifact.
+      // Verify that path independently instead of only checking the preview.
+      assert.ok(task.outputArtifacts.command, "expected a stored command artifact");
+      const storedCommand = await readFile(task.outputArtifacts.command.path, "utf8");
+      assert.doesNotMatch(storedCommand, new RegExp(fakeSecret));
+      assert.match(storedCommand, /\[REDACTED\]/);
+
+      // Preview in the receipt for stdout/stderr.
+      assert.match(task.stdout, /\[REDACTED\]/);
+      assert.match(task.stderr, /\[REDACTED\]/);
+
+      // The raw --store-raw-output artifact files on disk must also be
+      // redacted, not just the bounded receipt preview - this is the gap
+      // the original finding was about.
+      assert.ok(task.outputArtifacts.stdout, "expected a stored stdout artifact");
+      assert.ok(task.outputArtifacts.stderr, "expected a stored stderr artifact");
+      const storedStdout = await readFile(task.outputArtifacts.stdout.path, "utf8");
+      const storedStderr = await readFile(task.outputArtifacts.stderr.path, "utf8");
+      assert.doesNotMatch(storedStdout, new RegExp(fakeSecret));
+      assert.doesNotMatch(storedStderr, new RegExp(fakeSecret));
+      assert.match(storedStdout, /\[REDACTED\]/);
+      assert.match(storedStderr, /\[REDACTED\]/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("blocks dispatch in strict mode when agent preflight has violations", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

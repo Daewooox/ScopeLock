@@ -10,7 +10,11 @@
   denies, regardless of the enforcement mode the (possibly tampered) config
   claims - otherwise an attacker could downgrade `mode` to `warn` as part of
   the same edit that breaks the seal and defeat detection of that edit.
-- Receipt secret leakage by default, using redacted bounded previews.
+- Receipt secret leakage by default, using best-effort redacted bounded
+  previews (a small set of common credential shapes - OpenAI/Anthropic-style
+  `sk-`, GitHub, AWS, Slack, Google, HuggingFace tokens, `Authorization:
+  Bearer`, named env assignments, and URL-embedded credentials - not a
+  general-purpose secret scanner; see `packages/cli/src/redaction.ts`).
 - Opt-in isolated plan execution keeps task changes in detached Git worktrees,
   rejects a whole patch on any forbidden/outside/unsupported path, and applies
   one sealed aggregate patch only after revalidating the user's clean `HEAD`.
@@ -30,11 +34,21 @@
 - Agent actions through harness surfaces that do not expose trustworthy hooks.
 - User-approved executable plans from an untrusted source.
 - Secrets printed by tools when raw output storage is explicitly enabled.
+- Secrets in a format the redaction heuristic does not recognize (custom
+  token shapes, base64-wrapped values, secrets split across output chunks,
+  multi-line key material). Redaction is a best-effort safety net, not a
+  guarantee that a receipt or `--store-raw-output` artifact is clean.
 
 ## Trust Boundaries
 
 - `plan.json` is executable code when it contains commands. `scopelock run`
   requires `--yes`; shell strings additionally require `--allow-shell`.
+  `--yes` means the operator trusts the plan's author: every task and
+  validation command runs with the invoking user's full privileges and, by
+  default, the full inherited process environment (every variable visible to
+  the ScopeLock CLI itself, including any credentials in it) - not a reduced
+  or sandboxed environment. Run untrusted plans only from an already-clean
+  shell environment.
 - `run --isolate` claims `workspace-gated`, never OS-sandboxed. It requires a
   clean repository, rejects symlink/gitlink promotion, caps plans at 32 tasks
   and patches at 50 MiB, and blocks final promotion after interruption or base
@@ -68,7 +82,14 @@
   tools, deny Bash, and rely on the installed ScopeLock pre-write hook for
   scope enforcement. Without that hook, enforcement is post-run drift only.
   Tests and other shell commands remain separate plan tasks.
-- Approved contracts are trusted only while their local integrity seal matches.
+- Approved contracts are trusted only while their local integrity seal
+  matches. The seal protects against accidental drift - an unnoticed edit to
+  a contract, config, or ScopeLock-owned hook entry between approval and use.
+  It does not protect against a local attacker who can write to the
+  filesystem in the window between a seal check and the run/hook-gate call
+  that follows it: that attacker already has the same filesystem access the
+  seal itself relies on to detect tampering, and is out of scope (see "A
+  malicious same-user shell process with full filesystem access" above).
 - ScopeLock does not push today. Any future path that constructs a `git push`
   must call `checkPushSafety` against the live remote first and refuse to
   discard unincorporated remote commits without an explicit user override.
