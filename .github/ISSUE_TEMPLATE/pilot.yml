@@ -1,0 +1,65 @@
+name: Beta pilot report
+description: Share structured evidence from a real repository trial.
+title: "pilot: "
+labels: [pilot]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for testing ScopeLock. Report outcomes, not repository contents.
+  - type: input
+    id: version
+    attributes:
+      label: ScopeLock version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Node.js, repository stack, and agent
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Workflow tested
+      options:
+        - One protected task
+        - Multi-agent plan
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: Time to first protected task
+      placeholder: 2 minutes
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Tasks accepted, violations, rejected promotions, failed tests, and manual interventions.
+    validations:
+      required: true
+  - type: textarea
+    id: clarity
+    attributes:
+      label: What was clear or confusing?
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: One improvement before you use ScopeLock again
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I described any unexpected mutation or confirmed that none occurred.
+          required: true
+        - label: I removed secrets, private source, prompts, and raw receipts from this report.
+          required: true

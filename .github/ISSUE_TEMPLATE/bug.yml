@@ -1,0 +1,51 @@
+name: Bug report
+description: Report reproducible incorrect ScopeLock behavior.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, proprietary source, prompts, raw receipts, or unredacted command output.
+  - type: input
+    id: version
+    attributes:
+      label: ScopeLock version or commit
+      placeholder: 0.1.0-beta.1 or full commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version, and agent CLI version.
+      placeholder: macOS 15, Node 22.17, Claude Code 1.x
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal sanitized commands and steps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include only sanitized output.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, private source, prompts, and raw receipts from this report.
+          required: true
+

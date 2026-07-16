@@ -1,0 +1,56 @@
+name: Compatibility report
+description: Report a language, framework, agent, shell, or operating-system gap.
+title: "compat: "
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: A blocked or degraded harness is useful evidence. Do not replace it with a guessed workaround.
+  - type: input
+    id: version
+    attributes:
+      label: ScopeLock version or commit
+    validations:
+      required: true
+  - type: input
+    id: stack
+    attributes:
+      label: Repository stack
+      placeholder: Python 3.13 + uv + pytest
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Node.js, shell, and agent
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Compatibility area
+      options:
+        - Setup or installation
+        - Project validation detection
+        - Agent command composition
+        - Hooks or enforcement confidence
+        - Isolated execution or promotion
+        - Report or receipt
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: What command ran, what ScopeLock reported, and any manual intervention.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, private source, prompts, and raw receipts from this report.
+          required: true
+

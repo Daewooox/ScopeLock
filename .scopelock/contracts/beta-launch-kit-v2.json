@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "beta-launch-kit-v2",
+  "task": "Prepare private beta launch kit",
+  "createdAt": "2026-07-16T16:45:07.591Z",
+  "baseline": {
+    "headSha": "6355ef162d9dca659872a53702f8a5fc024e388c",
+    "branch": "docs/beta-launch-kit",
+    "capturedAt": "2026-07-16T16:45:07.681Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/beta-quickstart.md",
+      "docs/beta-demo.md",
+      "docs/beta-feedback.md",
+      ".github/ISSUE_TEMPLATE/**"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/workflows/**",
+      "scripts/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
