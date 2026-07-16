@@ -98,7 +98,12 @@ pnpm@10` directly.
 
 ## Install
 
-ScopeLock currently runs from source while the npm package is prepared:
+The npm packages are not public yet. Private beta testers receive one verified
+bundle containing the core, CLI, and MCP tarballs from the same CI run. See the
+[private beta quick start](docs/beta-quickstart.md) for the checked install and
+uninstall commands.
+
+To run ScopeLock from source:
 
 ```bash
 git clone https://github.com/Daewooox/ScopeLock.git
@@ -173,6 +178,9 @@ the evidence and publication gates.
 
 ## Documentation
 
+- [Private beta quick start](docs/beta-quickstart.md)
+- [Five-minute silent demo script](docs/beta-demo.md)
+- [Private beta feedback](docs/beta-feedback.md)
 - [CLI and configuration reference](docs/reference.md)
 - [npm beta release runbook](docs/release.md)
 - [Running multiple agents safely](docs/parallel-workflow.md)
