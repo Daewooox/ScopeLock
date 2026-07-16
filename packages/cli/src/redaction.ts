@@ -12,10 +12,12 @@
 export function redactSecrets(value: string): string {
   return value
     .replace(
-      /\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{16,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|hf_[A-Za-z0-9]{20,})\b/g,
+      /\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{16,}|AKIA[0-9A-Z]{16}|x(?:ox[baprs]|app)-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|hf_[A-Za-z0-9]{20,})\b/g,
       "[REDACTED]",
     )
     .replace(/\b(OPENAI_API_KEY|ANTHROPIC_API_KEY|NPM_TOKEN|GITHUB_TOKEN)\s*[:=]\s*\S+/gi, "$1=[REDACTED]")
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/g, "Bearer [REDACTED]")
+    // HTTP authentication schemes are case-insensitive per RFC 9110; `$1`
+    // preserves whatever casing the caller used (Bearer/bearer/BEARER).
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]{20,}/gi, "$1 [REDACTED]")
     .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/g, "$1[REDACTED]@");
 }

@@ -26,7 +26,10 @@ describe("redactSecrets", () => {
     // segments) so this fixture doesn't itself trip secret-scanning on push;
     // the redaction regex only cares about the prefix and length, not digit
     // placement, so this still exercises the same match path.
-    for (const prefix of ["xoxb", "xoxp", "xoxa", "xoxr", "xoxs"]) {
+    // xoxb/xoxp/xoxa/xoxr/xoxs are the legacy bot/user/app/refresh/session
+    // token prefixes; xapp- is the newer app-level token prefix
+    // (https://api.slack.com/concepts/token-types).
+    for (const prefix of ["xoxb", "xoxp", "xoxa", "xoxr", "xoxs", "xapp"]) {
       const secret = `${prefix}-${"q".repeat(12)}-${"z".repeat(16)}`;
       assert.doesNotMatch(redactSecrets(`slack token ${secret} in log`), new RegExp(secret));
     }
@@ -43,15 +46,19 @@ describe("redactSecrets", () => {
     assert.doesNotMatch(redactSecrets(`HF_TOKEN=${secret}`), new RegExp(secret));
   });
 
-  it("redacts a bare Authorization: Bearer token", () => {
+  it("redacts an Authorization: Bearer token regardless of scheme casing", () => {
     // Not a real three-segment JWT shape (no dots), so this fixture doesn't
     // itself trip JWT-pattern secret scanners; the Bearer regex only cares
     // about token-charset length, not JWT structure specifically.
     const token = "a".repeat(20) + "B".repeat(20) + "9".repeat(20);
-    const line = `Authorization: Bearer ${token}`;
-    const out = redactSecrets(line);
-    assert.doesNotMatch(out, new RegExp(token));
-    assert.match(out, /Bearer \[REDACTED\]/);
+    // HTTP auth schemes are case-insensitive per RFC 9110; a tool or proxy
+    // may emit "bearer"/"BEARER" just as validly as "Bearer".
+    for (const scheme of ["Bearer", "bearer", "BEARER", "BeArEr"]) {
+      const line = `Authorization: ${scheme} ${token}`;
+      const out = redactSecrets(line);
+      assert.doesNotMatch(out, new RegExp(token), `scheme casing: ${scheme}`);
+      assert.match(out, new RegExp(`${scheme} \\[REDACTED\\]`), `scheme casing: ${scheme}`);
+    }
   });
 
   it("redacts named-env assignments regardless of secret shape", () => {
