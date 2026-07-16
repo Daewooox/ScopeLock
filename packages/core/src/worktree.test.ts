@@ -5,15 +5,23 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { describe, it } from "node:test";
 import {
+  CONFIG_SCHEMA_VERSION,
   WorktreeError,
   applyPreparedPatch,
   assertIsolationReady,
   createIsolatedWorktree,
   createIsolationTempRoot,
   commitIntegrationWave,
+  evaluateHookGate,
   prepareScopedPatch,
   removeIsolatedWorktree,
+  saveContract,
+  scopelockConfigSchema,
+  scopelockPaths,
+  setActiveContractId,
   worktreeHead,
+  writeApprovalSeal,
+  writeJsonAtomic,
 } from "./index.js";
 import type { ApprovedContract } from "./index.js";
 
@@ -549,6 +557,95 @@ describe("isolated Git worktree lifecycle", () => {
       await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: integration });
     } finally {
       await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("an isolated task worktree cannot pass its own approved contract's hook without a minted active pointer and seal, and can once one is minted", async () => {
+    // Regression test for Pilot 4 Phase C: `.scopelock/active` and the OS-level
+    // approval seal are per-machine state that `git worktree add` never
+    // copies into an isolated worktree, so a real Claude/Cursor/Codex hook
+    // running inside one always saw "no active contract" and denied every
+    // edit, even though the task's own contract was already approved. The
+    // fix (run-plan.ts) mints a fresh pointer + seal scoped to the
+    // worktree's own path; this test exercises that exact mechanism
+    // directly against the hook gate, and confirms the minted pointer file
+    // itself is excluded from the isolated patch.
+    const root = await mkdtemp(join(tmpdir(), "scopelock-worktree-hook-"));
+    const repo = join(root, "repo");
+    try {
+      git(root, ["init", "-q", "-b", "main", repo]);
+      git(repo, ["config", "user.name", "ScopeLock Test"]);
+      git(repo, ["config", "user.email", "test@example.com"]);
+      await mkdir(join(repo, "allowed"), { recursive: true });
+      await writeFile(join(repo, "allowed/text.txt"), "baseline\n");
+
+      const paths = scopelockPaths(repo);
+      await writeJsonAtomic(
+        paths.configPath,
+        scopelockConfigSchema.parse({ schemaVersion: CONFIG_SCHEMA_VERSION, mode: "strict" }),
+      );
+      await writeFile(paths.gitignorePath, "reports/\ndrafts/\nactive\n");
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-qm", "baseline"]);
+      const head = git(repo, ["rev-parse", "HEAD"]);
+      const stampedContract: ApprovedContract = {
+        ...contract("0".repeat(40)),
+        baseline: { headSha: head, branch: "main", capturedAt: new Date(0).toISOString() },
+      };
+      await saveContract(paths, stampedContract);
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-qm", "scopelock control state"]);
+      const baseSha = git(repo, ["rev-parse", "HEAD"]);
+
+      // Sanity: the hook works normally in the main repo once activated there.
+      await setActiveContractId(paths, stampedContract.id);
+      await writeApprovalSeal(repo, stampedContract);
+      const editInput = JSON.stringify({ tool_input: { file_path: "allowed/text.txt" } });
+      assert.equal((await evaluateHookGate({ cwd: repo, rawInput: editInput })).decision, "allow");
+
+      const tempRoot = await createIsolationTempRoot(root);
+      const worktree = await createIsolatedWorktree({
+        repoRoot: repo,
+        tempRoot,
+        id: "task-hook",
+        kind: "task",
+        baseSha,
+      });
+      try {
+        // Reproduces the bug: no per-worktree pointer/seal minted yet.
+        const denied = await evaluateHookGate({ cwd: worktree.path, rawInput: editInput });
+        assert.equal(denied.decision, "deny");
+        assert.equal(denied.reason, "no-active-contract");
+
+        // Applies the fix: mint a fresh pointer + seal scoped to the worktree.
+        await setActiveContractId(scopelockPaths(worktree.path), stampedContract.id);
+        await writeApprovalSeal(worktree.path, stampedContract);
+        const allowed = await evaluateHookGate({ cwd: worktree.path, rawInput: editInput });
+        assert.equal(allowed.decision, "allow");
+
+        // The minted pointer must not leak into the isolated patch.
+        await writeFile(join(worktree.path, "allowed/text.txt"), "edited by agent\n");
+        const prepared = await prepareScopedPatch({
+          worktree,
+          scope: stampedContract.scope,
+          patchDir: join(tempRoot, "patches"),
+          maxPatchBytes: 1024 * 1024,
+        });
+        assert.equal(prepared.accepted, true);
+        assert.ok(prepared.patch);
+        assert.deepEqual(
+          prepared.patch.changedFiles.map((file) => file.path),
+          ["allowed/text.txt"],
+        );
+        assert.doesNotMatch(
+          await readFile(prepared.patch.path, "utf8"),
+          /\.scopelock\/active/,
+        );
+      } finally {
+        await removeIsolatedWorktree({ repoRoot: repo, worktree });
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 });

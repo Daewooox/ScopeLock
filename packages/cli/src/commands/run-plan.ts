@@ -31,8 +31,10 @@ import {
   prepareAggregatePatch,
   prepareScopedPatch,
   removeIsolatedWorktree,
+  setActiveContractId,
   verifyApprovalSeal,
   worktreeHead,
+  writeApprovalSeal,
   type ApprovedContract,
   type IsolatedWorktree,
   type PreparedPatch,
@@ -642,17 +644,29 @@ async function runIsolatedTasks(input: {
       }> = [];
       try {
         for (const task of runnable) {
-          created.push({
-            task,
-            worktree: await createIsolatedWorktree({
-              repoRoot: input.cwd,
-              tempRoot,
-              id: isolatedTaskId(task.id, waveIndex),
-              kind: "task",
-              baseSha,
-              timeoutMs: input.isolationTimeoutMs,
-            }),
+          const worktree = await createIsolatedWorktree({
+            repoRoot: input.cwd,
+            tempRoot,
+            id: isolatedTaskId(task.id, waveIndex),
+            kind: "task",
+            baseSha,
+            timeoutMs: input.isolationTimeoutMs,
           });
+          // `.scopelock/active` and the OS-level approval seal are per-machine
+          // state, deliberately gitignored, so `git worktree add` never brings
+          // them along. Without them the in-worktree Claude/Cursor/Codex hook
+          // sees "no active contract" and denies every edit the agent makes,
+          // even though the task's own contract was already approved against
+          // this exact baseline. Mint a fresh pointer + seal scoped to the
+          // worktree's own path so the hook resolves the same way it would in
+          // the main checkout.
+          const contract = input.contracts.get(task.id);
+          if (contract === undefined) throw new Error(`missing contract for task ${task.id}`);
+          if (contract.baseline !== null) {
+            await setActiveContractId(scopelockPaths(worktree.path), contract.id);
+            await writeApprovalSeal(worktree.path, contract);
+          }
+          created.push({ task, worktree });
         }
       } catch (error) {
         for (const item of created) {
