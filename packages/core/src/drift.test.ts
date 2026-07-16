@@ -280,6 +280,43 @@ describe("git integration", () => {
     }
   });
 
+  it("excludes ScopeLock control state and agent hook config added after baseline (Pilot 4 follow-up)", async (t) => {
+    // A contract's baseline can predate the local commit that adds
+    // `.scopelock/` and hook config (e.g. a pilot that captures baseline
+    // before installing hooks). Those files are ScopeLock's own
+    // control-plane state, not agent-authored output, and must never show up
+    // as a false "outside scope" drift violation purely because of setup
+    // ordering - regardless of whether the underlying change is real.
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const baseline = spawnSync("git", ["rev-parse", "HEAD"], {
+        cwd: dir,
+        encoding: "utf8",
+      }).stdout.trim();
+
+      await mkdir(join(dir, ".scopelock"), { recursive: true });
+      await writeFile(join(dir, ".scopelock", "config.json"), '{"mode":"strict"}\n');
+      await mkdir(join(dir, ".claude"), { recursive: true });
+      await writeFile(join(dir, ".claude", "settings.json"), "{}\n");
+      await mkdir(join(dir, ".cursor"), { recursive: true });
+      await writeFile(join(dir, ".cursor", "hooks.json"), "{}\n");
+      await mkdir(join(dir, ".codex"), { recursive: true });
+      await writeFile(join(dir, ".codex", "hooks.json"), "{}\n");
+      await writeFile(join(dir, "src", "real-change.ts"), "export const c = 3;\n");
+      spawnSync("git", ["add", "."], { cwd: dir });
+      spawnSync("git", ["commit", "-qm", "control state + hook config + real change"], { cwd: dir });
+
+      const paths = (await collectChangedFiles(dir, baseline)).files.map((file) => file.path);
+      assert.deepEqual(paths, ["src/real-change.ts"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("reports merge-in-progress repo state", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
