@@ -28,7 +28,7 @@ jobs:
           cp .release-artifacts/pack-manifest.json /tmp/pack-manifest-first.json
           pnpm release:pack
           diff -u /tmp/pack-manifest-first.json .release-artifacts/pack-manifest.json
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-tarballs
           path: .release-artifacts/
@@ -57,7 +57,7 @@ jobs:
           name: npm-tarballs
           path: .release-artifacts
       - run: node scripts/release/smoke-packed.mjs --artifacts .release-artifacts --out smoke-${{ runner.os }}.json
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-smoke-${{ runner.os }}
           path: smoke-${{ runner.os }}.json
@@ -89,7 +89,7 @@ jobs:
           path: .release-smoke
           merge-multiple: true
       - run: node scripts/release/generate-evidence.mjs --artifacts .release-artifacts --smoke-dir .release-smoke --dependency-audit passed
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-evidence
           path: .release-artifacts/release-evidence.json
