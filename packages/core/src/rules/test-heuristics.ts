@@ -11,6 +11,7 @@ export const TEST_PATTERNS_BY_PROJECT_TYPE: Record<ProjectType, string[]> = {
     "**/*_test.go",
     "**/test_*.py",
     "**/*_test.py",
+    "**/*_test.dart",
   ],
   swift: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],
   frontend: ["**/*.{test,spec}.*", "**/__tests__/**"],
@@ -20,12 +21,18 @@ export const TEST_PATTERNS_BY_PROJECT_TYPE: Record<ProjectType, string[]> = {
     "**/test_*.py",
     "**/*_test.py",
   ],
-  ios: ["**/*.{test,spec}.*", "**/__tests__/**", "**/*Tests.swift"],
+  ios: [
+    "**/*.{test,spec}.*",
+    "**/__tests__/**",
+    "**/*Tests.swift",
+    "**/*_test.dart",
+  ],
   android: [
     "**/*.{test,spec}.*",
     "**/__tests__/**",
     "**/src/test/**",
     "**/src/androidTest/**",
+    "**/*_test.dart",
   ],
   kmp: [
     "**/*.{test,spec}.*",

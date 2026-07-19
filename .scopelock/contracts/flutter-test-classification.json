@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "flutter-test-classification",
+  "task": "Recognize conventional Dart *_test.dart files in missing-tests drift checks for Flutter repositories",
+  "createdAt": "2026-07-19T22:32:52.764Z",
+  "baseline": {
+    "headSha": "8ca4cdfde963c687e7b6903f5fc0104f36a38456",
+    "branch": "fix/flutter-test-classification",
+    "capturedAt": "2026-07-19T22:32:52.786Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/rules/test-heuristics.ts",
+      "packages/core/src/drift.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/**",
+      "packages/mcp/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
