@@ -173,6 +173,30 @@ describe("rules and engine", () => {
       ),
       null,
     );
+    assert.equal(
+      missingTestsViolation(
+        [{ ...changed[0], path: "app/test/unit/currency_formatter_test.dart" }],
+        contract(),
+        ["ios"],
+      ),
+      null,
+    );
+    assert.equal(
+      missingTestsViolation(
+        [{ ...changed[0], path: "app/test/unit/currency_formatter_test.dart" }],
+        contract(),
+        ["android"],
+      ),
+      null,
+    );
+    assert.equal(
+      missingTestsViolation(
+        [{ ...changed[0], path: "test/currency_formatter_test.dart" }],
+        contract(),
+        ["generic"],
+      ),
+      null,
+    );
     // A production-only change without a matching test-file change must
     // still be flagged - the pytest patterns must not become so broad that
     // they swallow non-test .py files.
