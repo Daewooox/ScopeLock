@@ -5,6 +5,7 @@ import {
   agentIdSchema,
   findRepoRoot,
   probeHookConfig,
+  planWorkingDirectorySchema,
   schedulePlanSchema,
   writeJsonAtomic,
   type AgentEnvironmentPreflightReport,
@@ -26,6 +27,7 @@ type PlanPrepareOptions = {
   readHazards?: boolean;
   validationCommand?: string[];
   validationSetupCommand?: string[];
+  validationCwd?: string;
 };
 
 type ScheduleData = {
@@ -224,7 +226,21 @@ export async function planPrepareCommand(
     );
   }
 
-  const detectedValidation = await detectValidationProfile(root);
+  const rawValidationCwd = options.validationCwd ?? composition.plan.execution?.validation?.cwd;
+  const parsedValidationCwd = rawValidationCwd === undefined
+    ? undefined
+    : planWorkingDirectorySchema.safeParse(rawValidationCwd);
+  if (parsedValidationCwd !== undefined && !parsedValidationCwd.success) {
+    throw new CliError(
+      "INVALID_VALIDATION_CWD",
+      "validation cwd must be a portable repository-relative directory",
+    );
+  }
+  const validationCwd = parsedValidationCwd?.data;
+  const validationRoot = validationCwd === undefined || validationCwd === "."
+    ? root
+    : resolve(root, validationCwd);
+  const detectedValidation = await detectValidationProfile(validationRoot);
   const validationCommand = options.validationCommand?.length
     ? options.validationCommand
     : composition.plan.execution?.validation?.command ?? detectedValidation?.command ?? null;
@@ -246,6 +262,7 @@ export async function planPrepareCommand(
       ...composition.plan.execution,
       isolation: "required",
       validation: {
+        ...(validationCwd ? { cwd: validationCwd } : {}),
         ...(validationSetup ? { setup: validationSetup } : {}),
         command: validationCommand,
       },
@@ -254,6 +271,7 @@ export async function planPrepareCommand(
   await writeJsonAtomic(outputPath, readyPlan);
   checks.push(`${readyPlan.tasks.length} shell-free agent command${readyPlan.tasks.length === 1 ? "" : "s"} composed`);
   if (validationSetup) checks.push(`Validation setup  ${validationSetup.join(" ")}`);
+  if (validationCwd) checks.push(`Validation cwd  ${validationCwd}`);
   checks.push(`Validation  ${validationCommand.join(" ")}`);
   return result(
     { ...base, preflight, plan: readyPlan, outputPath },

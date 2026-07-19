@@ -1,6 +1,6 @@
-import { lstat, mkdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   agentEnvironmentPreflightReportSchema,
   applyPreparedPatch,
@@ -135,6 +135,7 @@ type TaskRun = {
   durationMs: number;
   stdout: string;
   stderr: string;
+  cwd?: string;
   outputArtifacts: {
     command?: OutputArtifact;
     stdout?: OutputArtifact;
@@ -364,7 +365,7 @@ async function persistCommand(
 async function runCommand(
   cwd: string,
   artifactDir: string,
-  task: { id: string; contract: string; command?: CommandSpec },
+  task: { id: string; contract: string; command?: CommandSpec; cwd?: string },
   timeoutMs: number,
   storeRawOutput: boolean,
   coordinator?: RunSignalCoordinator,
@@ -384,6 +385,7 @@ async function runCommand(
       durationMs: 0,
       stdout: "",
       stderr: "no command configured",
+      ...(task.cwd ? { cwd: task.cwd } : {}),
       outputArtifacts: {},
     };
   }
@@ -421,6 +423,7 @@ async function runCommand(
     durationMs: Date.now() - started,
     stdout: persistedStdout.preview,
     stderr: persistedStderr.preview,
+    ...(task.cwd ? { cwd: task.cwd } : {}),
     outputArtifacts: {
       ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
       ...(persistedStdout.artifact ? { stdout: persistedStdout.artifact } : {}),
@@ -519,6 +522,7 @@ async function runCandidateValidation(input: {
   artifactDir: string;
   setup?: CommandSpec;
   command: CommandSpec;
+  cwd?: string;
   timeoutMs: number;
   storeRawOutput: boolean;
   coordinator: RunSignalCoordinator;
@@ -536,13 +540,19 @@ async function runCandidateValidation(input: {
   let setup: TaskRun | null = null;
   let validation: TaskRun | null = null;
   let restoreError: unknown = null;
-  const toolchain = await checkoutToolchainEnvironment(input.repoRoot, input.worktree.path);
+  const validationRoot = input.cwd === undefined || input.cwd === "."
+    ? input.worktree.path
+    : join(input.worktree.path, input.cwd);
+  const sourceValidationRoot = input.cwd === undefined || input.cwd === "."
+    ? input.repoRoot
+    : join(input.repoRoot, input.cwd);
+  const toolchain = await checkoutToolchainEnvironment(sourceValidationRoot, validationRoot);
   try {
     if (input.setup) {
       setup = await runCommand(
-        input.worktree.path,
+        validationRoot,
         input.artifactDir,
-        { id: "validation-setup", contract: "", command: input.setup },
+        { id: "validation-setup", contract: "", command: input.setup, cwd: input.cwd ?? "." },
         input.timeoutMs,
         input.storeRawOutput,
         input.coordinator,
@@ -551,9 +561,9 @@ async function runCandidateValidation(input: {
     }
     if (setup === null || setup.status === "passed") {
       validation = await runCommand(
-        input.worktree.path,
+        validationRoot,
         input.artifactDir,
-        { id: "validation", contract: "", command: input.command },
+        { id: "validation", contract: "", command: input.command, cwd: input.cwd ?? "." },
         input.timeoutMs,
         input.storeRawOutput,
         input.coordinator,
@@ -597,6 +607,7 @@ async function runIsolatedTasks(input: {
   contracts: Map<string, ApprovedContract>;
   validationSetupCommand?: CommandSpec;
   validationCommand: CommandSpec;
+  validationCwd?: string;
   artifactDir: string;
   taskTimeoutMs: number;
   isolationTimeoutMs: number;
@@ -817,6 +828,7 @@ async function runIsolatedTasks(input: {
           artifactDir: input.artifactDir,
           setup: input.validationSetupCommand,
           command: input.validationCommand,
+          cwd: input.validationCwd,
           timeoutMs: input.taskTimeoutMs,
           storeRawOutput: input.storeRawOutput,
           coordinator: input.coordinator,
@@ -1060,6 +1072,30 @@ function humanReport(
   return lines.join("\n");
 }
 
+async function assertValidationWorkingDirectory(repoRoot: string, cwd: string | undefined): Promise<void> {
+  const reviewed = cwd ?? ".";
+  const requested = reviewed === "." ? repoRoot : resolve(repoRoot, reviewed);
+  let canonicalRoot: string;
+  let canonicalRequested: string;
+  try {
+    [canonicalRoot, canonicalRequested] = await Promise.all([realpath(repoRoot), realpath(requested)]);
+    if (!(await stat(canonicalRequested)).isDirectory()) throw new Error("path is not a directory");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new CliError(
+      "INVALID_VALIDATION_CWD",
+      `validation cwd is unavailable or not a directory: ${reviewed} (${detail})`,
+    );
+  }
+  const rel = relative(canonicalRoot, canonicalRequested);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new CliError(
+      "INVALID_VALIDATION_CWD",
+      `validation cwd resolves outside the repository: ${reviewed}`,
+    );
+  }
+}
+
 export async function runPlanCommand(options: RunPlanOptions): Promise<CommandResult> {
   const cwd = findRepoRoot(process.cwd());
   if (cwd === null) {
@@ -1085,11 +1121,15 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
   const validationSetupCommand = plan.execution?.validation?.setup;
   const validationCommand = plan.execution?.validation?.command;
+  const validationCwd = plan.execution?.validation?.cwd;
   if (options.isolate === true && executableTasks.length > 0 && validationCommand === undefined) {
     throw new CliError(
       "VALIDATION_REQUIRED",
       "isolated execution requires execution.validation.command before any agent starts",
     );
+  }
+  if (options.isolate === true && validationCommand !== undefined) {
+    await assertValidationWorkingDirectory(cwd, validationCwd);
   }
   if (executableTasks.length > 0 && options.yes !== true) {
     throw new CliError(
@@ -1189,6 +1229,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           contracts: taskContracts,
           validationSetupCommand,
           validationCommand: validationCommand as CommandSpec,
+          validationCwd,
           artifactDir,
           taskTimeoutMs: timeoutMs,
           isolationTimeoutMs: ISOLATION_OPERATION_TIMEOUT_MS,

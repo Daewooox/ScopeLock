@@ -16,7 +16,24 @@ export const schedulePlanTaskSchema = z.object({
   expectsChanges: z.boolean().optional(),
 });
 
+export const planWorkingDirectorySchema = z.string().min(1).superRefine((cwd, ctx) => {
+  const valid = cwd === "." || (
+    !cwd.startsWith("/")
+    && !cwd.includes("\\")
+    && !cwd.includes(":")
+    && !cwd.includes("\0")
+    && cwd.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..")
+  );
+  if (!valid) {
+    ctx.addIssue({
+      code: "custom",
+      message: "validation cwd must be a portable repository-relative directory",
+    });
+  }
+});
+
 export const planValidationSchema = z.object({
+  cwd: planWorkingDirectorySchema.optional(),
   setup: z.array(z.string().min(1)).min(1).optional(),
   command: z.array(z.string().min(1)).min(1),
 });

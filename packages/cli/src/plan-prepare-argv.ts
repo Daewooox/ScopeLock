@@ -22,6 +22,7 @@ export const PLAN_PREPARE_KNOWN_FLAGS = new Set([
   "--json",
   "--validation-command",
   "--validation-setup-command",
+  "--validation-cwd",
   "-h",
   "--help",
 ]);

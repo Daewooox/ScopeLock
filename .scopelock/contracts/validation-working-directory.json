@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "validation-working-directory",
+  "task": "Add portable repository-relative validation working directories to reviewed plans",
+  "createdAt": "2026-07-19T22:51:18.853Z",
+  "baseline": {
+    "headSha": "43d3fc4586b6dce54ec413bd3984301183bea5cc",
+    "branch": "feature/validation-working-directory",
+    "capturedAt": "2026-07-19T22:51:18.937Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/plan-prepare-argv.ts",
+      "packages/cli/src/plan-prepare-argv.test.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/reference.md",
+      "docs/parallel-workflow.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/mcp/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    },
+    {
+      "type": "integration",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
