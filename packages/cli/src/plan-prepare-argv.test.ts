@@ -125,14 +125,15 @@ describe("extractPlanPrepareValidationArgv", () => {
     assert.throws(() => extractPlanPrepareValidationArgv(argv), /--acceptance-check requires exactly one id/);
   });
 
-  it("extracts both legacy --validation-command and new --validation-check without throwing, leaving rejection to the command layer", () => {
+  it("rejects mixing legacy --validation-command with new --validation-check", () => {
     const argv = [
       "plan.json",
       "--validation-command", "npm", "run", "check",
       "--validation-check", "analyze", "flutter", "analyze",
     ];
-    const result = extractPlanPrepareValidationArgv(argv);
-    assert.deepEqual(result.validationCommand, ["npm", "run", "check"]);
-    assert.deepEqual(result.validationChecks, [{ id: "analyze", command: ["flutter", "analyze"] }]);
+    assert.throws(
+      () => extractPlanPrepareValidationArgv(argv),
+      /--validation-command is a legacy alias.*cannot be combined with --validation-check/,
+    );
   });
 });

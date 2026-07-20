@@ -141,11 +141,11 @@ function extractAcceptanceChecks(argv: string[]): {
  * tokens and all - and return the remaining argv with those flags and
  * values removed, ready for Commander to parse normally.
  *
- * Mixing legacy `--validation-command` with new `--validation-check` is
- * NOT rejected here: both are simply extracted and returned. Rejecting the
- * combination requires knowing how the command intends to combine them with
- * checks declared directly in plan JSON, which is the plan-prepare command's
- * job (see plan-prepare.ts), not this argv-decoding layer's.
+ * `--validation-command` is a legacy alias for a single validation check.
+ * Mixing it with the new repeated `--validation-check` flag in the same
+ * invocation is rejected here, since the two forms express the same thing
+ * in incompatible shapes and combining them silently would leave it
+ * ambiguous which one wins.
  */
 export function extractPlanPrepareValidationArgv(
   argvAfterPrepare: string[],
@@ -154,6 +154,14 @@ export function extractPlanPrepareValidationArgv(
   const step2 = extractFlagValues(step1.rest, "--validation-setup-command");
   const step3 = extractValidationChecks(step2.rest);
   const step4 = extractAcceptanceChecks(step3.rest);
+
+  if (step1.value !== undefined && step3.checks !== undefined) {
+    throw new Error(
+      "--validation-command is a legacy alias for a single check and cannot " +
+        "be combined with --validation-check; use one or the other",
+    );
+  }
+
   return {
     validationCommand: step1.value,
     validationSetupCommand: step2.value,
