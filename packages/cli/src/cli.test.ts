@@ -4604,7 +4604,7 @@ describe("run", () => {
       assert.match(html, /<th>Acceptance<\/th><td class="good">verified<\/td>/);
       assert.match(html, /test&lt;script&gt;/);
       assert.match(html, /<td>required<\/td><td>app<\/td>/);
-      assert.doesNotMatch(html, /<script>/);
+      assert.equal(html.includes("<script>"), false);
       assert.doesNotMatch(html, /Repository validation<\/th><td class="bad">failed/);
     } finally {
       await rm(dir, { recursive: true, force: true });
