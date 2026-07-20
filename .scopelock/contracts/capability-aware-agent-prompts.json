@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "capability-aware-agent-prompts",
+  "task": "Describe only capabilities available to each agent execution context",
+  "createdAt": "2026-07-20T13:22:11.565Z",
+  "baseline": {
+    "headSha": "9d0454cdb03fb993bb46eafed74ec4e84e61ff03",
+    "branch": "fix/capability-aware-agent-prompts",
+    "capturedAt": "2026-07-20T13:22:20.610Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/render/prompt.ts",
+      "packages/core/src/prompt.test.ts",
+      "packages/cli/src/commands/plan-fill-commands.ts",
+      "packages/cli/src/commands/export-prompt.ts",
+      "packages/cli/src/commands/inject-contract.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/reference.md",
+      "CHANGELOG.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/git/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/storage/**",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/mcp/**",
+      ".github/workflows/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

@@ -16,9 +16,37 @@ function tests(contract: ApprovedContract): string {
     .join("\n");
 }
 
+export type AgentPromptContext = {
+  execution: "interactive" | "restricted-runner";
+  finalDriftOwner: "agent-if-available" | "runner";
+  validationOwner: "agent-if-available" | "runner";
+};
+
+const INTERACTIVE_CONTEXT: AgentPromptContext = {
+  execution: "interactive",
+  finalDriftOwner: "agent-if-available",
+  validationOwner: "agent-if-available",
+};
+
+function finalInstruction(context: AgentPromptContext): string {
+  if (context.execution === "restricted-runner") {
+    return "Stay inside the approved scope and write or update the regression tests this change requires. "
+      + "The ScopeLock runner owns authoritative repository validation and will check final scope and drift "
+      + "once this command finishes; do not search for a drift-checking tool and do not claim you executed "
+      + "tests yourself. Stop and describe the blocker if the change appears to require forbidden or "
+      + "unapproved files.";
+  }
+  return "Stay inside the approved scope, write or update the regression tests this change requires, and run them "
+    + "if your harness can execute commands; otherwise give the user the exact command to run. If the ScopeLock "
+    + "MCP `check_drift` tool is available, call it before finishing and resolve any violations; otherwise tell "
+    + "the user to run `scopelock check-drift`, and stop to ask when the change appears to require forbidden or "
+    + "unapproved files.";
+}
+
 export function renderAgentPrompt(
   contract: ApprovedContract,
   target: AgentId,
+  context: AgentPromptContext = INTERACTIVE_CONTEXT,
 ): string {
   const harness = getHarness(target);
   return [
@@ -47,7 +75,7 @@ export function renderAgentPrompt(
     list(contract.openQuestions, "No open questions."),
     "",
     "## Final Instruction",
-    "Stay inside the approved scope, run the required tests when relevant, call the ScopeLock `check_drift` MCP tool before finishing, resolve any violations, and stop to ask when the change appears to require forbidden or unapproved files.",
+    finalInstruction(context),
     "",
   ].join("\n");
 }

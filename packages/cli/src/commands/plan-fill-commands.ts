@@ -9,7 +9,19 @@ import {
   schedulePlanSchema,
   writeJsonAtomic,
   type AgentId,
+  type AgentPromptContext,
 } from "@scopelock/core";
+
+// `plan fill-commands` composes an argv the ScopeLock runner (`run --plan`)
+// will invoke non-interactively. The runner already owns authoritative
+// repository validation and final scope/drift checks after the command
+// finishes, so the composed prompt must not send the agent looking for a
+// `check_drift` MCP tool or claim it can execute tests itself.
+const RESTRICTED_RUNNER_CONTEXT: AgentPromptContext = {
+  execution: "restricted-runner",
+  finalDriftOwner: "runner",
+  validationOwner: "runner",
+};
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 
@@ -52,7 +64,11 @@ async function commandFor(
       `contract ${contract.id} has no approved git baseline; run scopelock contract approve first`,
     );
   }
-  return buildAgentCommand(target, renderAgentPrompt(contract, target), { isolationBound, executable });
+  return buildAgentCommand(
+    target,
+    renderAgentPrompt(contract, target, RESTRICTED_RUNNER_CONTEXT),
+    { isolationBound, executable },
+  );
 }
 
 export async function planFillCommandsCommand(
