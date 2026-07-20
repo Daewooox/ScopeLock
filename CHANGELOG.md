@@ -14,6 +14,11 @@ All notable changes to ScopeLock will be documented here.
 - Ordered named validation checks with required/optional semantics, explicit
   acceptance ids, and receipt v6 evidence for execution, scope, validation,
   acceptance, promotion, and cleanup.
+- Capability-aware agent prompts: the non-interactive `plan fill-commands`
+  command no longer asks the agent to search for MCP or call `check_drift`
+  itself, since `scopelock run` already owns authoritative validation and the
+  final scope/drift check. Interactive prompts (`export-prompt`,
+  `inject-contract`) are unchanged and still ask for these `if available`.
 - Cross-platform process-tree supervision and fail-closed security hardening.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.

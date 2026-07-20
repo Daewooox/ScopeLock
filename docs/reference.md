@@ -247,6 +247,29 @@ output paths must differ. The resulting file is accepted unchanged by `run`,
 but preparation does not approve a contract, repair the environment, start an
 agent, or bypass `run --yes --isolate`.
 
+### Agent prompt capability context
+
+`renderAgentPrompt` describes only the capabilities available to the caller
+that composed the command; ScopeLock does not detect capabilities at runtime.
+Two contexts exist:
+
+- **Interactive** (`export-prompt`, `inject-contract`, and any other public
+  caller that omits a context) — the default, kept for compatibility. The
+  prompt asks the agent to run required tests and call the ScopeLock MCP
+  `check_drift` tool only `if available`, with an explicit CLI handoff
+  (`scopelock check-drift`) when it is not.
+- **Restricted runner** (`plan fill-commands`, used by `plan prepare`) — the
+  composed command is dispatched non-interactively by `scopelock run`, which
+  already owns authoritative repository validation and the final scope/drift
+  check once the command finishes. This prompt never asks the agent to search
+  for MCP or `check_drift`, and never claims the agent executed tests itself;
+  it still requires staying inside the approved scope and writing or updating
+  the regression tests the change needs.
+
+"Configured gates cleared" (see [Plan execution and receipts](#plan-execution-and-receipts)
+below) always describes deterministic checks the runner ran, never a claim
+that an agent completed the natural-language task.
+
 ## Plan execution and receipts
 
 `scopelock run <plan.json>` is a thin dispatcher, not a generic agent
