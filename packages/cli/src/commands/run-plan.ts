@@ -45,6 +45,7 @@ import {
 import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
 import { color, renderTable, statusLabel } from "../ui.js";
+import { deriveEvidenceSummary, type EvidenceSummary } from "../receipt-evidence.js";
 import {
   createRunSignalCoordinator,
   spawnProcessTree,
@@ -185,7 +186,16 @@ type TaskRun = {
  * tell a blocking failure from an informational one without cross-referencing
  * the plan again.
  */
-type ValidationCheckRun = TaskRun & { required: boolean };
+type ValidationSkipReason =
+  | "no-candidate-changes"
+  | "setup-failed"
+  | "required-check-failed"
+  | "interrupted";
+
+type ValidationCheckRun = TaskRun & {
+  required: boolean;
+  skipReason?: ValidationSkipReason;
+};
 
 type RunIsolation = {
   mode: "worktree";
@@ -379,7 +389,7 @@ async function persistCommand(
 async function runCommand(
   cwd: string,
   artifactDir: string,
-  task: { id: string; contract: string; command?: CommandSpec; cwd?: string },
+  task: { id: string; contract: string; command?: CommandSpec; cwd?: string; artifactKey?: string },
   timeoutMs: number,
   storeRawOutput: boolean,
   coordinator?: RunSignalCoordinator,
@@ -404,7 +414,8 @@ async function runCommand(
     };
   }
   const command = task.command;
-  const persistedCommand = await persistCommand(artifactDir, task.id, command, storeRawOutput);
+  const artifactKey = task.artifactKey ?? `task-${task.id}`;
+  const persistedCommand = await persistCommand(artifactDir, artifactKey, command, storeRawOutput);
   const tree = spawnProcessTree({
     command,
     cwd,
@@ -427,8 +438,8 @@ async function runCommand(
   } else if (termination.reason !== null) {
     stderr += `${stderr.length > 0 ? "\n" : ""}task interrupted by signal`;
   }
-  const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
-  const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
+  const persistedStdout = await persistOutput(artifactDir, artifactKey, "stdout", stdout, storeRawOutput);
+  const persistedStderr = await persistOutput(artifactDir, artifactKey, "stderr", stderr, storeRawOutput);
   return {
     id: task.id,
     status: termination.exitCode === 0 && termination.reason === null ? "passed" : "failed",
@@ -552,10 +563,21 @@ function candidateRoots(
 async function skippedCheckRun(
   artifactDir: string,
   check: ValidationCheckSpec,
-  reason: string,
+  skipReason: ValidationSkipReason,
   storeRawOutput: boolean,
 ): Promise<ValidationCheckRun> {
-  const persistedCommand = await persistCommand(artifactDir, check.id, check.command, storeRawOutput);
+  const persistedCommand = await persistCommand(
+    artifactDir,
+    `validation-check-${check.id}`,
+    check.command,
+    storeRawOutput,
+  );
+  const reason = {
+    "no-candidate-changes": "skipped: no candidate changes to validate",
+    "setup-failed": "skipped: repository validation setup failed",
+    "required-check-failed": "skipped: an earlier required check failed",
+    interrupted: "skipped: validation was interrupted",
+  }[skipReason];
   return {
     id: check.id,
     status: "skipped",
@@ -569,6 +591,7 @@ async function skippedCheckRun(
       ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
     },
     required: check.required,
+    skipReason,
   };
 }
 
@@ -576,12 +599,12 @@ async function skippedCheckRun(
 async function skippedCheckRuns(
   artifactDir: string,
   checks: ValidationCheckSpec[],
-  reason: string,
+  skipReason: ValidationSkipReason,
   storeRawOutput: boolean,
 ): Promise<ValidationCheckRun[]> {
   const runs: ValidationCheckRun[] = [];
   for (const check of checks) {
-    runs.push(await skippedCheckRun(artifactDir, check, reason, storeRawOutput));
+    runs.push(await skippedCheckRun(artifactDir, check, skipReason, storeRawOutput));
   }
   return runs;
 }
@@ -631,7 +654,13 @@ async function runCandidateValidation(input: {
       setup = await runCommand(
         candidateRoot,
         input.artifactDir,
-        { id: "validation-setup", contract: "", command: input.setup, cwd: input.setupCwd ?? "." },
+        {
+          id: "validation-setup",
+          contract: "",
+          command: input.setup,
+          cwd: input.setupCwd ?? ".",
+          artifactKey: "validation-setup",
+        },
         input.timeoutMs,
         input.storeRawOutput,
         input.coordinator,
@@ -643,8 +672,8 @@ async function runCandidateValidation(input: {
     // setup step failing before any check starts) stops every later check
     // dead - they are recorded skipped, not silently omitted, and never
     // spawned. `Promise.all` is intentionally not used here.
-    let skipReason: string | null = setup !== null && setup.status !== "passed"
-      ? "skipped: repository validation setup failed"
+    let skipReason: ValidationSkipReason | null = setup !== null && setup.status !== "passed"
+      ? "setup-failed"
       : null;
     for (const check of input.checks) {
       if (skipReason !== null) {
@@ -656,7 +685,13 @@ async function runCandidateValidation(input: {
       const run = await runCommand(
         candidateRoot,
         input.artifactDir,
-        { id: check.id, contract: "", command: check.command, cwd: check.cwd ?? "." },
+        {
+          id: check.id,
+          contract: "",
+          command: check.command,
+          cwd: check.cwd ?? ".",
+          artifactKey: `validation-check-${check.id}`,
+        },
         input.timeoutMs,
         input.storeRawOutput,
         input.coordinator,
@@ -664,7 +699,7 @@ async function runCandidateValidation(input: {
       );
       checkRuns.push({ ...run, required: check.required });
       if (check.required && run.status !== "passed") {
-        skipReason = "skipped: an earlier required check failed";
+        skipReason = input.coordinator.signal.aborted ? "interrupted" : "required-check-failed";
       }
     }
   } finally {
@@ -921,7 +956,7 @@ async function runIsolatedTasks(input: {
           checks: await skippedCheckRuns(
             input.artifactDir,
             input.validationChecks,
-            "skipped: no candidate changes to validate",
+            "no-candidate-changes",
             input.storeRawOutput,
           ),
         }
@@ -1010,7 +1045,7 @@ async function runIsolatedTasks(input: {
         if (recorded.has(task.id)) continue;
         const persistedCommand = await persistCommand(
           input.artifactDir,
-          task.id,
+          `task-${task.id}`,
           task.command ?? null,
           input.storeRawOutput,
         );
@@ -1118,6 +1153,44 @@ function ms(value: number): string {
   return `${(value / 1000).toFixed(1)}s`;
 }
 
+/** Maps one evidence-summary value to the shared pass/warn/fail/skip label vocabulary. */
+function evidenceLabel(status: string): "pass" | "warn" | "fail" | "skip" {
+  if (
+    status === "completed"
+    || status === "clear"
+    || status === "passed"
+    || status === "verified"
+    || status === "applied"
+    || status === "no-changes"
+    || status === "ok"
+    || status === "not-applicable"
+  ) {
+    return "pass";
+  }
+  if (status === "failed" || status === "violations" || status === "blocked") return "fail";
+  if (status === "attention" || status === "warning" || status === "unverified") return "warn";
+  return "skip"; // not-run / not-checked
+}
+
+/**
+ * `Configured gates cleared` iff every gate that actually ran is in its good
+ * state; an absent/unverified acceptance declaration never flips this by
+ * itself (per the global constraint that unverified acceptance stays exit 0
+ * and non-attention when configured gates otherwise clear).
+ */
+function evidenceHeadline(evidence: EvidenceSummary): "Configured gates cleared" | "Needs attention" {
+  const attention =
+    evidence.execution === "blocked"
+    || evidence.execution === "attention"
+    || evidence.scope === "violations"
+    || evidence.validation === "failed"
+    || evidence.validation === "attention"
+    || evidence.acceptance === "failed"
+    || evidence.promotion === "blocked"
+    || evidence.cleanup === "warning";
+  return attention ? "Needs attention" : "Configured gates cleared";
+}
+
 function humanReport(
   planId: string,
   receiptPath: string,
@@ -1130,11 +1203,12 @@ function humanReport(
   validationSetupStatus: string,
   validationChecksSummary: string,
   isolationStatus: string,
+  evidence: EvidenceSummary,
 ): string {
   const failed = taskRuns.filter((task) => task.status === "failed").map((task) => task.id);
   const skipped = taskRuns.filter((task) => task.status === "skipped").map((task) => task.id);
   const blocked = taskRuns.filter((task) => task.status === "blocked").map((task) => task.id);
-  const headingStatus = failed.length > 0 || skipped.length > 0 || blocked.length > 0 ? "warn" : "pass";
+  const headline = evidenceHeadline(evidence);
   const sequence =
     waves.length === 0
       ? "none"
@@ -1150,14 +1224,28 @@ function humanReport(
       compactCommand(task.command),
     ]),
   );
+  const evidenceTable = renderTable(
+    ["Evidence", "Result"],
+    [
+      ["execution", `${statusLabel(evidenceLabel(evidence.execution))} ${evidence.execution}`],
+      ["scope", `${statusLabel(evidenceLabel(evidence.scope))} ${evidence.scope}`],
+      ["validation", `${statusLabel(evidenceLabel(evidence.validation))} ${evidence.validation}`],
+      ["acceptance", `${statusLabel(evidenceLabel(evidence.acceptance))} ${evidence.acceptance}`],
+      ["promotion", `${statusLabel(evidenceLabel(evidence.promotion))} ${evidence.promotion}`],
+      ["cleanup", `${statusLabel(evidenceLabel(evidence.cleanup))} ${evidence.cleanup}`],
+    ],
+  );
   const lines = [
-    `${color("ScopeLock flight run", "bold")}: ${planId} ${statusLabel(headingStatus)}`,
+    `${color("ScopeLock flight run", "bold")}: ${planId} ${color(headline, headline === "Configured gates cleared" ? "green" : "yellow")}`,
     "",
     color("Execution sequence", "cyan"),
     `  ${sequence}`,
     "",
     color("Tasks", "cyan"),
     taskTable,
+    "",
+    color("Evidence", "cyan"),
+    evidenceTable,
     "",
     color("Safety", "cyan"),
     renderTable(
@@ -1328,7 +1416,12 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
 
   if (blockedByEnvironment) {
     for (const task of runTasks) {
-      const persistedCommand = await persistCommand(artifactDir, task.id, task.command ?? null, storeRawOutput);
+      const persistedCommand = await persistCommand(
+        artifactDir,
+        `task-${task.id}`,
+        task.command ?? null,
+        storeRawOutput,
+      );
       taskRuns.push({
         id: task.id,
         status: "skipped",
@@ -1404,8 +1497,23 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     }
   }
 
+  const isolationOutcomes = taskRuns
+    .map((task) => task.isolation?.outcome)
+    .filter((outcome): outcome is NonNullable<typeof outcome> => outcome !== undefined);
+  const evidenceSummary: EvidenceSummary = deriveEvidenceSummary({
+    taskStatuses: taskRuns.map((task) => task.status),
+    cycleCount: cycles.length,
+    blockedByEnvironment,
+    driftStatus: drift?.status ?? "not_checked",
+    isolationOutcomes,
+    validationChecks: isolation?.validationChecks ?? [],
+    acceptanceCheckIds: normalizedValidation?.acceptanceCheckIds ?? [],
+    promotion: options.isolate === true ? (isolation?.finalPromotion ?? "blocked") : "not-applicable",
+    cleanup: options.isolate === true ? (isolation?.cleanup.status ?? "warning") : "not-applicable",
+  });
+
   const receipt = {
-    schemaVersion: options.isolate === true ? 5 : 4,
+    schemaVersion: 6,
     planId: plan.planId,
     startedAt,
     finishedAt: new Date().toISOString(),
@@ -1442,6 +1550,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     },
     taskRuns,
     drift,
+    evidenceSummary,
   };
   await mkdir(dirname(receiptPath), { recursive: true });
   await writeJsonAtomic(receiptPath, receipt);
@@ -1473,6 +1582,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
         ? isolation.validationChecks.map((check) => `${check.id}:${check.status}`).join(", ")
         : (options.isolate === true ? "not-run" : "off"),
       isolation?.finalPromotion ?? (options.isolate === true ? "not-run" : "off"),
+      evidenceSummary,
     ),
     exitCode,
   };

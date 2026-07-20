@@ -78,10 +78,19 @@ export const planValidationSchema = z
 
       const acceptanceCheckIds = validation.acceptance?.checkIds;
       if (acceptanceCheckIds) {
+        const seenAcceptance = new Set<string>();
         const requiredIds = new Set(
           validation.checks.filter((check) => check.required).map((check) => check.id),
         );
         acceptanceCheckIds.forEach((id, index) => {
+          if (seenAcceptance.has(id)) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["acceptance", "checkIds", index],
+              message: `duplicate acceptance check id: ${id}`,
+            });
+          }
+          seenAcceptance.add(id);
           if (!requiredIds.has(id)) {
             ctx.addIssue({
               code: "custom",

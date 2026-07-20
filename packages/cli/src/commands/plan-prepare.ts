@@ -340,8 +340,8 @@ export async function planPrepareCommand(
     checks.push("Repository validation  not detected");
     return result(
       { ...base, preflight, composition, outputPath: null },
-      "Validation command is required; no ready plan was written",
-      `Run again with: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)} --validation-command <executable> [args...]`,
+      "Validation check is required; no ready plan was written",
+      `Run again with: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)} --validation-check <id> <executable> [args...]`,
       1,
     );
   }

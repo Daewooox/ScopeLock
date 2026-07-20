@@ -322,6 +322,20 @@ describe("ScopeLock schemas", () => {
     }).success, false);
   });
 
+  it("rejects duplicate acceptance check ids", () => {
+    assert.throws(() => schedulePlanSchema.parse({
+      schemaVersion: 1,
+      planId: "duplicate-acceptance",
+      execution: {
+        validation: {
+          checks: [{ id: "test", command: ["npm", "test"] }],
+          acceptance: { checkIds: ["test", "test"] },
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }), /duplicate acceptance check id/);
+  });
+
   it("rejects invalid check ids", () => {
     for (const id of ["Bad-ID", "-leading", "has space", "", "a".repeat(65)]) {
       assert.equal(schedulePlanSchema.safeParse({
