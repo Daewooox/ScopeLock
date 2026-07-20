@@ -216,17 +216,30 @@ found. Add `--no-read-hazards` only when stale reads are intentionally safe. Add
 and parity violations block preparation too. Without a manifest those static
 artifacts are explicitly reported as not configured, not as verified.
 
-Preparation also binds one repository validation command to the ready plan. It
+Preparation also binds an ordered repository validation pipeline to the ready plan. It
 detects `check` or `test` scripts from common JavaScript package managers, then
 Swift, Cargo, and Go project checks. If detection is not possible, preparation
-fails without writing the output file. Supply an explicit argv instead:
+fails without writing the output file. Supply one or more explicit named argv
+checks instead:
 
 ```bash
 scopelock plan prepare plan.json \
   --target claude \
   --out ready-plan.json \
-  --validation-command npm run check
+  --validation-check typecheck npm run check \
+  --validation-check tests npm test \
+  --acceptance-check typecheck \
+  --acceptance-check tests
 ```
+
+Checks run sequentially in declaration order. A required failure stops later
+checks, records them as skipped with a structured reason, and blocks promotion.
+An optional failure remains visible as evidence-level attention but does not
+block promotion by itself. Per-check `cwd` values in plan JSON override the
+shared validation directory. Acceptance ids must be unique and reference
+required checks. `--validation-command` remains a compatibility alias that is
+normalized to one required check named `repository-validation`; it cannot be
+combined with `--validation-check`.
 
 Every task command is regenerated through the selected shell-free harness
 adapter, including commands already present in the input plan. The input and
@@ -273,7 +286,10 @@ reviewable working directory to both validation phases:
     "validation": {
       "cwd": "app",
       "setup": ["flutter", "pub", "get"],
-      "command": ["flutter", "test"]
+      "checks": [
+        { "id": "flutter-test", "command": ["flutter", "test"], "required": true }
+      ],
+      "acceptance": { "checkIds": ["flutter-test"] }
     }
   }
 }
@@ -289,7 +305,7 @@ For Node repositories with an existing checkout-local `node_modules`, final
 validation temporarily exposes that same toolchain inside the candidate
 worktree and prepends its `.bin` directory to `PATH`. Agents never see this
 link, ScopeLock does not install dependencies, and the link is removed in
-`finally` before promotion. The borrowed paths are recorded in receipt v5.
+`finally` before promotion. The borrowed paths are recorded in receipt v6.
 When `package.json` declares a `prepare` script, `plan prepare` also binds the
 reviewable `npm run prepare` argv as `execution.validation.setup`; its result
 is recorded separately and a failure prevents the main validation command.
@@ -297,8 +313,10 @@ Ignored generated artifacts may support validation, but any tracked or normal
 untracked candidate change made by setup/check blocks promotion.
 
 Manual plans may opt into isolation; generated agent plans require it. Isolated
-runs produce receipt v5 with per-task patch digests, path classifications,
-repository-validation evidence, final-promotion status, and cleanup evidence.
+runs produce receipt v6 with per-task patch digests, ordered validation checks,
+a six-row evidence summary, path classifications, final-promotion status, and
+cleanup evidence. The report renderer remains compatible with historical
+receipt v4/v5 files.
 The first release limits a run to 32 tasks and each task/aggregate patch to 50
 MiB.
 Gitlinks and symlinks are rejected. A signal interrupts children, blocks final

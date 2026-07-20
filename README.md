@@ -140,8 +140,11 @@ Review `ready-plan.json` before running it. Nothing is silently approved or
 executed: `plan prepare` never starts an agent, and `run` still requires
 `--yes`. Read hazards are included by default; use `--no-read-hazards` only
 when stale reads are intentionally safe. If ScopeLock cannot detect a project
-check, preparation stops and asks for an explicit shell-free command such as
-`--validation-command npm run check`. For npm projects with a `prepare`
+check, preparation stops and asks for an explicit named shell-free check such
+as `--validation-check tests npm test`. Repeat the flag to create an ordered
+pipeline and use `--acceptance-check tests` to declare which required checks
+constitute acceptance. The older `--validation-command` form remains accepted
+as a single-check compatibility alias. For npm projects with a `prepare`
 lifecycle, the ready plan also shows `npm run prepare` as a separate candidate
 setup step; both setup and validation must pass before promotion.
 

@@ -46,7 +46,7 @@ test("wallet demo shows env block, safe waves, hook deny, and receipt when Swift
     assert.equal(result.steps.finalRunPassed, true);
     assert.equal(result.steps.finalSwiftTestsPassed, true);
     assert.equal(result.steps.finalDriftClean, true);
-    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 4);
+    assert.equal(JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8")).schemaVersion, 6);
   } finally {
     if (keptFixture !== null) rmSync(keptFixture, { recursive: true, force: true });
     rmSync(outputDir, { recursive: true, force: true });
