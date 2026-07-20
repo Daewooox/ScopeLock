@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "codeql-second-order-command-injection-v2",
+  "task": "Block second-order Git command injection",
+  "createdAt": "2026-07-20T21:37:09.258Z",
+  "baseline": {
+    "headSha": "4162b355be70cff8d8152344be9a63ca25c64003",
+    "branch": "fix/codeql-second-order-injection",
+    "capturedAt": "2026-07-20T21:37:09.353Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/git/exec.ts",
+      "packages/core/src/git-exec.test.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
