@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "github-actions-dependencies",
+  "task": "Refresh pinned GitHub Actions coherently",
+  "createdAt": "2026-07-20T06:37:18.820Z",
+  "baseline": {
+    "headSha": "d51ef982560076f568d039e7291031323101d7f4",
+    "branch": "chore/github-actions-dependencies",
+    "capturedAt": "2026-07-20T06:37:18.904Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".github/workflows/test.yml",
+      ".github/workflows/release-readiness.yml",
+      ".github/workflows/publish-npm.yml",
+      ".github/workflows/codeql.yml",
+      ".github/workflows/secret-scan.yml"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "docs/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "ci",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
