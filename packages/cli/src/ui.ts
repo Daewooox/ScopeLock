@@ -47,6 +47,42 @@ export function renderSections(sections: HumanSection[]): string {
     .join("\n\n");
 }
 
+export type StatusRowStatus = "pass" | "warn" | "fail" | "skip";
+
+export type StatusRow = {
+  id: string;
+  status: StatusRowStatus;
+  cells: string[];
+  reason?: string;
+  logPath?: string;
+};
+
+const REASON_TRUNCATE_LENGTH = 100;
+
+export function renderStatusTable(idHeader: string, restHeaders: string[], rows: StatusRow[]): string {
+  const headers = [idHeader, "Status", ...restHeaders];
+  const cellsFor = (row: StatusRow): string[] => [row.id, statusLabel(row.status), ...row.cells];
+  const widths = headers.map((header, index) =>
+    Math.max(header.length, ...rows.map((row) => stripAnsi(cellsFor(row)[index] ?? "").length)),
+  );
+  const line = (cells: string[]): string =>
+    cells.map((cell, index) => padAnsi(cell, widths[index] ?? 0)).join("  ");
+  const headerLine = line(headers.map((header) => color(header, "dim")));
+  const rowLines = rows.flatMap((row) => {
+    const cells = cellsFor(row);
+    const rendered = row.status === "pass" ? [line(cells.map((cell) => color(cell, "dim")))] : [line(cells)];
+    if (row.status !== "pass" && row.reason !== undefined) {
+      const truncated = row.reason.length > REASON_TRUNCATE_LENGTH
+        ? `${row.reason.slice(0, REASON_TRUNCATE_LENGTH)}…`
+        : row.reason;
+      const logSuffix = row.logPath !== undefined ? ` (full log: ${row.logPath})` : "";
+      rendered.push(color(`    ↳ ${truncated}${logSuffix}`, "dim"));
+    }
+    return rendered;
+  });
+  return [headerLine, ...rowLines].join("\n");
+}
+
 function stripAnsi(value: string): string {
   return value.replace(/\u001b\[[0-9;]*m/g, "");
 }
