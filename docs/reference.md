@@ -276,6 +276,13 @@ that an agent completed the natural-language task.
 runtime. Plans containing commands require `--yes`; string shell commands also
 require `--allow-shell`.
 
+Human runs report each execution stage while it is active. Interactive TTYs
+use a live panel that settles into a stable failure-first summary; pipes and CI
+receive one flat line per wave, task, validation check, and promotion/cleanup
+phase. Failed or blocked rows include the bounded redacted reason and the
+redacted artifact path when `--store-raw-output` produced one. `--json` disables
+all progress output, so stdout remains one parseable JSON document.
+
 Compose agent commands into a separate reviewable plan before dispatch:
 
 ```bash

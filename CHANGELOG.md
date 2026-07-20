@@ -24,6 +24,9 @@ All notable changes to ScopeLock will be documented here.
   up to 10 changed paths and offers three safe choices (commit, run from a
   disposable clean clone, or abort) without ScopeLock ever committing,
   stashing, cleaning, or deleting files itself.
+- Live `scopelock run` progress for direct and isolated execution: TTYs receive
+  a settled failure-first panel, pipes and CI receive flat lifecycle lines, and
+  `--json` remains a single progress-free JSON document.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta
