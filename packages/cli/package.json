@@ -53,7 +53,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepublishOnly": "tsc -p tsconfig.json",
-    "test": "node --test dist/*.test.js",
+    "test": "node --test 'dist/**/*.test.js'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
