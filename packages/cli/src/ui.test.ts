@@ -32,6 +32,31 @@ describe("renderStatusTable", () => {
     assert.ok(!reasonLine.includes("x".repeat(150)), "reason should be truncated, not shown in full");
   });
 
+  it("truncates reasons by Unicode code point without splitting a surrogate pair", () => {
+    const reason = `${"x".repeat(99)}🙂${"y".repeat(20)}`;
+    const output = renderStatusTable("Task", ["Time"], [
+      { id: "unicode", status: "fail", cells: ["1.0s"], reason },
+    ]);
+    const reasonLine = output.split("\n")[2] ?? "";
+    assert.match(reasonLine, new RegExp(`${"x".repeat(99)}🙂…$`, "u"));
+  });
+
+  it("collapses multiline failure evidence into one stable table line", () => {
+    const output = renderStatusTable("Task", ["Time"], [
+      { id: "multiline", status: "fail", cells: ["1.0s"], reason: "first\r\nsecond\tthird" },
+    ]);
+    const lines = output.split("\n");
+    assert.equal(lines.length, 3);
+    assert.match(lines[2] ?? "", /↳ first second third$/);
+  });
+
+  it("removes terminal controls from failure evidence", () => {
+    const output = renderStatusTable("Task", ["Time"], [
+      { id: "control", status: "fail", cells: ["1.0s"], reason: "failure\u001b[2J\u0007" },
+    ]);
+    assert.doesNotMatch(output, /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u);
+  });
+
   it("shows a skip reason even though skip is not fail/warn", () => {
     const output = renderStatusTable("Check", ["Time"], [
       { id: "analyze", status: "skip", cells: ["0.0s"], reason: "an earlier required check failed" },

@@ -59,9 +59,21 @@ export type StatusRow = {
 
 const REASON_TRUNCATE_LENGTH = 100;
 
+export function normalizeTerminalDetail(value: string): string {
+  return value
+    .replace(/\s+/gu, " ")
+    .replace(/[\u0000-\u001f\u007f-\u009f]/gu, "")
+    .replace(/\p{Cf}/gu, "")
+    .trim();
+}
+
 export function renderStatusTable(idHeader: string, restHeaders: string[], rows: StatusRow[]): string {
   const headers = [idHeader, "Status", ...restHeaders];
-  const cellsFor = (row: StatusRow): string[] => [row.id, statusLabel(row.status), ...row.cells];
+  const cellsFor = (row: StatusRow): string[] => [
+    normalizeTerminalDetail(row.id),
+    statusLabel(row.status),
+    ...row.cells.map(normalizeTerminalDetail),
+  ];
   const widths = headers.map((header, index) =>
     Math.max(header.length, ...rows.map((row) => stripAnsi(cellsFor(row)[index] ?? "").length)),
   );
@@ -72,10 +84,14 @@ export function renderStatusTable(idHeader: string, restHeaders: string[], rows:
     const cells = cellsFor(row);
     const rendered = row.status === "pass" ? [line(cells.map((cell) => color(cell, "dim")))] : [line(cells)];
     if (row.status !== "pass" && row.reason !== undefined) {
-      const truncated = row.reason.length > REASON_TRUNCATE_LENGTH
-        ? `${row.reason.slice(0, REASON_TRUNCATE_LENGTH)}…`
-        : row.reason;
-      const logSuffix = row.logPath !== undefined ? ` (full log: ${row.logPath})` : "";
+      const normalizedReason = normalizeTerminalDetail(row.reason);
+      const reasonCodePoints = Array.from(normalizedReason);
+      const truncated = reasonCodePoints.length > REASON_TRUNCATE_LENGTH
+        ? `${reasonCodePoints.slice(0, REASON_TRUNCATE_LENGTH).join("")}…`
+        : normalizedReason;
+      const logSuffix = row.logPath !== undefined
+        ? ` (full log: ${normalizeTerminalDetail(row.logPath)})`
+        : "";
       rendered.push(color(`    ↳ ${truncated}${logSuffix}`, "dim"));
     }
     return rendered;

@@ -27,6 +27,7 @@ import { taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
 import { confirmPrompt, questionPrompt } from "./prompts.js";
 import { extractPlanPrepareValidationArgv } from "./plan-prepare-argv.js";
+import { createReporter } from "./progress/create-reporter.js";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -430,8 +431,9 @@ program
         isolate?: boolean;
       },
       command: Command,
-    ) =>
-      run(() => {
+    ) => {
+      const json = jsonOf(command);
+      return run(() => {
         if (planPath !== undefined && options.plan !== undefined && planPath !== options.plan) {
           throw new CliError("CONFLICTING_PLAN_PATHS", "pass the plan once: as an argument or with --plan");
         }
@@ -439,8 +441,10 @@ program
         if (selectedPlan === undefined) {
           throw new CliError("PLAN_REQUIRED", "pass a plan path: scopelock run <plan.json>");
         }
-        return runPlanCommand({ ...options, plan: selectedPlan });
-      }, jsonOf(command)),
+        const reporter = createReporter(process.stdout, json);
+        return runPlanCommand({ ...options, plan: selectedPlan, reporter });
+      }, json);
+    },
   );
 
 program
