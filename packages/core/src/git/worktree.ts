@@ -356,6 +356,19 @@ async function registeredWorktreePaths(repoRoot: string, timeoutMs?: number): Pr
   );
 }
 
+const DIRTY_REPO_PATH_LIMIT = 10;
+
+// Renders at most DIRTY_REPO_PATH_LIMIT changed repo-relative paths, sorted
+// for determinism, with a "+N more" tail when truncated - enough for a user
+// to recognize their own changes without dumping an unbounded list.
+function describeChangedPaths(files: ChangedFile[]): string {
+  const paths = files.map((file) => file.path).sort();
+  const shown = paths.slice(0, DIRTY_REPO_PATH_LIMIT);
+  const remaining = paths.length - shown.length;
+  const list = shown.join(", ");
+  return remaining > 0 ? `${list} (+${remaining} more)` : list;
+}
+
 export async function assertIsolationReady(
   repoRoot: string,
   expectedHeadSha?: string,
@@ -373,7 +386,10 @@ export async function assertIsolationReady(
     );
   }
   if (collected.files.length > 0) {
-    throw new WorktreeError("DIRTY_REPO", "isolated execution requires a clean working tree");
+    throw new WorktreeError(
+      "DIRTY_REPO",
+      `isolated execution requires a clean working tree: ${collected.files.length} changed path(s) - ${describeChangedPaths(collected.files)}`,
+    );
   }
   return { headSha };
 }

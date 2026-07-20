@@ -122,6 +122,69 @@ describe("isolated Git worktree lifecycle", () => {
     }
   });
 
+  it("lists modified, staged, untracked, renamed, Unicode, and spaced paths in the DIRTY_REPO message", async () => {
+    const fixture = await makeRepo();
+    try {
+      // modified
+      await writeFile(join(fixture.repo, "tracked.txt"), "changed\n");
+      // staged (new file, added to the index)
+      await writeFile(join(fixture.repo, "staged.txt"), "staged\n");
+      git(fixture.repo, ["add", "staged.txt"]);
+      // untracked
+      await writeFile(join(fixture.repo, "untracked.txt"), "dirty\n");
+      // renamed (staged rename so git reports it as such)
+      git(fixture.repo, ["mv", "allowed/rename-old.txt", "allowed/rename-new.txt"]);
+      // Unicode path
+      await writeFile(join(fixture.repo, "unicode-résumé.txt"), "unicode\n");
+      // spaced path
+      await writeFile(join(fixture.repo, "spaced file.txt"), "spaced\n");
+
+      await assert.rejects(
+        assertIsolationReady(fixture.repo, fixture.head),
+        (error: unknown) => {
+          assert.ok(error instanceof WorktreeError && error.code === "DIRTY_REPO");
+          const message = (error as WorktreeError).message;
+          for (const expected of [
+            "tracked.txt",
+            "staged.txt",
+            "untracked.txt",
+            "allowed/rename-new.txt",
+            "unicode-résumé.txt",
+            "spaced file.txt",
+          ]) {
+            assert.ok(message.includes(expected), `expected message to include ${expected}: ${message}`);
+          }
+          return true;
+        },
+      );
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("truncates the DIRTY_REPO message to at most 10 changed paths and reports the remainder count", async () => {
+    const fixture = await makeRepo();
+    try {
+      for (let index = 0; index < 14; index += 1) {
+        await writeFile(join(fixture.repo, `extra-${String(index).padStart(2, "0")}.txt`), "dirty\n");
+      }
+
+      await assert.rejects(
+        assertIsolationReady(fixture.repo, fixture.head),
+        (error: unknown) => {
+          assert.ok(error instanceof WorktreeError && error.code === "DIRTY_REPO");
+          const message = (error as WorktreeError).message;
+          const listedPaths = [...message.matchAll(/extra-\d{2}\.txt/g)];
+          assert.equal(listedPaths.length, 10, message);
+          assert.match(message, /\+4 more/);
+          return true;
+        },
+      );
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed for invalid ids and base object ids", async () => {
     const fixture = await makeRepo();
     try {

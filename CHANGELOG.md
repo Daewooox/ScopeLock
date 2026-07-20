@@ -20,6 +20,10 @@ All notable changes to ScopeLock will be documented here.
   final scope/drift check. Interactive prompts (`export-prompt`,
   `inject-contract`) are unchanged and still ask for these `if available`.
 - Cross-platform process-tree supervision and fail-closed security hardening.
+- Actionable dirty-repository guidance for `run --isolate`: the failure lists
+  up to 10 changed paths and offers three safe choices (commit, run from a
+  disposable clean clone, or abort) without ScopeLock ever committing,
+  stashing, cleaning, or deleting files itself.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta

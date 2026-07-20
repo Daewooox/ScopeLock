@@ -99,6 +99,12 @@ natural-language requirement was completed. Isolation protects the normal
 workflow from accidental task patches; it
 does not contain arbitrary absolute-path writes by a malicious process.
 
+`--isolate` requires a clean working tree before it starts. If you see
+`ISOLATION_REQUIRES_CLEAN_REPO`, the message lists your changed paths (up to
+10, with a count for the rest) and you have three safe options: review and
+commit the files you meant to keep, run from a disposable clean clone, or
+abort. ScopeLock will not commit, stash, clean, or delete anything for you.
+
 ## Send useful feedback
 
 Use the [short beta feedback form](beta-feedback.md) or open a structured

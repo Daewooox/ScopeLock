@@ -3811,6 +3811,53 @@ describe("run", () => {
     }
   });
 
+  it("offers three safe choices and no Git mutation for a dirty repository", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-dirty-guidance",
+          execution: isolatedExecution(),
+          tasks: [{
+            id: "a",
+            contract: "a.json",
+            command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','ran')"],
+          }],
+        }),
+      );
+      commitFixture(dir, "dirty guidance fixture");
+      await writeFile(join(dir, "dirty.txt"), "user work");
+      const statusBefore = spawnSync("git", ["status", "--porcelain"], { cwd: dir, encoding: "utf8" }).stdout;
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      const body = JSON.parse(result.stdout);
+      assert.equal(body.error.code, "ISOLATION_REQUIRES_CLEAN_REPO");
+      assert.match(body.error.message, /dirty\.txt/);
+      assert.match(body.error.message, /review and commit/i);
+      assert.match(body.error.message, /disposable clean clone/i);
+      assert.match(body.error.message, /abort/i);
+      assert.match(body.error.message, /will not commit, stash, clean/i);
+
+      const statusAfter = spawnSync("git", ["status", "--porcelain"], { cwd: dir, encoding: "utf8" }).stdout;
+      assert.equal(statusAfter, statusBefore);
+      await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
+      assert.equal(await readFile(join(dir, "dirty.txt"), "utf8"), "user work");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects isolated plans above the bounded task limit", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

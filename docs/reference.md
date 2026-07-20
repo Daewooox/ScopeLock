@@ -387,6 +387,14 @@ Other `run` options:
 - `--no-read-hazards` schedules using only write-write conflicts (F1),
   ignoring each contract's `readPathPatterns` (F2).
 
+`--isolate` requires a clean repository at the expected base before any
+worktree is created or any agent starts. If the working tree has changes,
+`run` fails with `ISOLATION_REQUIRES_CLEAN_REPO` and lists up to 10 changed
+repo-relative paths (with a `+N more` count when truncated), then offers
+exactly three safe choices: review and commit the intended files, run from a
+disposable clean clone, or abort. ScopeLock never commits, stashes, cleans, or
+deletes files on your behalf, before or after this failure.
+
 Receipts contain bounded, best-effort redacted previews by default. Raw
 best-effort redacted output is written only when `--store-raw-output` is
 explicitly enabled. Redaction recognizes a small set of common credential
