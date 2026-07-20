@@ -44,7 +44,7 @@ import {
 } from "@scopelock/core";
 import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
-import { color, renderTable, statusLabel } from "../ui.js";
+import { color, normalizeTerminalDetail, renderTable, statusLabel } from "../ui.js";
 import { deriveEvidenceSummary, type EvidenceSummary } from "../receipt-evidence.js";
 import {
   createRunSignalCoordinator,
@@ -52,6 +52,8 @@ import {
   type RunSignalCoordinator,
 } from "../process-tree.js";
 import { redactSecrets } from "../redaction.js";
+import { createNoopReporter } from "../progress/noop-reporter.js";
+import type { ProgressReporter } from "../progress/types.js";
 
 type RunPlanOptions = {
   plan: string;
@@ -63,6 +65,7 @@ type RunPlanOptions = {
   timeoutMs?: number;
   storeRawOutput?: boolean;
   isolate?: boolean;
+  reporter?: ProgressReporter;
 };
 
 /**
@@ -601,10 +604,13 @@ async function skippedCheckRuns(
   checks: ValidationCheckSpec[],
   skipReason: ValidationSkipReason,
   storeRawOutput: boolean,
+  reporter: ProgressReporter,
 ): Promise<ValidationCheckRun[]> {
   const runs: ValidationCheckRun[] = [];
   for (const check of checks) {
-    runs.push(await skippedCheckRun(artifactDir, check, skipReason, storeRawOutput));
+    const run = await skippedCheckRun(artifactDir, check, skipReason, storeRawOutput);
+    runs.push(run);
+    reportCheckDone(reporter, run);
   }
   return runs;
 }
@@ -620,6 +626,7 @@ async function runCandidateValidation(input: {
   timeoutMs: number;
   storeRawOutput: boolean;
   coordinator: RunSignalCoordinator;
+  reporter: ProgressReporter;
 }): Promise<{ setup: TaskRun | null; checks: ValidationCheckRun[] }> {
   const controlPath = join(input.worktree.path, ".scopelock");
   const hiddenPath = join(input.tempRoot, "validation-control-state");
@@ -677,11 +684,14 @@ async function runCandidateValidation(input: {
       : null;
     for (const check of input.checks) {
       if (skipReason !== null) {
-        checkRuns.push(await skippedCheckRun(input.artifactDir, check, skipReason, input.storeRawOutput));
+        const run = await skippedCheckRun(input.artifactDir, check, skipReason, input.storeRawOutput);
+        checkRuns.push(run);
+        reportCheckDone(input.reporter, run);
         continue;
       }
       const { candidateRoot } = candidateRoots(input.worktree.path, input.repoRoot, check.cwd);
       const toolchain = await toolchainFor(check.cwd);
+      input.reporter.emit({ type: "check-start", id: check.id, required: check.required });
       const run = await runCommand(
         candidateRoot,
         input.artifactDir,
@@ -697,7 +707,9 @@ async function runCandidateValidation(input: {
         input.coordinator,
         toolchain,
       );
-      checkRuns.push({ ...run, required: check.required });
+      const checkRun = { ...run, required: check.required };
+      checkRuns.push(checkRun);
+      reportCheckDone(input.reporter, checkRun);
       if (check.required && run.status !== "passed") {
         skipReason = input.coordinator.signal.aborted ? "interrupted" : "required-check-failed";
       }
@@ -727,6 +739,13 @@ async function runCandidateValidation(input: {
     failedRun.stderr = [failedRun.stderr, `failed to restore validation workspace: ${detail}`]
       .filter(Boolean)
       .join("\n");
+    const failedCheck = checkRuns.at(-1);
+    if (failedCheck !== undefined) {
+      reportCheckDone(input.reporter, failedCheck, {
+        reason: `failed to restore validation workspace: ${detail}`,
+        updated: true,
+      });
+    }
   }
   return { setup, checks: checkRuns };
 }
@@ -745,6 +764,7 @@ async function runIsolatedTasks(input: {
   storeRawOutput: boolean;
   signal: AbortSignal;
   coordinator: RunSignalCoordinator;
+  reporter: ProgressReporter;
 }): Promise<{ taskRuns: TaskRun[]; isolation: RunIsolation }> {
   const { headSha: runBaseSha } = await assertIsolationReady(
     input.cwd,
@@ -756,7 +776,16 @@ async function runIsolatedTasks(input: {
   const cleanupRemaining: string[] = [];
   let integration: IsolatedWorktree | null = null;
   let tempRootRemoved = false;
+  let cleaningReported = false;
   const taskRuns: TaskRun[] = [];
+  const taskWaves = new Map<string, number>(
+    input.waves.flatMap((wave, waveIndex) => wave.map((id) => [id, waveIndex + 1] as const)),
+  );
+  const reportCleaning = (): void => {
+    if (cleaningReported) return;
+    cleaningReported = true;
+    input.reporter.emit({ type: "phase", name: "cleaning-up" });
+  };
   try {
     integration = await createIsolatedWorktree({
       repoRoot: input.cwd,
@@ -770,6 +799,12 @@ async function runIsolatedTasks(input: {
     for (let waveIndex = 0; waveIndex < input.waves.length; waveIndex += 1) {
       if (input.signal.aborted) break;
       const wave = input.waves[waveIndex] ?? [];
+      input.reporter.emit({
+        type: "wave-start",
+        wave: waveIndex + 1,
+        totalWaves: input.waves.length,
+        taskIds: wave,
+      });
       const baseSha = await worktreeHead(integration, input.isolationTimeoutMs);
       const runnable = wave
         .map((id) => input.byId.get(id))
@@ -820,6 +855,7 @@ async function runIsolatedTasks(input: {
       }
       const executions = await Promise.all(
         created.map(async ({ task, worktree }) => {
+          if (task.command !== undefined) input.reporter.emit({ type: "task-start", id: task.id });
           const run = await runCommand(
             worktree.path,
             input.artifactDir,
@@ -933,6 +969,7 @@ async function runIsolatedTasks(input: {
           } catch {
             cleanupRemaining.push(execution.worktree.path);
           }
+          reportTaskDone(input.reporter, execution.run, { wave: waveIndex + 1 });
         }
       }
       await commitIntegrationWave({
@@ -950,6 +987,7 @@ async function runIsolatedTasks(input: {
       timeoutMs: input.isolationTimeoutMs,
     });
     const aggregatePatch = aggregate.patch;
+    input.reporter.emit({ type: "phase", name: "validating" });
     const candidateValidation = aggregatePatch === null
       ? {
           setup: null,
@@ -958,6 +996,7 @@ async function runIsolatedTasks(input: {
             input.validationChecks,
             "no-candidate-changes",
             input.storeRawOutput,
+            input.reporter,
           ),
         }
       : await runCandidateValidation({
@@ -971,6 +1010,7 @@ async function runIsolatedTasks(input: {
           timeoutMs: input.taskTimeoutMs,
           storeRawOutput: input.storeRawOutput,
           coordinator: input.coordinator,
+          reporter: input.reporter,
         });
     const validationSetup = candidateValidation.setup;
     const validationChecks = candidateValidation.checks;
@@ -985,6 +1025,7 @@ async function runIsolatedTasks(input: {
         validationWorkspaceClean = false;
       }
     }
+    input.reporter.emit({ type: "phase", name: "promoting" });
     let finalPromotion: RunIsolation["finalPromotion"] = "no-changes";
     if (input.signal.aborted) {
       finalPromotion = "blocked";
@@ -1037,6 +1078,11 @@ async function runIsolatedTasks(input: {
               ? `repository validation failed (${failedRequiredSummary}); aggregate patch was not applied`
             : "aggregate patch was not applied to the user repository",
         });
+        reportTaskDone(input.reporter, task, {
+          reason: task.isolation.findings.at(-1)?.detail,
+          wave: taskWaves.get(task.id),
+          updated: true,
+        });
       }
     }
     if (input.signal.aborted) {
@@ -1049,7 +1095,7 @@ async function runIsolatedTasks(input: {
           task.command ?? null,
           input.storeRawOutput,
         );
-        taskRuns.push({
+        const skippedRun: TaskRun = {
           id: task.id,
           status: "skipped",
           command: persistedCommand.preview,
@@ -1060,10 +1106,13 @@ async function runIsolatedTasks(input: {
           outputArtifacts: {
             ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
           },
-        });
+        };
+        taskRuns.push(skippedRun);
+        reportTaskDone(input.reporter, skippedRun, { wave: taskWaves.get(task.id) });
       }
     }
     const completedIntegration = integration;
+    reportCleaning();
     try {
       await removeIsolatedWorktree({
         repoRoot: input.cwd,
@@ -1082,6 +1131,7 @@ async function runIsolatedTasks(input: {
         cleanupRemaining.push(tempRoot);
       }
     }
+    if (input.signal.aborted) input.reporter.emit({ type: "interrupted" });
     return {
       taskRuns,
       isolation: {
@@ -1103,6 +1153,7 @@ async function runIsolatedTasks(input: {
       },
     };
   } finally {
+    reportCleaning();
     if (integration !== null) {
       const cleanupIntegration = integration;
       try {
@@ -1162,6 +1213,54 @@ function isolationErrorMessage(error: WorktreeError): string {
 function ms(value: number): string {
   if (value < 1000) return `${value}ms`;
   return `${(value / 1000).toFixed(1)}s`;
+}
+
+function safeProgressText(value: string): string {
+  return truncateUtf8(redactSecrets(normalizeTerminalDetail(value)), OUTPUT_PREVIEW_BYTES);
+}
+
+function reportTaskDone(
+  reporter: ProgressReporter,
+  run: TaskRun,
+  options: { reason?: string; wave?: number; updated?: boolean } = {},
+): void {
+  const detail = options.reason ?? (run.stderr.length > 0
+    ? run.stderr
+    : run.isolation?.findings.at(-1)?.detail);
+  reporter.emit({
+    type: "task-done",
+    id: run.id,
+    status: run.status,
+    durationMs: run.durationMs,
+    ...(run.status !== "passed" && detail !== undefined
+      ? { reason: safeProgressText(detail) }
+      : {}),
+    ...(run.outputArtifacts.stderr?.path !== undefined
+      ? { logPath: safeProgressText(run.outputArtifacts.stderr.path) }
+      : {}),
+    ...(options.wave !== undefined ? { wave: options.wave } : {}),
+    ...(options.updated === true ? { updated: true } : {}),
+  });
+}
+
+function reportCheckDone(
+  reporter: ProgressReporter,
+  run: ValidationCheckRun,
+  options: { reason?: string; updated?: boolean } = {},
+): void {
+  const detail = safeProgressText(options.reason ?? run.stderr);
+  reporter.emit({
+    type: "check-done",
+    id: run.id,
+    status: run.status === "blocked" ? "failed" : run.status,
+    durationMs: run.durationMs,
+    ...(run.status === "skipped" && detail.length > 0 ? { skipReason: detail } : {}),
+    ...(run.status === "failed" && detail.length > 0 ? { reason: detail } : {}),
+    ...(run.outputArtifacts.stderr?.path !== undefined
+      ? { logPath: safeProgressText(run.outputArtifacts.stderr.path) }
+      : {}),
+    ...(options.updated === true ? { updated: true } : {}),
+  });
 }
 
 /** Maps one evidence-summary value to the shared pass/warn/fail/skip label vocabulary. */
@@ -1305,7 +1404,10 @@ async function assertValidationWorkingDirectory(repoRoot: string, cwd: string | 
   }
 }
 
-export async function runPlanCommand(options: RunPlanOptions): Promise<CommandResult> {
+async function runPlanWithReporter(
+  options: RunPlanOptions,
+  reporter: ProgressReporter,
+): Promise<CommandResult> {
   const cwd = findRepoRoot(process.cwd());
   if (cwd === null) {
     throw new CliError("NOT_A_GIT_REPO", "scopelock run must be executed inside a git repository");
@@ -1466,6 +1568,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           storeRawOutput,
           signal: coordinator.signal,
           coordinator,
+          reporter,
         });
       } catch (error) {
         if (error instanceof WorktreeError) {
@@ -1476,21 +1579,36 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       taskRuns.push(...isolated.taskRuns);
       isolation = isolated.isolation;
     } else {
-      for (const wave of waves) {
+      for (let waveIndex = 0; waveIndex < waves.length; waveIndex += 1) {
+        const wave = waves[waveIndex] ?? [];
         const runnable = wave
           .map((id) => byId.get(id))
           .filter((task): task is (typeof runTasks)[number] => task !== undefined);
+        reporter.emit({
+          type: "wave-start",
+          wave: waveIndex + 1,
+          totalWaves: waves.length,
+          taskIds: runnable.map((task) => task.id),
+        });
         taskRuns.push(
-          ...(await Promise.all(runnable.map((task) => runCommand(
-            cwd,
-            artifactDir,
-            task,
-            timeoutMs,
-            storeRawOutput,
-            coordinator,
-          )))),
+          ...(await Promise.all(runnable.map(async (task) => {
+            if (task.command !== undefined) reporter.emit({ type: "task-start", id: task.id });
+            const run = await runCommand(
+              cwd,
+              artifactDir,
+              task,
+              timeoutMs,
+              storeRawOutput,
+              coordinator,
+            );
+            reportTaskDone(reporter, run, { wave: waveIndex + 1 });
+            return run;
+          }))),
         );
-        if (coordinator.signal.aborted) break;
+        if (coordinator.signal.aborted) {
+          reporter.emit({ type: "interrupted" });
+          break;
+        }
       }
     }
     } finally {
@@ -1597,4 +1715,13 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     ),
     exitCode,
   };
+}
+
+export async function runPlanCommand(options: RunPlanOptions): Promise<CommandResult> {
+  const reporter = options.reporter ?? createNoopReporter();
+  try {
+    return await runPlanWithReporter(options, reporter);
+  } finally {
+    reporter.dispose();
+  }
 }

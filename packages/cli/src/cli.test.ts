@@ -9,8 +9,10 @@ import { delimiter, dirname, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
 import { findAgentExecutable, setupCommand } from "./commands/setup.js";
 import { packageManagerRunCommand } from "./commands/plan-prepare.js";
+import { runPlanCommand } from "./commands/run-plan.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
+import type { ProgressEvent, ProgressReporter } from "./progress/types.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -2543,6 +2545,23 @@ describe("plan prepare", () => {
 });
 
 describe("run", () => {
+  function recordingReporter(): {
+    events: ProgressEvent[];
+    disposeCount: () => number;
+    reporter: ProgressReporter;
+  } {
+    const events: ProgressEvent[] = [];
+    let disposed = 0;
+    return {
+      events,
+      disposeCount: () => disposed,
+      reporter: {
+        emit(event) { events.push(event); },
+        dispose() { disposed += 1; },
+      },
+    };
+  }
+
   async function writeContract(
     dir: string,
     file: string,
@@ -2593,6 +2612,27 @@ describe("run", () => {
       assert.equal(JSON.parse(noShellOptIn.stdout).error.code, "SHELL_COMMAND_NOT_ALLOWED");
       await assert.rejects(readFile(join(dir, "a.txt"), "utf8"));
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("disposes an injected reporter when run preflight throws", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      const recording = recordingReporter();
+      process.chdir(dir);
+      await assert.rejects(
+        runPlanCommand({ plan: "missing.json", reporter: recording.reporter }),
+        /missing\.json/,
+      );
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      process.chdir(previousCwd);
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -2753,6 +2793,7 @@ describe("run", () => {
       assert.equal(await readFile(join(dir, "b.txt"), "utf8"), "b");
 
       const body = JSON.parse(res.stdout);
+      assert.doesNotMatch(res.stdout, /\u001b|\[wave /);
       assert.equal(body.status, "ok");
       assert.equal(body.data.receiptPath, receiptPath);
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
@@ -2762,7 +2803,456 @@ describe("run", () => {
       assert.ok(receipt.taskRuns.every((task: { status: string }) => task.status === "passed"));
       assert.match(receipt.inputs.plan.sha256, /^[a-f0-9]{64}$/);
       assert.match(receipt.inputs.contracts.a.sha256, /^[a-f0-9]{64}$/);
+
+      const human = runCli(dir, [
+        "run",
+        "--yes",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        join(dir, "human-receipt.json"),
+        "--no-check-drift",
+      ]);
+      assert.equal(human.status, 0, human.stdout || human.stderr);
+      assert.match(human.stdout, /^\[wave 1\/1\] starting: a, b\n/);
+      assert.match(human.stdout, /\[wave 1\] a: running\n/);
+      assert.match(human.stdout, /\[wave 1\] b: running\n/);
+      assert.match(human.stdout, /\[wave 1\] [ab]: passed \([0-9.]+s\)\n/);
+      assert.match(human.stdout, /\nScopeLock flight run: run-demo Configured gates cleared\n/);
+      assert.doesNotMatch(human.stdout, /\u001b/);
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports concurrent direct-task lifecycle without serializing a wave", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeContract(dir, join(dir, "b.json"), "b", ["b.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "direct-progress",
+        tasks: [
+          {
+            id: "a",
+            contract: "a.json",
+            command: [
+              process.execPath,
+              "-e",
+              "setTimeout(()=>require('node:fs').writeFileSync('a.txt','a'),40)",
+            ],
+          },
+          {
+            id: "b",
+            contract: "b.json",
+            command: [
+              process.execPath,
+              "-e",
+              "setTimeout(()=>require('node:fs').writeFileSync('b.txt','b'),5)",
+            ],
+          },
+        ],
+      }));
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      assert.deepEqual(recording.events[0], {
+        type: "wave-start",
+        wave: 1,
+        totalWaves: 1,
+        taskIds: ["a", "b"],
+      });
+      const firstDone = recording.events.findIndex((event) => event.type === "task-done");
+      const startsBeforeDone = recording.events
+        .slice(0, firstDone)
+        .filter((event) => event.type === "task-start")
+        .map((event) => event.id)
+        .sort();
+      assert.deepEqual(startsBeforeDone, ["a", "b"]);
+      const done = recording.events
+        .filter((event) => event.type === "task-done")
+        .map((event) => [event.id, event.status])
+        .sort();
+      assert.deepEqual(done, [["a", "passed"], ["b", "passed"]]);
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not start a later direct wave before the previous wave finishes", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "writer.json"), "writer", ["shared.txt"]);
+      await writeContract(dir, join(dir, "reader.json"), "reader", ["observed.txt"], ["shared.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "direct-progress-waves",
+        tasks: [
+          {
+            id: "writer",
+            contract: "writer.json",
+            command: [process.execPath, "-e", "require('node:fs').writeFileSync('shared.txt','ready')"],
+          },
+          {
+            id: "reader",
+            contract: "reader.json",
+            command: [
+              process.execPath,
+              "-e",
+              "const f=require('node:fs');f.writeFileSync('observed.txt',f.readFileSync('shared.txt','utf8'))",
+            ],
+          },
+        ],
+      }));
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      const writerDone = recording.events.findIndex(
+        (event) => event.type === "task-done" && event.id === "writer",
+      );
+      const waveTwo = recording.events.findIndex(
+        (event) => event.type === "wave-start" && event.wave === 2,
+      );
+      const readerStart = recording.events.findIndex(
+        (event) => event.type === "task-start" && event.id === "reader",
+      );
+      assert.ok(writerDone >= 0 && waveTwo > writerDone && readerStart > waveTwo);
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports isolated task, validation, promotion, and cleanup lifecycle in order", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolated-progress",
+        execution: isolatedChecksExecution([
+          { id: "unit", command: [process.execPath, "-e", "process.exit(0)"] },
+          { id: "analyze", command: [process.execPath, "-e", "process.exit(0)"], required: false },
+        ]),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "isolated progress fixture");
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      const result = await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        isolate: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      assert.equal(result.exitCode, 0);
+      assert.deepEqual(
+        recording.events.map((event) =>
+          event.type === "phase" ? `phase:${event.name}`
+          : "id" in event ? `${event.type}:${event.id}`
+          : event.type),
+        [
+          "wave-start",
+          "task-start:a",
+          "task-done:a",
+          "phase:validating",
+          "check-start:unit",
+          "check-done:unit",
+          "check-start:analyze",
+          "check-done:analyze",
+          "phase:promoting",
+          "phase:cleaning-up",
+        ],
+      );
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a failed required check and later checks as skipped without starting them", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolated-progress-failure",
+        execution: isolatedChecksExecution([
+          {
+            id: "unit",
+            command: [process.execPath, "-e", "process.stderr.write('safe failure');process.exit(7)"],
+          },
+          { id: "analyze", command: [process.execPath, "-e", "process.exit(0)"], required: false },
+        ]),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "isolated progress failure fixture");
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      const result = await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        isolate: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      assert.equal(result.exitCode, 1);
+      const unitDone = recording.events.find(
+        (event) => event.type === "check-done" && event.id === "unit",
+      );
+      const analyzeStart = recording.events.find(
+        (event) => event.type === "check-start" && event.id === "analyze",
+      );
+      const analyzeDone = recording.events.find(
+        (event) => event.type === "check-done" && event.id === "analyze",
+      );
+      assert.equal(unitDone?.type, "check-done");
+      if (unitDone?.type === "check-done") {
+        assert.equal(unitDone.status, "failed");
+        assert.ok(unitDone.durationMs >= 0);
+        assert.equal(unitDone.reason, "safe failure");
+      }
+      assert.equal(analyzeStart, undefined);
+      assert.equal(analyzeDone?.type, "check-done");
+      if (analyzeDone?.type === "check-done") {
+        assert.equal(analyzeDone.status, "skipped");
+        assert.match(analyzeDone.skipReason ?? "", /earlier required check failed/);
+      }
+      assert.ok(recording.events.some(
+        (event) => event.type === "phase" && event.name === "promoting",
+      ));
+      assert.ok(recording.events.some(
+        (event) => event.type === "phase" && event.name === "cleaning-up",
+      ));
+      const taskUpdates = recording.events.filter(
+        (event) => event.type === "task-done" && event.id === "a",
+      );
+      const finalTaskUpdate = taskUpdates.at(-1);
+      assert.equal(finalTaskUpdate?.type, "task-done");
+      if (finalTaskUpdate?.type === "task-done") {
+        assert.equal(finalTaskUpdate.status, "blocked");
+        assert.equal(finalTaskUpdate.updated, true);
+        assert.match(finalTaskUpdate.reason ?? "", /validation failed/);
+      }
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a scope-rejected isolated task as blocked rather than passed", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      const fakeSecret = `sk-${"s".repeat(24)}`;
+      const secretWithControl = `sk-${"s".repeat(12)}\u0007${"s".repeat(12)}`;
+      await writeContract(dir, join(dir, "a.json"), "a", ["allowed.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolated-progress-scope",
+        execution: isolatedExecution(),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          command: [
+            process.execPath,
+            "-e",
+            `require('node:fs').writeFileSync(${JSON.stringify(secretWithControl)},'blocked')`,
+          ],
+        }],
+      }));
+      commitFixture(dir, "isolated progress scope fixture");
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        isolate: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      const taskDone = recording.events.find(
+        (event) => event.type === "task-done" && event.id === "a",
+      );
+      assert.equal(taskDone?.type, "task-done");
+      if (taskDone?.type === "task-done") {
+        assert.equal(taskDone.status, "blocked");
+        assert.match(taskDone.reason ?? "", /outside/);
+        assert.doesNotMatch(taskDone.reason ?? "", /\u0007/);
+        assert.doesNotMatch(taskDone.reason ?? "", new RegExp(fakeSecret));
+        assert.match(taskDone.reason ?? "", /REDACTED/);
+      }
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("corrects validation progress when restoring hidden control state fails", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolated-progress-restore-failure",
+        execution: isolatedChecksExecution([{
+          id: "unit",
+          command: [
+            process.execPath,
+            "-e",
+            "const f=require('node:fs');f.mkdirSync('.scopelock');"
+            + "f.writeFileSync('.scopelock/blocker','x');process.exit(0)",
+          ],
+        }]),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "isolated progress restore failure fixture");
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      const result = await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        isolate: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      assert.equal(result.exitCode, 1);
+      const checkUpdates = recording.events.filter(
+        (event) => event.type === "check-done" && event.id === "unit",
+      );
+      const finalCheckUpdate = checkUpdates.at(-1);
+      assert.equal(finalCheckUpdate?.type, "check-done");
+      if (finalCheckUpdate?.type === "check-done") {
+        assert.equal(finalCheckUpdate.status, "failed");
+        assert.equal(finalCheckUpdate.updated, true);
+        assert.match(finalCheckUpdate.reason ?? "", /failed to restore validation workspace/);
+      }
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports no-candidate validation checks as skipped without a running event", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "isolated-progress-no-changes",
+        execution: isolatedExecution(),
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          command: [process.execPath, "-e", "process.exit(0)"],
+        }],
+      }));
+      commitFixture(dir, "isolated progress no changes fixture");
+      const recording = recordingReporter();
+      process.chdir(dir);
+
+      const result = await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        isolate: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+        reporter: recording.reporter,
+      });
+
+      assert.equal(result.exitCode, 0);
+      assert.equal(recording.events.some((event) => event.type === "check-start"), false);
+      const checkDone = recording.events.find((event) => event.type === "check-done");
+      assert.equal(checkDone?.type, "check-done");
+      if (checkDone?.type === "check-done") {
+        assert.equal(checkDone.status, "skipped");
+        assert.match(checkDone.skipReason ?? "", /no candidate changes/);
+      }
+    } finally {
+      process.chdir(previousCwd);
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -3894,8 +4384,10 @@ describe("run", () => {
       t.skip("git init failed");
       return;
     }
+    const readyPath = join(tmpdir(), `scopelock-signal-${process.pid}-${Date.now()}.ready`);
     try {
       await writeContract(dir, join(dir, "slow.json"), "slow", ["result.txt"]);
+      await writeContract(dir, join(dir, "later.json"), "later", ["later.txt"], ["result.txt"]);
       await writeFile(
         join(dir, "plan.json"),
         JSON.stringify({
@@ -3908,8 +4400,14 @@ describe("run", () => {
             command: [
               process.execPath,
               "-e",
-              "setTimeout(()=>require('node:fs').writeFileSync('result.txt','late'),10000)",
+              "const f=require('node:fs');f.writeFileSync(process.argv[1],'ready');"
+              + "setTimeout(()=>f.writeFileSync('result.txt','late'),10000)",
+              readyPath,
             ],
+          }, {
+            id: "later",
+            contract: "later.json",
+            command: [process.execPath, "-e", "require('node:fs').writeFileSync('later.txt','late')"],
           }],
         }),
       );
@@ -3917,7 +4415,7 @@ describe("run", () => {
       const receiptPath = join(dir, ".scopelock", "reports", "signal.json");
       const child = spawn(
         process.execPath,
-        [CLI, "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift"],
+        [CLI, "run", "--yes", "--isolate", "--plan", "plan.json", "--receipt", receiptPath, "--no-check-drift"],
         { cwd: dir, stdio: ["ignore", "pipe", "pipe"] },
       );
       let stdout = "";
@@ -3928,14 +4426,17 @@ describe("run", () => {
       const deadline = Date.now() + 5_000;
       let registered = false;
       while (Date.now() < deadline) {
-        const listed = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
-        if (listed.stdout.includes("scopelock-isolate-")) {
-          registered = true;
-          break;
+        try {
+          if ((await readFile(readyPath, "utf8")) === "ready") {
+            registered = true;
+            break;
+          }
+        } catch {
+          // Wait until the task process is active.
         }
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
-      assert.equal(registered, true, "isolated worktree was not created before timeout");
+      assert.equal(registered, true, "isolated task was not active before timeout");
       child.kill("SIGTERM");
       const exitCode = await new Promise<number | null>((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -3949,14 +4450,21 @@ describe("run", () => {
       });
 
       assert.equal(exitCode, 1, stdout || stderr);
+      assert.match(stdout, /^\[wave 1\/2\] starting: slow\n\[wave 1\] slow: running\n/);
+      assert.match(stdout, /\[wave 2\] later: skipped \(0\.0s\)/);
+      assert.equal(stdout.match(/^interrupted$/gm)?.length, 1);
+      assert.match(stdout, /\[phase\] cleaning-up\ninterrupted\n/);
+      assert.doesNotMatch(stdout, /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]|\u001b/);
       await assert.rejects(readFile(join(dir, "result.txt"), "utf8"));
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.taskRuns.find((task: { id: string }) => task.id === "later").status, "skipped");
       assert.equal(receipt.isolation.interrupted, true);
       assert.equal(receipt.isolation.finalPromotion, "blocked");
       assert.equal(receipt.isolation.cleanup.status, "ok");
       const worktrees = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: dir, encoding: "utf8" });
       assert.doesNotMatch(worktrees.stdout, /scopelock-isolate-/);
     } finally {
+      await rm(readyPath, { force: true });
       await rm(dir, { recursive: true, force: true });
     }
   });
