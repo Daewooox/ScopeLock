@@ -1618,6 +1618,42 @@ describe("plan fill-commands", () => {
     }
   });
 
+  it("composes a restricted-runner prompt, never asking the agent for check_drift or MCP", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, "a");
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "restricted-prompt",
+          tasks: [{ id: "a", contract: ".scopelock/contracts/a.json" }],
+        }),
+      );
+      const result = runCli(dir, [
+        "--json",
+        "plan",
+        "fill-commands",
+        "plan.json",
+        "--target",
+        "codex",
+      ]);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      const body = JSON.parse(result.stdout);
+      const prompt = body.data.plan.tasks[0].command.at(-1);
+      assert.doesNotMatch(prompt, /check_drift/);
+      assert.doesNotMatch(prompt, /MCP/);
+      assert.doesNotMatch(prompt, /run the required tests/i);
+      assert.match(prompt, /ScopeLock runner/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("fills a live-verified restricted Claude invocation", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

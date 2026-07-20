@@ -55,6 +55,43 @@ describe("prompt rendering", () => {
       assert.match(prompt, /stop to ask/);
     });
   }
+
+  it("defaults to interactive capability wording when context is omitted (public compatibility)", () => {
+    const prompt = renderAgentPrompt(contract, "codex");
+
+    // Conditional, not a blanket promise: tests run "if available", and the
+    // agent must hand exact commands to the user when execution is not.
+    assert.match(prompt, /if (your harness (can|provides)|available)/i);
+    assert.match(prompt, /give the user the exact command/i);
+    // check_drift is only called if the ScopeLock MCP tool is present; the
+    // CLI fallback must be named explicitly for when it isn't.
+    assert.match(prompt, /check_drift/);
+    assert.match(prompt, /scopelock check-drift/i);
+    assert.match(prompt, /stop to ask/);
+  });
+
+  it("restricted-runner context never asks the agent to search for MCP or claim test execution", () => {
+    const prompt = renderAgentPrompt(contract, "codex", {
+      execution: "restricted-runner",
+      finalDriftOwner: "runner",
+      validationOwner: "runner",
+    });
+
+    // Must not instruct the agent to call check_drift or hunt for MCP.
+    assert.doesNotMatch(prompt, /check_drift/);
+    assert.doesNotMatch(prompt, /MCP/);
+    // Must not claim the agent ran or will run tests itself.
+    assert.doesNotMatch(prompt, /\bI (ran|executed|will run)\b/i);
+    assert.doesNotMatch(prompt, /run the required tests/i);
+    // Must state the runner owns authoritative validation/drift after the
+    // command finishes.
+    assert.match(prompt, /ScopeLock runner/);
+    assert.match(prompt, /(after|once) this command finishes/i);
+    assert.match(prompt, /(validation|scope|drift)/i);
+    // Still requires approved scope discipline and writing/updating tests.
+    assert.match(prompt, /approved scope/i);
+    assert.match(prompt, /(write|update).*regression test/i);
+  });
 });
 
 describe("agent invocation", () => {
