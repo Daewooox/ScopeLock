@@ -175,6 +175,7 @@ describe("ScopeLock schemas", () => {
       execution: {
         isolation: "required",
         validation: {
+          cwd: "apps/mobile",
           setup: ["npm", "run", "prepare"],
           command: ["npm", "run", "check"],
         },
@@ -182,6 +183,7 @@ describe("ScopeLock schemas", () => {
       tasks: [{ id: "task", contract: "task.json" }],
     });
 
+    assert.equal(parsed.execution?.validation?.cwd, "apps/mobile");
     assert.deepEqual(parsed.execution?.validation?.setup, ["npm", "run", "prepare"]);
     assert.deepEqual(parsed.execution?.validation?.command, ["npm", "run", "check"]);
     assert.equal(schedulePlanSchema.safeParse({
@@ -193,6 +195,26 @@ describe("ScopeLock schemas", () => {
       },
       tasks: [{ id: "task", contract: "task.json" }],
     }).success, false);
+  });
+
+  it("accepts only portable repository-relative validation working directories", () => {
+    for (const cwd of [".", "app", "packages/mobile app"]) {
+      assert.equal(schedulePlanSchema.safeParse({
+        schemaVersion: 1,
+        planId: `valid-${cwd}`,
+        execution: { validation: { cwd, command: ["flutter", "test"] } },
+        tasks: [{ id: "task", contract: "task.json" }],
+      }).success, true, cwd);
+    }
+
+    for (const cwd of ["", "/tmp", "C:/tmp", "C:\\tmp", "../outside", "app/../outside", "./app", "app//test", "app\\test", "app:", "app\0test"]) {
+      assert.equal(schedulePlanSchema.safeParse({
+        schemaVersion: 1,
+        planId: "invalid-cwd",
+        execution: { validation: { cwd, command: ["flutter", "test"] } },
+        tasks: [{ id: "task", contract: "task.json" }],
+      }).success, false, cwd);
+    }
   });
 });
 

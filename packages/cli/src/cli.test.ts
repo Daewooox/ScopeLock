@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { copyFile, mkdtemp, rm, mkdir, readFile, realpath, writeFile, chmod } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, mkdir, readFile, realpath, symlink, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
@@ -1889,6 +1889,7 @@ describe("plan prepare", () => {
       const prepared = runCli(dir, [
         "--json", "plan", "prepare", "plan.json",
         "--target", "codex", "--out", "ready-plan.json",
+        "--validation-cwd", ".",
         "--validation-command", process.execPath,
       ], env);
       assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
@@ -1901,6 +1902,7 @@ describe("plan prepare", () => {
       assert.deepEqual(ready.tasks[0].command.slice(2, 4), ["--sandbox", "workspace-write"]);
       assert.equal(ready.tasks[0].expectsChanges, true);
       assert.equal(ready.execution.isolation, "required");
+      assert.equal(ready.execution.validation.cwd, ".");
       assert.deepEqual(ready.execution.validation.command, [process.execPath]);
       assert.equal(Array.isArray(ready.tasks[0].command), true);
 
@@ -1949,6 +1951,136 @@ describe("plan prepare", () => {
       assert.deepEqual(ready.execution.validation.command, [process.execPath, "--version"]);
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("runs isolated validation from a reviewed repository subdirectory", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "app"), { recursive: true });
+      await writeFile(join(dir, ".gitignore"), "app/setup-ok\n");
+      await writeFile(join(dir, "app", "validate.cjs"), [
+        "const { basename } = require('node:path');",
+        "const { readFileSync } = require('node:fs');",
+        "process.exit(basename(process.cwd()) === 'app' && readFileSync('setup-ok', 'utf8') === 'yes' && readFileSync('../a.txt', 'utf8') === 'candidate' ? 0 : 9);",
+      ].join("\n"));
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-cwd",
+        execution: {
+          isolation: "required",
+          validation: {
+            cwd: "app",
+            setup: [process.execPath, "-e", "require('node:fs').writeFileSync('setup-ok','yes')"],
+            command: [process.execPath, "validate.cjs"],
+          },
+        },
+        tasks: [{
+          id: "a",
+          contract,
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt','candidate')"],
+        }],
+      }));
+      commitFixture(dir, "validation cwd fixture");
+      const receiptPath = join(dir, ".scopelock", "reports", "validation-cwd.json");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json",
+        "--receipt", receiptPath, "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      assert.equal(await readFile(join(dir, "a.txt"), "utf8"), "candidate");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.isolation.validationSetup.status, "passed");
+      assert.equal(receipt.isolation.validationSetup.cwd, "app");
+      assert.equal(receipt.isolation.validation.status, "passed");
+      assert.equal(receipt.isolation.validation.cwd, "app");
+      assert.equal(receipt.isolation.finalPromotion, "applied");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unavailable validation working directory before the agent starts", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["agent-ran.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "missing-validation-cwd",
+        execution: {
+          isolation: "required",
+          validation: { cwd: "missing", command: [process.execPath, "-e", "process.exit(0)"] },
+        },
+        tasks: [{
+          id: "a",
+          contract,
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('agent-ran.txt','yes')"],
+        }],
+      }));
+      commitFixture(dir, "missing validation cwd fixture");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.match(result.stdout || result.stderr, /INVALID_VALIDATION_CWD/);
+      assert.equal(existsSync(join(dir, "agent-ran.txt")), false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a validation working directory symlink that escapes the repository", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const outside = await mkdtemp(join(tmpdir(), "scopelock-validation-outside-"));
+    try {
+      await writeFile(join(dir, ".gitignore"), "escape\n");
+      const contract = await writeContract(dir, "a", ["agent-ran.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "escaped-validation-cwd",
+        execution: {
+          isolation: "required",
+          validation: { cwd: "escape", command: [process.execPath, "-e", "process.exit(0)"] },
+        },
+        tasks: [{
+          id: "a",
+          contract,
+          expectsChanges: true,
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('agent-ran.txt','yes')"],
+        }],
+      }));
+      commitFixture(dir, "escaped validation cwd fixture");
+      await symlink(outside, join(dir, "escape"), process.platform === "win32" ? "junction" : "dir");
+
+      const result = runCli(dir, [
+        "--json", "run", "--yes", "--isolate", "--plan", "plan.json", "--no-check-drift",
+      ]);
+
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.match(result.stdout || result.stderr, /INVALID_VALIDATION_CWD/);
+      assert.equal(existsSync(join(dir, "agent-ran.txt")), false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
     }
   });
 

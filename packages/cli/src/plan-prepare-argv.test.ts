@@ -9,12 +9,15 @@ describe("extractPlanPrepareValidationArgv", () => {
       "--target", "claude",
       "--out", "ready.json",
       "--validation-setup-command", "uv", "sync", "--frozen", "--group", "tests",
+      "--validation-cwd", "app",
       "--validation-command", "uv", "run", "--frozen", "pytest",
     ];
     const result = extractPlanPrepareValidationArgv(argv);
     assert.deepEqual(result.validationSetupCommand, ["uv", "sync", "--frozen", "--group", "tests"]);
     assert.deepEqual(result.validationCommand, ["uv", "run", "--frozen", "pytest"]);
-    assert.deepEqual(result.rest, ["plan.json", "--target", "claude", "--out", "ready.json"]);
+    assert.deepEqual(result.rest, [
+      "plan.json", "--target", "claude", "--out", "ready.json", "--validation-cwd", "app",
+    ]);
   });
 
   it("returns undefined for a flag that is not present", () => {

@@ -263,6 +263,28 @@ combined candidate. A failure or timeout blocks the whole promotion. The user
 repository must be clean and remain at the same `HEAD`; otherwise dispatch or
 final promotion fails closed.
 
+For repositories whose application lives below the repository root, bind one
+reviewable working directory to both validation phases:
+
+```json
+{
+  "execution": {
+    "isolation": "required",
+    "validation": {
+      "cwd": "app",
+      "setup": ["flutter", "pub", "get"],
+      "command": ["flutter", "test"]
+    }
+  }
+}
+```
+
+The equivalent preparation flag is `--validation-cwd app`. The value must be
+`.` or a portable repository-relative slash path. Absolute paths, traversal,
+Windows drive paths, backslashes, missing directories and symlinks resolving
+outside the repository are rejected before any agent starts. Receipts record
+the relative value, not the temporary candidate-worktree path.
+
 For Node repositories with an existing checkout-local `node_modules`, final
 validation temporarily exposes that same toolchain inside the candidate
 worktree and prepends its `.bin` directory to `PATH`. Agents never see this

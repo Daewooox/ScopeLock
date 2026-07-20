@@ -333,6 +333,25 @@ original plan is not changed, and `run` still executes only the commands visible
 in the ready file. Use the lower-level `plan compose` command when preserving
 selected manual command overrides is intentional.
 
+When the project under test is in a repository subdirectory, keep the commands
+shell-free and bind their working directory explicitly:
+
+```bash
+scopelock plan prepare plan.json \
+  --target claude \
+  --out ready-plan.json \
+  --validation-cwd app \
+  --validation-setup-command flutter pub get \
+  --validation-command flutter test
+
+scopelock run ready-plan.json --yes --isolate --receipt receipt.json
+```
+
+The reviewed `execution.validation.cwd` applies to setup and validation only;
+agent task commands still start at their isolated repository root. ScopeLock
+checks the source path before dispatch and runs the two validation phases from
+the corresponding directory in the aggregate candidate worktree.
+
 For a manual single-agent handoff, `contract export --target <id>` prints the
 active contract as a prompt and `contract inject --target <id>` writes it to
 the target instruction file. Multi-task plans should normally use

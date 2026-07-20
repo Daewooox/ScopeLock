@@ -352,6 +352,7 @@ plan
   .option("--manifest <path>", "check rules and skills from an agent workspace manifest")
   .option("--validation-command <argv...>", "shell-free repository validation command")
   .option("--validation-setup-command <argv...>", "shell-free candidate setup command")
+  .option("--validation-cwd <path>", "repository-relative validation working directory")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
   .option("--json", "print machine-readable JSON")
   .action(
@@ -364,6 +365,7 @@ plan
         readHazards?: boolean;
         validationCommand?: string[];
         validationSetupCommand?: string[];
+        validationCwd?: string;
       },
       command: Command,
     ) =>
