@@ -375,7 +375,7 @@ plan
         () =>
           planPrepareCommand(planPath, {
             ...options,
-            // Commander never sees these two flags' own tokens for `plan
+            // Commander never sees these flags' own tokens for `plan
             // prepare` (extracted from argv before parseAsync below), so its
             // own parsed values are always undefined here; use the
             // pre-extracted ones instead. See plan-prepare-argv.ts.
@@ -383,6 +383,8 @@ plan
               planPrepareValidationArgv?.validationCommand ?? options.validationCommand,
             validationSetupCommand:
               planPrepareValidationArgv?.validationSetupCommand ?? options.validationSetupCommand,
+            validationChecks: planPrepareValidationArgv?.validationChecks,
+            acceptanceChecks: planPrepareValidationArgv?.acceptanceChecks,
           }),
         jsonOf(command),
       ),

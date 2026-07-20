@@ -4,12 +4,14 @@ import {
   HARNESSES,
   agentIdSchema,
   findRepoRoot,
+  formatZodError,
   probeHookConfig,
   planWorkingDirectorySchema,
   schedulePlanSchema,
   writeJsonAtomic,
   type AgentEnvironmentPreflightReport,
   type AgentId,
+  type PlanValidation,
   type SchedulePlan,
   type ScopeConflict,
 } from "@scopelock/core";
@@ -28,7 +30,91 @@ type PlanPrepareOptions = {
   validationCommand?: string[];
   validationSetupCommand?: string[];
   validationCwd?: string;
+  validationChecks?: Array<{ id: string; command: string[] }>;
+  acceptanceChecks?: string[];
 };
+
+type ValidationCheckInput = {
+  id: string;
+  command: string[];
+  cwd?: string;
+  required: boolean;
+};
+
+type ComposedValidation = {
+  checks: ValidationCheckInput[];
+  setup?: string[];
+} | null;
+
+/**
+ * The smallest possible precedence chain for composing an ordered validation
+ * checks array from every source `plan prepare` can see. Deliberately not a
+ * framework plugin registry - just an explicit, readable if/else chain that
+ * mirrors the plan's stated precedence:
+ *
+ *   1. Explicit repeated `--validation-check <id> <argv...>` flags win.
+ *   2. Legacy `--validation-command` converts to one modern check.
+ *   3. An existing plan's own validation (checks or legacy command) wins
+ *      over auto-detection.
+ *   4. Auto-detection creates one check with a stable id.
+ */
+function composeValidationChecks(input: {
+  explicitChecks?: Array<{ id: string; command: string[] }>;
+  legacyCommand?: string[];
+  legacySetupCommand?: string[];
+  existing?: PlanValidation;
+  detected: { id: string; command: string[]; setup?: string[] } | null;
+}): ComposedValidation {
+  const setup = input.legacySetupCommand?.length
+    ? input.legacySetupCommand
+    : input.existing?.setup ?? input.detected?.setup;
+
+  if (input.explicitChecks?.length) {
+    return {
+      setup,
+      checks: input.explicitChecks.map((check) => ({
+        id: check.id,
+        command: check.command,
+        required: true,
+      })),
+    };
+  }
+
+  if (input.legacyCommand?.length) {
+    return {
+      setup,
+      checks: [{ id: "repository-validation", command: input.legacyCommand, required: true }],
+    };
+  }
+
+  if (input.existing?.checks) {
+    return {
+      setup,
+      checks: input.existing.checks.map((check) => ({
+        id: check.id,
+        command: check.command,
+        cwd: check.cwd,
+        required: check.required,
+      })),
+    };
+  }
+
+  if (input.existing?.command) {
+    return {
+      setup,
+      checks: [{ id: "repository-validation", command: input.existing.command, required: true }],
+    };
+  }
+
+  if (input.detected) {
+    return {
+      setup,
+      checks: [{ id: input.detected.id, command: input.detected.command, required: true }],
+    };
+  }
+
+  return null;
+}
 
 type ScheduleData = {
   planId: string;
@@ -79,6 +165,7 @@ export async function packageManagerRunCommand(
 }
 
 async function detectValidationProfile(root: string): Promise<{
+  id: string;
   setup?: string[];
   command: string[];
 } | null> {
@@ -110,6 +197,7 @@ async function detectValidationProfile(root: string): Promise<{
               : "npm";
         const command = await packageManagerRunCommand(manager, script);
         return {
+          id: script === "check" ? "npm-check" : "npm-test",
           ...(typeof values.prepare === "string"
             ? { setup: await packageManagerRunCommand(manager, "prepare") }
             : {}),
@@ -118,9 +206,9 @@ async function detectValidationProfile(root: string): Promise<{
       }
     }
   }
-  if (await exists(join(root, "Package.swift"))) return { command: ["swift", "test"] };
-  if (await exists(join(root, "Cargo.toml"))) return { command: ["cargo", "test"] };
-  if (await exists(join(root, "go.mod"))) return { command: ["go", "test", "./..."] };
+  if (await exists(join(root, "Package.swift"))) return { id: "swift-test", command: ["swift", "test"] };
+  if (await exists(join(root, "Cargo.toml"))) return { id: "cargo-test", command: ["cargo", "test"] };
+  if (await exists(join(root, "go.mod"))) return { id: "go-test", command: ["go", "test", "./..."] };
   return null;
 }
 
@@ -241,13 +329,14 @@ export async function planPrepareCommand(
     ? root
     : resolve(root, validationCwd);
   const detectedValidation = await detectValidationProfile(validationRoot);
-  const validationCommand = options.validationCommand?.length
-    ? options.validationCommand
-    : composition.plan.execution?.validation?.command ?? detectedValidation?.command ?? null;
-  const validationSetup = options.validationSetupCommand?.length
-    ? options.validationSetupCommand
-    : composition.plan.execution?.validation?.setup ?? detectedValidation?.setup;
-  if (validationCommand === null || validationCommand.length === 0) {
+  const composedValidation = composeValidationChecks({
+    explicitChecks: options.validationChecks,
+    legacyCommand: options.validationCommand,
+    legacySetupCommand: options.validationSetupCommand,
+    existing: composition.plan.execution?.validation,
+    detected: detectedValidation,
+  });
+  if (composedValidation === null) {
     checks.push("Repository validation  not detected");
     return result(
       { ...base, preflight, composition, outputPath: null },
@@ -256,23 +345,40 @@ export async function planPrepareCommand(
       1,
     );
   }
-  const readyPlan = schedulePlanSchema.parse({
-    ...composition.plan,
-    execution: {
-      ...composition.plan.execution,
-      isolation: "required",
-      validation: {
-        ...(validationCwd ? { cwd: validationCwd } : {}),
-        ...(validationSetup ? { setup: validationSetup } : {}),
-        command: validationCommand,
+  const acceptanceCheckIds = options.acceptanceChecks?.length
+    ? options.acceptanceChecks
+    : composition.plan.execution?.validation?.acceptance?.checkIds ?? [];
+
+  let readyPlan: SchedulePlan;
+  try {
+    readyPlan = schedulePlanSchema.parse({
+      ...composition.plan,
+      execution: {
+        ...composition.plan.execution,
+        isolation: "required",
+        validation: {
+          ...(validationCwd ? { cwd: validationCwd } : {}),
+          ...(composedValidation.setup ? { setup: composedValidation.setup } : {}),
+          checks: composedValidation.checks,
+          ...(acceptanceCheckIds.length > 0 ? { acceptance: { checkIds: acceptanceCheckIds } } : {}),
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    const message = formatZodError(error);
+    if (message === null) throw error;
+    throw new CliError("INVALID_VALIDATION_PROFILE", message);
+  }
   await writeJsonAtomic(outputPath, readyPlan);
   checks.push(`${readyPlan.tasks.length} shell-free agent command${readyPlan.tasks.length === 1 ? "" : "s"} composed`);
-  if (validationSetup) checks.push(`Validation setup  ${validationSetup.join(" ")}`);
+  if (composedValidation.setup) checks.push(`Validation setup  ${composedValidation.setup.join(" ")}`);
   if (validationCwd) checks.push(`Validation cwd  ${validationCwd}`);
-  checks.push(`Validation  ${validationCommand.join(" ")}`);
+  for (const check of composedValidation.checks) {
+    checks.push(
+      `Validation check ${check.id}  required=${check.required}` +
+        `${check.cwd ? ` cwd=${check.cwd}` : ""}  ${check.command.join(" ")}`,
+    );
+  }
   return result(
     { ...base, preflight, plan: readyPlan, outputPath },
     `Ready plan written  ${outputPath}\nNo agent was started`,
