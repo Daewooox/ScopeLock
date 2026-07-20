@@ -15,7 +15,7 @@
 - `renderStatusTable`, the reporters, and the factory are pure additions — nothing in this plan modifies any existing exported function's signature or behavior, and no existing test may change.
 - Reporter selection: `options.json === true` → no-op; `stream.isTTY === true && process.env.CI !== "true"` → live panel; otherwise → line reporter. `NO_COLOR` is not part of this selection — it only affects whether `color()` (existing helper) emits ANSI color codes when either reporter renders text.
 - All new test files follow this project's existing convention exactly: `describe`/`it` from `node:test`, `assert` from `node:assert/strict`, one `.test.ts` file per source file, colocated in the same directory.
-- Node's test runner discovers test files recursively from a directory argument by default; this plan changes `packages/cli/package.json`'s `test` script from `node --test dist/*.test.js` (flat glob — would miss files under `dist/progress/`) to `node --test dist` (recursive) as part of Task 1.
+- This plan changes `packages/cli/package.json`'s `test` script from `node --test dist/*.test.js` (flat glob — would miss files under `dist/progress/`) to the quoted recursive glob `node --test 'dist/**/*.test.js'` as part of Task 1. (A bare directory argument, `node --test dist`, does not work on this project's Node version — verified during Task 1 — it resolves the directory as the package's entry module instead of discovering tests recursively.)
 
 ---
 
@@ -78,10 +78,10 @@ a command-file edit, stop — that would mean the task drifted into Phase 2
 Open `packages/cli/package.json` and change the `test` script:
 
 ```json
-"test": "node --test dist"
+"test": "node --test 'dist/**/*.test.js'"
 ```
 
-(Was `"node --test dist/*.test.js"` — a flat glob that only matches top-level files. Passing a directory makes Node's built-in test runner discover `**/*.test.js` recursively, which this plan needs since `progress/` is a new subdirectory.)
+(Was `"node --test dist/*.test.js"` — a flat glob that only matches top-level files, would miss anything under `dist/progress/`. Passing a bare directory (`node --test dist`) does NOT work on this project's Node version — Node v26 resolves a bare directory argument as the package's own entry module and executes it, it does not switch into recursive test-discovery mode. The quoted recursive glob is the correct fix; verified locally: `node --test 'dist/**/*.test.js'` finds files under `dist/progress/` and passes, `node --test dist` does not run tests at all.)
 
 - [ ] **Step 2: Verify the existing suite still runs under the new script**
 

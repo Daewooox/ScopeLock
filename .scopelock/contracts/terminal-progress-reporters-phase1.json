@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "terminal-progress-reporters-phase1",
+  "task": "Add shared progress-reporting library (types, no-op/line/live-panel reporters, factory, failure-first status table) - no wiring into any command yet",
+  "createdAt": "2026-07-20T16:27:06.056Z",
+  "baseline": {
+    "headSha": "9d599d9954eb4e534cc137c14a3e3f5ca04dae50",
+    "branch": "feat/terminal-progress-reporters",
+    "capturedAt": "2026-07-20T16:28:43.617Z"
+  },
+  "targetAgents": [
+    "claude"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/package.json",
+      "packages/cli/src/progress/types.ts",
+      "packages/cli/src/progress/noop-reporter.ts",
+      "packages/cli/src/progress/noop-reporter.test.ts",
+      "packages/cli/src/progress/line-reporter.ts",
+      "packages/cli/src/progress/line-reporter.test.ts",
+      "packages/cli/src/progress/live-panel-reporter.ts",
+      "packages/cli/src/progress/live-panel-reporter.test.ts",
+      "packages/cli/src/progress/create-reporter.ts",
+      "packages/cli/src/progress/create-reporter.test.ts",
+      "packages/cli/src/ui.ts",
+      "packages/cli/src/ui.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/commands/**",
+      "packages/core/**",
+      "packages/mcp/**",
+      ".github/workflows/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
