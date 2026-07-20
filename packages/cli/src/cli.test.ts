@@ -2134,6 +2134,122 @@ describe("plan prepare", () => {
     }
   });
 
+  it("detects an npm test script with a stable npm-test id when no check script exists", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-detection-npm-test",
+        tasks: [{ id: "a", contract }],
+      }));
+      await writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { test: "node --test" } }));
+      const env = await fakeCodexEnv(dir);
+      const prepared = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ], env);
+      assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
+      const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
+      assert.equal(ready.execution.validation.checks.length, 1);
+      assert.equal(ready.execution.validation.checks[0].id, "npm-test");
+      assert.deepEqual(ready.execution.validation.checks[0].command, await packageManagerRunCommand("npm", "test"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects Package.swift with a stable swift-test id", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-detection-swift-test",
+        tasks: [{ id: "a", contract }],
+      }));
+      await writeFile(join(dir, "Package.swift"), "");
+      const env = await fakeCodexEnv(dir);
+      const prepared = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ], env);
+      assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
+      const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
+      assert.equal(ready.execution.validation.checks.length, 1);
+      assert.equal(ready.execution.validation.checks[0].id, "swift-test");
+      assert.deepEqual(ready.execution.validation.checks[0].command, ["swift", "test"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects Cargo.toml with a stable cargo-test id", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-detection-cargo-test",
+        tasks: [{ id: "a", contract }],
+      }));
+      await writeFile(join(dir, "Cargo.toml"), "");
+      const env = await fakeCodexEnv(dir);
+      const prepared = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ], env);
+      assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
+      const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
+      assert.equal(ready.execution.validation.checks.length, 1);
+      assert.equal(ready.execution.validation.checks[0].id, "cargo-test");
+      assert.deepEqual(ready.execution.validation.checks[0].command, ["cargo", "test"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects go.mod with a stable go-test id", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "validation-detection-go-test",
+        tasks: [{ id: "a", contract }],
+      }));
+      await writeFile(join(dir, "go.mod"), "");
+      const env = await fakeCodexEnv(dir);
+      const prepared = runCli(dir, [
+        "--json", "plan", "prepare", "plan.json",
+        "--target", "codex", "--out", "ready.json",
+      ], env);
+      assert.equal(prepared.status, 0, prepared.stdout || prepared.stderr);
+      const ready = JSON.parse(await readFile(join(dir, "ready.json"), "utf8"));
+      assert.equal(ready.execution.validation.checks.length, 1);
+      assert.equal(ready.execution.validation.checks[0].id, "go-test");
+      assert.deepEqual(ready.execution.validation.checks[0].command, ["go", "test", "./..."]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses explicit repeated --validation-check flags over plan checks and detection", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
