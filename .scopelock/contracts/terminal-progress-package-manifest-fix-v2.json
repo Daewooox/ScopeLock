@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "terminal-progress-package-manifest-fix-v2",
+  "task": "Include terminal progress modules in packed CLI",
+  "createdAt": "2026-07-20T21:22:46.191Z",
+  "baseline": {
+    "headSha": "88701433cda410b6dc4d1bdf90e2e52dc280f3c8",
+    "branch": "feature/terminal-progress-run-wiring",
+    "capturedAt": "2026-07-20T21:22:46.287Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/package.json"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
