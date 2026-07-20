@@ -15,6 +15,10 @@ All notable changes to ScopeLock will be documented here.
   acceptance ids, and receipt v6 evidence for execution, scope, validation,
   acceptance, promotion, and cleanup.
 - Cross-platform process-tree supervision and fail-closed security hardening.
+- Actionable dirty-repository guidance for `run --isolate`: the failure lists
+  up to 10 changed paths and offers three safe choices (commit, run from a
+  disposable clean clone, or abort) without ScopeLock ever committing,
+  stashing, cleaning, or deleting files itself.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta

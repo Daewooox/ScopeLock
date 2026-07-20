@@ -1148,6 +1148,17 @@ function isolationErrorCode(error: WorktreeError): string {
   return "ISOLATION_SETUP_FAILED";
 }
 
+// A dirty repository is not something ScopeLock will fix for the user - it
+// never commits, stashes, cleans, or deletes files on its own - so the
+// message must leave exactly three safe, actionable choices instead of just
+// naming the error.
+function isolationErrorMessage(error: WorktreeError): string {
+  if (error.code !== "DIRTY_REPO") return error.message;
+  return `${error.message}. Choose one: review and commit the intended files, `
+    + "run from a disposable clean clone, or abort. ScopeLock will not commit, "
+    + "stash, clean, or delete any files.";
+}
+
 function ms(value: number): string {
   if (value < 1000) return `${value}ms`;
   return `${(value / 1000).toFixed(1)}s`;
@@ -1458,7 +1469,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
         });
       } catch (error) {
         if (error instanceof WorktreeError) {
-          throw new CliError(isolationErrorCode(error), error.message);
+          throw new CliError(isolationErrorCode(error), isolationErrorMessage(error));
         }
         throw error;
       }
