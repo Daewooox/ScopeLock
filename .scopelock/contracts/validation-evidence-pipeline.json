@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "validation-evidence-pipeline",
+  "task": "PR 1: Ordered Validation And Honest Evidence - task #0081",
+  "createdAt": "2026-07-20T09:31:46.163Z",
+  "baseline": {
+    "headSha": "a5b5ce0b1bddaf89ef38a1846445c8a21753b2a7",
+    "branch": "feature/validation-evidence-pipeline",
+    "capturedAt": "2026-07-20T09:31:57.936Z"
+  },
+  "targetAgents": [
+    "claude"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schedule/plan.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/core/src/index.ts",
+      "packages/cli/src/plan-prepare-argv.ts",
+      "packages/cli/src/plan-prepare-argv.test.ts",
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/commands/report.ts",
+      "packages/cli/src/receipt-evidence.ts",
+      "packages/cli/src/receipt-evidence.test.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/cli.test.ts",
+      "benchmarks/coordination/**",
+      "README.md",
+      "docs/reference.md",
+      "docs/parallel-workflow.md",
+      "docs/beta-quickstart.md",
+      "THREAT-MODEL.md",
+      "CHANGELOG.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/hook/**",
+      "packages/core/src/harness/**",
+      "packages/core/src/schedule/scheduler.ts",
+      "packages/core/src/schedule/conflict-graph.ts",
+      "packages/mcp/**",
+      ".github/workflows/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

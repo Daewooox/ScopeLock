@@ -91,8 +91,12 @@ scopelock report receipt.json --open
 ```
 
 Promotion is fail-closed: a task is rejected if its patch leaves its contract,
-the repository changed unexpectedly, or the configured validation command
-fails. Isolation protects the normal workflow from accidental task patches; it
+the repository changed unexpectedly, or a required validation check fails.
+The receipt and local Flight Report separate execution, scope, validation,
+acceptance, promotion, and cleanup evidence. “Configured gates cleared” means
+only those deterministic gates passed; it is not a claim that every
+natural-language requirement was completed. Isolation protects the normal
+workflow from accidental task patches; it
 does not contain arbitrary absolute-path writes by a malicious process.
 
 ## Send useful feedback
@@ -101,4 +105,3 @@ Use the [short beta feedback form](beta-feedback.md) or open a structured
 [pilot report](https://github.com/Daewooox/ScopeLock/issues/new?template=pilot.yml).
 Never attach credentials, proprietary source, prompts, raw receipts, or
 unredacted command output.
-

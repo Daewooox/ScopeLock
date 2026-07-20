@@ -28,6 +28,7 @@ import {
   type TaskScope,
   getActiveContractId,
   loadContract,
+  normalizePlanValidation,
   prepareAggregatePatch,
   prepareScopedPatch,
   removeIsolatedWorktree,
@@ -37,12 +38,14 @@ import {
   writeApprovalSeal,
   type ApprovedContract,
   type IsolatedWorktree,
+  type NormalizedPlanValidation,
   type PreparedPatch,
   WorktreeError,
 } from "@scopelock/core";
 import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
 import { color, renderTable, statusLabel } from "../ui.js";
+import { deriveEvidenceSummary, type EvidenceSummary } from "../receipt-evidence.js";
 import {
   createRunSignalCoordinator,
   spawnProcessTree,
@@ -173,6 +176,27 @@ type TaskRun = {
   };
 };
 
+/**
+ * A single entry from `execution.validation.checks` (or the one synthesized
+ * `repository-validation` check for a legacy `execution.validation.command`
+ * plan, see `normalizePlanValidation`) after it has actually run - or been
+ * recorded `skipped` because setup or an earlier required check pre-empted
+ * it. `required` is carried alongside the run so downstream consumers (the
+ * promotion gate here, and evidence-summary derivation in a later task) can
+ * tell a blocking failure from an informational one without cross-referencing
+ * the plan again.
+ */
+type ValidationSkipReason =
+  | "no-candidate-changes"
+  | "setup-failed"
+  | "required-check-failed"
+  | "interrupted";
+
+type ValidationCheckRun = TaskRun & {
+  required: boolean;
+  skipReason?: ValidationSkipReason;
+};
+
 type RunIsolation = {
   mode: "worktree";
   trustTier: "workspace-gated";
@@ -183,7 +207,7 @@ type RunIsolation = {
   finalPromotion: "applied" | "no-changes" | "blocked";
   validationWorkspaceClean: boolean;
   validationSetup: TaskRun | null;
-  validation: TaskRun | null;
+  validationChecks: ValidationCheckRun[];
   interrupted: boolean;
   cleanup: { status: "ok" | "warning"; remaining: string[] };
 };
@@ -365,7 +389,7 @@ async function persistCommand(
 async function runCommand(
   cwd: string,
   artifactDir: string,
-  task: { id: string; contract: string; command?: CommandSpec; cwd?: string },
+  task: { id: string; contract: string; command?: CommandSpec; cwd?: string; artifactKey?: string },
   timeoutMs: number,
   storeRawOutput: boolean,
   coordinator?: RunSignalCoordinator,
@@ -390,7 +414,8 @@ async function runCommand(
     };
   }
   const command = task.command;
-  const persistedCommand = await persistCommand(artifactDir, task.id, command, storeRawOutput);
+  const artifactKey = task.artifactKey ?? `task-${task.id}`;
+  const persistedCommand = await persistCommand(artifactDir, artifactKey, command, storeRawOutput);
   const tree = spawnProcessTree({
     command,
     cwd,
@@ -413,8 +438,8 @@ async function runCommand(
   } else if (termination.reason !== null) {
     stderr += `${stderr.length > 0 ? "\n" : ""}task interrupted by signal`;
   }
-  const persistedStdout = await persistOutput(artifactDir, task.id, "stdout", stdout, storeRawOutput);
-  const persistedStderr = await persistOutput(artifactDir, task.id, "stderr", stderr, storeRawOutput);
+  const persistedStdout = await persistOutput(artifactDir, artifactKey, "stdout", stdout, storeRawOutput);
+  const persistedStderr = await persistOutput(artifactDir, artifactKey, "stderr", stderr, storeRawOutput);
   return {
     id: task.id,
     status: termination.exitCode === 0 && termination.reason === null ? "passed" : "failed",
@@ -515,18 +540,87 @@ function isolatedEvidence(
   };
 }
 
+type ValidationCheckSpec = NormalizedPlanValidation["checks"][number];
+
+function candidateRoots(
+  worktreePath: string,
+  repoRoot: string,
+  cwd: string | undefined,
+): { candidateRoot: string; sourceRoot: string } {
+  const rel = cwd === undefined || cwd === "." ? undefined : cwd;
+  return {
+    candidateRoot: rel === undefined ? worktreePath : join(worktreePath, rel),
+    sourceRoot: rel === undefined ? repoRoot : join(repoRoot, rel),
+  };
+}
+
+/**
+ * Builds the receipt entry for a check that never ran because setup failed
+ * or an earlier required check already failed. Every declared check must
+ * appear in `validationChecks` - never silently dropped - so downstream
+ * evidence derivation can always account for the full declared list.
+ */
+async function skippedCheckRun(
+  artifactDir: string,
+  check: ValidationCheckSpec,
+  skipReason: ValidationSkipReason,
+  storeRawOutput: boolean,
+): Promise<ValidationCheckRun> {
+  const persistedCommand = await persistCommand(
+    artifactDir,
+    `validation-check-${check.id}`,
+    check.command,
+    storeRawOutput,
+  );
+  const reason = {
+    "no-candidate-changes": "skipped: no candidate changes to validate",
+    "setup-failed": "skipped: repository validation setup failed",
+    "required-check-failed": "skipped: an earlier required check failed",
+    interrupted: "skipped: validation was interrupted",
+  }[skipReason];
+  return {
+    id: check.id,
+    status: "skipped",
+    command: persistedCommand.preview,
+    exitCode: null,
+    durationMs: 0,
+    stdout: "",
+    stderr: reason,
+    cwd: check.cwd ?? ".",
+    outputArtifacts: {
+      ...(persistedCommand.artifact ? { command: persistedCommand.artifact } : {}),
+    },
+    required: check.required,
+    skipReason,
+  };
+}
+
+/** Every declared check recorded `skipped` for the same `reason`, in order. */
+async function skippedCheckRuns(
+  artifactDir: string,
+  checks: ValidationCheckSpec[],
+  skipReason: ValidationSkipReason,
+  storeRawOutput: boolean,
+): Promise<ValidationCheckRun[]> {
+  const runs: ValidationCheckRun[] = [];
+  for (const check of checks) {
+    runs.push(await skippedCheckRun(artifactDir, check, skipReason, storeRawOutput));
+  }
+  return runs;
+}
+
 async function runCandidateValidation(input: {
   repoRoot: string;
   worktree: IsolatedWorktree;
   tempRoot: string;
   artifactDir: string;
   setup?: CommandSpec;
-  command: CommandSpec;
-  cwd?: string;
+  setupCwd?: string;
+  checks: ValidationCheckSpec[];
   timeoutMs: number;
   storeRawOutput: boolean;
   coordinator: RunSignalCoordinator;
-}): Promise<{ setup: TaskRun | null; validation: TaskRun | null }> {
+}): Promise<{ setup: TaskRun | null; checks: ValidationCheckRun[] }> {
   const controlPath = join(input.worktree.path, ".scopelock");
   const hiddenPath = join(input.tempRoot, "validation-control-state");
   let hidden = false;
@@ -538,43 +632,83 @@ async function runCandidateValidation(input: {
   }
 
   let setup: TaskRun | null = null;
-  let validation: TaskRun | null = null;
+  const checkRuns: ValidationCheckRun[] = [];
   let restoreError: unknown = null;
-  const validationRoot = input.cwd === undefined || input.cwd === "."
-    ? input.worktree.path
-    : join(input.worktree.path, input.cwd);
-  const sourceValidationRoot = input.cwd === undefined || input.cwd === "."
-    ? input.repoRoot
-    : join(input.repoRoot, input.cwd);
-  const toolchain = await checkoutToolchainEnvironment(sourceValidationRoot, validationRoot);
+  // Toolchain symlinks are per effective cwd (checks may override the shared
+  // default), cached so two checks sharing a cwd don't race to create/remove
+  // the same node_modules symlink.
+  const toolchains = new Map<string, Awaited<ReturnType<typeof checkoutToolchainEnvironment>>>();
+  const toolchainFor = async (cwd: string | undefined) => {
+    const key = cwd ?? ".";
+    if (!toolchains.has(key)) {
+      const { candidateRoot, sourceRoot } = candidateRoots(input.worktree.path, input.repoRoot, cwd);
+      toolchains.set(key, await checkoutToolchainEnvironment(sourceRoot, candidateRoot));
+    }
+    return toolchains.get(key);
+  };
+
   try {
     if (input.setup) {
+      const { candidateRoot } = candidateRoots(input.worktree.path, input.repoRoot, input.setupCwd);
+      const toolchain = await toolchainFor(input.setupCwd);
       setup = await runCommand(
-        validationRoot,
+        candidateRoot,
         input.artifactDir,
-        { id: "validation-setup", contract: "", command: input.setup, cwd: input.cwd ?? "." },
+        {
+          id: "validation-setup",
+          contract: "",
+          command: input.setup,
+          cwd: input.setupCwd ?? ".",
+          artifactKey: "validation-setup",
+        },
         input.timeoutMs,
         input.storeRawOutput,
         input.coordinator,
         toolchain,
       );
     }
-    if (setup === null || setup.status === "passed") {
-      validation = await runCommand(
-        validationRoot,
+
+    // Fail-closed, strictly sequential: a required check that fails (or the
+    // setup step failing before any check starts) stops every later check
+    // dead - they are recorded skipped, not silently omitted, and never
+    // spawned. `Promise.all` is intentionally not used here.
+    let skipReason: ValidationSkipReason | null = setup !== null && setup.status !== "passed"
+      ? "setup-failed"
+      : null;
+    for (const check of input.checks) {
+      if (skipReason !== null) {
+        checkRuns.push(await skippedCheckRun(input.artifactDir, check, skipReason, input.storeRawOutput));
+        continue;
+      }
+      const { candidateRoot } = candidateRoots(input.worktree.path, input.repoRoot, check.cwd);
+      const toolchain = await toolchainFor(check.cwd);
+      const run = await runCommand(
+        candidateRoot,
         input.artifactDir,
-        { id: "validation", contract: "", command: input.command, cwd: input.cwd ?? "." },
+        {
+          id: check.id,
+          contract: "",
+          command: check.command,
+          cwd: check.cwd ?? ".",
+          artifactKey: `validation-check-${check.id}`,
+        },
         input.timeoutMs,
         input.storeRawOutput,
         input.coordinator,
         toolchain,
       );
+      checkRuns.push({ ...run, required: check.required });
+      if (check.required && run.status !== "passed") {
+        skipReason = input.coordinator.signal.aborted ? "interrupted" : "required-check-failed";
+      }
     }
   } finally {
-    try {
-      await toolchain?.cleanup();
-    } catch (error) {
-      restoreError = error;
+    for (const toolchain of toolchains.values()) {
+      try {
+        await toolchain?.cleanup();
+      } catch (error) {
+        restoreError = error;
+      }
     }
     if (hidden) {
       try {
@@ -585,19 +719,16 @@ async function runCandidateValidation(input: {
     }
   }
 
-  if (setup === null && validation === null) {
-    throw new Error("repository validation did not produce a result");
-  }
   if (restoreError !== null) {
     const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
-    const failedRun = validation ?? setup;
+    const failedRun = checkRuns.at(-1) ?? setup;
     if (failedRun === null) throw restoreError;
     failedRun.status = "failed";
     failedRun.stderr = [failedRun.stderr, `failed to restore validation workspace: ${detail}`]
       .filter(Boolean)
       .join("\n");
   }
-  return { setup, validation };
+  return { setup, checks: checkRuns };
 }
 
 async function runIsolatedTasks(input: {
@@ -606,8 +737,8 @@ async function runIsolatedTasks(input: {
   byId: Map<string, SchedulePlanTask>;
   contracts: Map<string, ApprovedContract>;
   validationSetupCommand?: CommandSpec;
-  validationCommand: CommandSpec;
-  validationCwd?: string;
+  validationSetupCwd?: string;
+  validationChecks: ValidationCheckSpec[];
   artifactDir: string;
   taskTimeoutMs: number;
   isolationTimeoutMs: number;
@@ -820,21 +951,32 @@ async function runIsolatedTasks(input: {
     });
     const aggregatePatch = aggregate.patch;
     const candidateValidation = aggregatePatch === null
-      ? { setup: null, validation: null }
+      ? {
+          setup: null,
+          checks: await skippedCheckRuns(
+            input.artifactDir,
+            input.validationChecks,
+            "no-candidate-changes",
+            input.storeRawOutput,
+          ),
+        }
       : await runCandidateValidation({
           repoRoot: input.cwd,
           worktree: integration,
           tempRoot,
           artifactDir: input.artifactDir,
           setup: input.validationSetupCommand,
-          command: input.validationCommand,
-          cwd: input.validationCwd,
+          setupCwd: input.validationSetupCwd,
+          checks: input.validationChecks,
           timeoutMs: input.taskTimeoutMs,
           storeRawOutput: input.storeRawOutput,
           coordinator: input.coordinator,
         });
     const validationSetup = candidateValidation.setup;
-    const validation = candidateValidation.validation;
+    const validationChecks = candidateValidation.checks;
+    const failedRequiredChecks = validationChecks.filter(
+      (check) => check.required && check.status !== "passed",
+    );
     let validationWorkspaceClean = true;
     if (aggregatePatch !== null) {
       try {
@@ -852,7 +994,7 @@ async function runIsolatedTasks(input: {
       aggregatePatch !== null
       && (
         validationSetup?.status === "failed"
-        || validation?.status !== "passed"
+        || failedRequiredChecks.length > 0
         || !validationWorkspaceClean
       )
     ) {
@@ -871,6 +1013,9 @@ async function runIsolatedTasks(input: {
       }
     }
     if (finalPromotion === "blocked") {
+      const failedRequiredSummary = failedRequiredChecks
+        .map((check) => `${check.id}:${check.status}`)
+        .join(", ");
       for (const task of taskRuns) {
         if (task.isolation?.outcome !== "accepted-integration") continue;
         task.status = "blocked";
@@ -880,7 +1025,7 @@ async function runIsolatedTasks(input: {
             ? "VALIDATION_MUTATED_CANDIDATE"
             : validationSetup?.status === "failed"
             ? "VALIDATION_SETUP_FAILED"
-            : validation !== null && validation.status !== "passed"
+            : failedRequiredChecks.length > 0
               ? "VALIDATION_FAILED"
             : "FINAL_PROMOTION_BLOCKED",
           path: null,
@@ -888,8 +1033,8 @@ async function runIsolatedTasks(input: {
             ? "validation changed candidate files; aggregate patch was not applied"
             : validationSetup?.status === "failed"
             ? "repository validation setup failed; aggregate patch was not applied"
-            : validation !== null && validation.status !== "passed"
-              ? "repository validation failed; aggregate patch was not applied"
+            : failedRequiredChecks.length > 0
+              ? `repository validation failed (${failedRequiredSummary}); aggregate patch was not applied`
             : "aggregate patch was not applied to the user repository",
         });
       }
@@ -900,7 +1045,7 @@ async function runIsolatedTasks(input: {
         if (recorded.has(task.id)) continue;
         const persistedCommand = await persistCommand(
           input.artifactDir,
-          task.id,
+          `task-${task.id}`,
           task.command ?? null,
           input.storeRawOutput,
         );
@@ -949,7 +1094,7 @@ async function runIsolatedTasks(input: {
         finalPromotion,
         validationWorkspaceClean,
         validationSetup,
-        validation,
+        validationChecks,
         interrupted: input.signal.aborted,
         cleanup: {
           status: cleanupRemaining.length === 0 ? "ok" : "warning",
@@ -1008,6 +1153,44 @@ function ms(value: number): string {
   return `${(value / 1000).toFixed(1)}s`;
 }
 
+/** Maps one evidence-summary value to the shared pass/warn/fail/skip label vocabulary. */
+function evidenceLabel(status: string): "pass" | "warn" | "fail" | "skip" {
+  if (
+    status === "completed"
+    || status === "clear"
+    || status === "passed"
+    || status === "verified"
+    || status === "applied"
+    || status === "no-changes"
+    || status === "ok"
+    || status === "not-applicable"
+  ) {
+    return "pass";
+  }
+  if (status === "failed" || status === "violations" || status === "blocked") return "fail";
+  if (status === "attention" || status === "warning" || status === "unverified") return "warn";
+  return "skip"; // not-run / not-checked
+}
+
+/**
+ * `Configured gates cleared` iff every gate that actually ran is in its good
+ * state; an absent/unverified acceptance declaration never flips this by
+ * itself (per the global constraint that unverified acceptance stays exit 0
+ * and non-attention when configured gates otherwise clear).
+ */
+function evidenceHeadline(evidence: EvidenceSummary): "Configured gates cleared" | "Needs attention" {
+  const attention =
+    evidence.execution === "blocked"
+    || evidence.execution === "attention"
+    || evidence.scope === "violations"
+    || evidence.validation === "failed"
+    || evidence.validation === "attention"
+    || evidence.acceptance === "failed"
+    || evidence.promotion === "blocked"
+    || evidence.cleanup === "warning";
+  return attention ? "Needs attention" : "Configured gates cleared";
+}
+
 function humanReport(
   planId: string,
   receiptPath: string,
@@ -1018,13 +1201,14 @@ function humanReport(
   driftStatus: string,
   environmentStatus: string,
   validationSetupStatus: string,
-  validationStatus: string,
+  validationChecksSummary: string,
   isolationStatus: string,
+  evidence: EvidenceSummary,
 ): string {
   const failed = taskRuns.filter((task) => task.status === "failed").map((task) => task.id);
   const skipped = taskRuns.filter((task) => task.status === "skipped").map((task) => task.id);
   const blocked = taskRuns.filter((task) => task.status === "blocked").map((task) => task.id);
-  const headingStatus = failed.length > 0 || skipped.length > 0 || blocked.length > 0 ? "warn" : "pass";
+  const headline = evidenceHeadline(evidence);
   const sequence =
     waves.length === 0
       ? "none"
@@ -1040,14 +1224,28 @@ function humanReport(
       compactCommand(task.command),
     ]),
   );
+  const evidenceTable = renderTable(
+    ["Evidence", "Result"],
+    [
+      ["execution", `${statusLabel(evidenceLabel(evidence.execution))} ${evidence.execution}`],
+      ["scope", `${statusLabel(evidenceLabel(evidence.scope))} ${evidence.scope}`],
+      ["validation", `${statusLabel(evidenceLabel(evidence.validation))} ${evidence.validation}`],
+      ["acceptance", `${statusLabel(evidenceLabel(evidence.acceptance))} ${evidence.acceptance}`],
+      ["promotion", `${statusLabel(evidenceLabel(evidence.promotion))} ${evidence.promotion}`],
+      ["cleanup", `${statusLabel(evidenceLabel(evidence.cleanup))} ${evidence.cleanup}`],
+    ],
+  );
   const lines = [
-    `${color("ScopeLock flight run", "bold")}: ${planId} ${statusLabel(headingStatus)}`,
+    `${color("ScopeLock flight run", "bold")}: ${planId} ${color(headline, headline === "Configured gates cleared" ? "green" : "yellow")}`,
     "",
     color("Execution sequence", "cyan"),
     `  ${sequence}`,
     "",
     color("Tasks", "cyan"),
     taskTable,
+    "",
+    color("Evidence", "cyan"),
+    evidenceTable,
     "",
     color("Safety", "cyan"),
     renderTable(
@@ -1057,7 +1255,7 @@ function humanReport(
         ["conflicts", conflicts.length === 0 ? "none" : String(conflicts.length)],
         ["deferred", deferred.length === 0 ? "none" : deferred.join(", ")],
         ["validation setup", validationSetupStatus],
-        ["validation", validationStatus],
+        ["validation checks", validationChecksSummary],
         ["drift", driftStatus],
         ["isolation", isolationStatus],
       ],
@@ -1119,17 +1317,30 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   }
   const byId = new Map(runTasks.map((task) => [task.id, task]));
   const executableTasks = runTasks.filter((task) => task.command !== undefined);
-  const validationSetupCommand = plan.execution?.validation?.setup;
-  const validationCommand = plan.execution?.validation?.command;
-  const validationCwd = plan.execution?.validation?.cwd;
-  if (options.isolate === true && executableTasks.length > 0 && validationCommand === undefined) {
+  // `normalizePlanValidation` (Task 1) folds a legacy singular
+  // `execution.validation.command` into a one-element `checks` array with id
+  // `repository-validation`, so a v1 plan continues to execute unchanged
+  // below without this file needing to know which form the plan used.
+  const normalizedValidation = plan.execution?.validation
+    ? normalizePlanValidation(plan.execution.validation)
+    : null;
+  const validationSetupCommand = normalizedValidation?.setup;
+  const validationSetupCwd = plan.execution?.validation?.cwd;
+  const validationChecks = normalizedValidation?.checks ?? [];
+  if (options.isolate === true && executableTasks.length > 0 && validationChecks.length === 0) {
     throw new CliError(
       "VALIDATION_REQUIRED",
-      "isolated execution requires execution.validation.command before any agent starts",
+      "isolated execution requires execution.validation.checks (or the legacy command) before any agent starts",
     );
   }
-  if (options.isolate === true && validationCommand !== undefined) {
-    await assertValidationWorkingDirectory(cwd, validationCwd);
+  if (options.isolate === true && validationChecks.length > 0) {
+    // Every check's working directory - the shared default or a per-check
+    // override - must be validated before any agent starts, not lazily when
+    // the check actually runs.
+    await assertValidationWorkingDirectory(cwd, validationSetupCwd);
+    for (const check of validationChecks) {
+      await assertValidationWorkingDirectory(cwd, check.cwd);
+    }
   }
   if (executableTasks.length > 0 && options.yes !== true) {
     throw new CliError(
@@ -1142,12 +1353,15 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
   );
   const validationSetupUsesShell = validationSetupCommand !== undefined
     && usesShellInterpreter(validationSetupCommand);
-  const validationUsesShell = validationCommand !== undefined && usesShellInterpreter(validationCommand);
-  if ((shellTasks.length > 0 || validationSetupUsesShell || validationUsesShell) && options.allowShell !== true) {
+  const shellValidationChecks = validationChecks.filter((check) => usesShellInterpreter(check.command));
+  if (
+    (shellTasks.length > 0 || validationSetupUsesShell || shellValidationChecks.length > 0)
+    && options.allowShell !== true
+  ) {
     const labels = [
       ...shellTasks.map((task) => task.id),
       ...(validationSetupUsesShell ? ["validation-setup"] : []),
-      ...(validationUsesShell ? ["validation"] : []),
+      ...shellValidationChecks.map((check) => `validation:${check.id}`),
     ];
     throw new CliError(
       "SHELL_COMMAND_NOT_ALLOWED",
@@ -1202,7 +1416,12 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
 
   if (blockedByEnvironment) {
     for (const task of runTasks) {
-      const persistedCommand = await persistCommand(artifactDir, task.id, task.command ?? null, storeRawOutput);
+      const persistedCommand = await persistCommand(
+        artifactDir,
+        `task-${task.id}`,
+        task.command ?? null,
+        storeRawOutput,
+      );
       taskRuns.push({
         id: task.id,
         status: "skipped",
@@ -1228,8 +1447,8 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
           byId,
           contracts: taskContracts,
           validationSetupCommand,
-          validationCommand: validationCommand as CommandSpec,
-          validationCwd,
+          validationSetupCwd,
+          validationChecks,
           artifactDir,
           taskTimeoutMs: timeoutMs,
           isolationTimeoutMs: ISOLATION_OPERATION_TIMEOUT_MS,
@@ -1278,8 +1497,23 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     }
   }
 
+  const isolationOutcomes = taskRuns
+    .map((task) => task.isolation?.outcome)
+    .filter((outcome): outcome is NonNullable<typeof outcome> => outcome !== undefined);
+  const evidenceSummary: EvidenceSummary = deriveEvidenceSummary({
+    taskStatuses: taskRuns.map((task) => task.status),
+    cycleCount: cycles.length,
+    blockedByEnvironment,
+    driftStatus: drift?.status ?? "not_checked",
+    isolationOutcomes,
+    validationChecks: isolation?.validationChecks ?? [],
+    acceptanceCheckIds: normalizedValidation?.acceptanceCheckIds ?? [],
+    promotion: options.isolate === true ? (isolation?.finalPromotion ?? "blocked") : "not-applicable",
+    cleanup: options.isolate === true ? (isolation?.cleanup.status ?? "warning") : "not-applicable",
+  });
+
   const receipt = {
-    schemaVersion: options.isolate === true ? 5 : 4,
+    schemaVersion: 6,
     planId: plan.planId,
     startedAt,
     finishedAt: new Date().toISOString(),
@@ -1316,6 +1550,7 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
     },
     taskRuns,
     drift,
+    evidenceSummary,
   };
   await mkdir(dirname(receiptPath), { recursive: true });
   await writeJsonAtomic(receiptPath, receipt);
@@ -1343,8 +1578,11 @@ export async function runPlanCommand(options: RunPlanOptions): Promise<CommandRe
       drift?.status ?? "not_checked",
       environment?.status ?? "not_configured",
       isolation?.validationSetup?.status ?? (validationSetupCommand ? "not-run" : "off"),
-      isolation?.validation?.status ?? (options.isolate === true ? "not-run" : "off"),
+      isolation?.validationChecks && isolation.validationChecks.length > 0
+        ? isolation.validationChecks.map((check) => `${check.id}:${check.status}`).join(", ")
+        : (options.isolate === true ? "not-run" : "off"),
       isolation?.finalPromotion ?? (options.isolate === true ? "not-run" : "off"),
+      evidenceSummary,
     ),
     exitCode,
   };

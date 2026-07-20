@@ -49,4 +49,91 @@ describe("extractPlanPrepareValidationArgv", () => {
     assert.equal(result.validationCommand, undefined);
     assert.deepEqual(result.rest, ["plan.json", "--target", "codex"]);
   });
+
+  it("collects repeated --validation-check occurrences into {id, command} entries", () => {
+    const argv = [
+      "plan.json",
+      "--target", "claude",
+      "--out", "ready-plan.json",
+      "--validation-cwd", "app",
+      "--validation-check", "widget-tests", "flutter", "test", "test/widgets/async_submit_test.dart",
+      "--validation-check", "analyze", "flutter", "analyze",
+      "--acceptance-check", "widget-tests",
+      "--acceptance-check", "analyze",
+    ];
+    const result = extractPlanPrepareValidationArgv(argv);
+    assert.deepEqual(result.validationChecks, [
+      { id: "widget-tests", command: ["flutter", "test", "test/widgets/async_submit_test.dart"] },
+      { id: "analyze", command: ["flutter", "analyze"] },
+    ]);
+    assert.deepEqual(result.acceptanceChecks, ["widget-tests", "analyze"]);
+    assert.deepEqual(result.rest, [
+      "plan.json", "--target", "claude", "--out", "ready-plan.json", "--validation-cwd", "app",
+    ]);
+  });
+
+  it("preserves option-like child argv (e.g. --fatal-infos, --coverage) inside a --validation-check byte-for-byte", () => {
+    const argv = [
+      "plan.json",
+      "--validation-check", "analyze", "flutter", "analyze", "--fatal-infos", "--coverage",
+      "--target", "claude",
+    ];
+    const result = extractPlanPrepareValidationArgv(argv);
+    assert.deepEqual(result.validationChecks, [
+      { id: "analyze", command: ["flutter", "analyze", "--fatal-infos", "--coverage"] },
+    ]);
+    assert.deepEqual(result.rest, ["plan.json", "--target", "claude"]);
+  });
+
+  it("throws when --validation-check is missing both id and command", () => {
+    const argv = ["plan.json", "--validation-check", "--target", "claude"];
+    assert.throws(() => extractPlanPrepareValidationArgv(argv), /--validation-check requires an id/);
+  });
+
+  it("throws when --validation-check has an id but no command", () => {
+    const argv = ["plan.json", "--validation-check", "widget-tests", "--target", "claude"];
+    assert.throws(() => extractPlanPrepareValidationArgv(argv), /--validation-check requires an id/);
+  });
+
+  it("does not reject duplicate --validation-check ids (that is a schema-level concern)", () => {
+    const argv = [
+      "plan.json",
+      "--validation-check", "analyze", "flutter", "analyze",
+      "--validation-check", "analyze", "flutter", "test",
+    ];
+    const result = extractPlanPrepareValidationArgv(argv);
+    assert.deepEqual(result.validationChecks, [
+      { id: "analyze", command: ["flutter", "analyze"] },
+      { id: "analyze", command: ["flutter", "test"] },
+    ]);
+  });
+
+  it("collects repeated --acceptance-check ids, duplicates included, without duplicate detection", () => {
+    const argv = [
+      "plan.json",
+      "--acceptance-check", "analyze",
+      "--acceptance-check", "analyze",
+      "--target", "claude",
+    ];
+    const result = extractPlanPrepareValidationArgv(argv);
+    assert.deepEqual(result.acceptanceChecks, ["analyze", "analyze"]);
+    assert.deepEqual(result.rest, ["plan.json", "--target", "claude"]);
+  });
+
+  it("throws when --acceptance-check is missing its id", () => {
+    const argv = ["plan.json", "--acceptance-check", "--target", "claude"];
+    assert.throws(() => extractPlanPrepareValidationArgv(argv), /--acceptance-check requires exactly one id/);
+  });
+
+  it("rejects mixing legacy --validation-command with new --validation-check", () => {
+    const argv = [
+      "plan.json",
+      "--validation-command", "npm", "run", "check",
+      "--validation-check", "analyze", "flutter", "analyze",
+    ];
+    assert.throws(
+      () => extractPlanPrepareValidationArgv(argv),
+      /--validation-command is a legacy alias.*cannot be combined with --validation-check/,
+    );
+  });
 });

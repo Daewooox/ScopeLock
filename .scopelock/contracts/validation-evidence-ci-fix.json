@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "validation-evidence-ci-fix",
+  "task": "Fix validation evidence package contents and CodeQL test assertion",
+  "createdAt": "2026-07-20T11:44:41.109Z",
+  "baseline": {
+    "headSha": "96cf5134a84287a37734fd4b5f25e45718a452f4",
+    "branch": "feature/validation-evidence-pipeline",
+    "capturedAt": "2026-07-20T11:44:41.193Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/package.json",
+      "packages/cli/src/cli.test.ts"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/mcp/**",
+      ".github/workflows/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}

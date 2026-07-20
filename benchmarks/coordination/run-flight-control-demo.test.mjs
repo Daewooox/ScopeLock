@@ -20,8 +20,9 @@ test("one-command demo exercises the dispatcher and produces stable evidence", a
     assert.equal(result.withScopeLock.acceptedTasks, 6);
     assert.deepEqual(result.withScopeLock.deferredTasks, []);
     const receipt = JSON.parse(readFileSync(join(outputDir, "receipt.json"), "utf8"));
-    assert.equal(receipt.schemaVersion, 5);
-    assert.equal(receipt.isolation.validation.status, "passed");
+    assert.equal(receipt.schemaVersion, 6);
+    assert.equal(receipt.isolation.validationChecks[0].status, "passed");
+    assert.equal(receipt.evidenceSummary.validation, "passed");
   } finally {
     rmSync(outputDir, { recursive: true, force: true });
   }

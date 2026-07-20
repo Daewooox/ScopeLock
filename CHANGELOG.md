@@ -11,6 +11,9 @@ All notable changes to ScopeLock will be documented here.
 - Conflict-aware multi-agent execution stages and explicit harness commands.
 - Opt-in worktree isolation with validate-before-promote patch gates.
 - Bounded receipts, standalone Flight Reports, and environment preflight.
+- Ordered named validation checks with required/optional semantics, explicit
+  acceptance ids, and receipt v6 evidence for execution, scope, validation,
+  acceptance, promotion, and cleanup.
 - Cross-platform process-tree supervision and fail-closed security hardening.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.

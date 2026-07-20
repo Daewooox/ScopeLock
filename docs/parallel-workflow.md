@@ -278,8 +278,19 @@ declare it explicitly and review it in the generated JSON:
 scopelock plan prepare plan.json \
   --target codex \
   --out ready-plan.json \
-  --validation-command npm run check
+  --validation-check typecheck npm run check \
+  --validation-check tests npm test \
+  --acceptance-check tests
 ```
+
+Repeat `--validation-check <id> <argv...>` to define a deterministic ordered
+pipeline. Checks are required by default. Plan JSON can mark a check optional,
+give it a per-check `cwd`, and declare unique required check ids under
+`validation.acceptance.checkIds`. A required failure stops later checks and
+blocks promotion; an optional failure is retained as attention while later
+checks continue. The legacy `--validation-command` flag still maps to one
+required `repository-validation` check and cannot be mixed with the modern
+form.
 
 The lower-level primitives remain useful for diagnosis or custom automation:
 
@@ -297,12 +308,12 @@ not silently skipped. ScopeLock then runs the declared repository validation
 against the combined candidate while its own `.scopelock/` control directory
 is temporarily hidden. Only a passing candidate may become one aggregate patch
 in the user tree. The control directory is restored in `finally`, and the
-validation result is recorded in receipt v5.
+validation results and their structured skip reasons are recorded in receipt v6.
 
 If the source checkout already has `node_modules`, ScopeLock reuses it only for
 this final validation: an ephemeral candidate link plus the checkout's
 `node_modules/.bin` on `PATH`. No install command runs, agents do not receive
-the link, cleanup is fail-closed, and receipt v5 records the borrowed paths.
+the link, cleanup is fail-closed, and receipt v6 records the borrowed paths.
 For npm repositories with a `prepare` lifecycle script, the ready plan includes
 that explicit setup argv before the main validation command. Setup is
 reviewable, runs only in the candidate, and failing setup skips validation and
@@ -323,8 +334,9 @@ scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
 Every generated file contains `execution.isolation = "required"`, so a later
 direct run is rejected before any agent starts. Cursor keeps its native
 sandbox enabled, while ScopeLock validates the complete worktree patch before
-promotion. An isolated mutating plan without `execution.validation.command` is
-rejected before dispatch. Existing explicit commands are preserved, but the
+promotion. An isolated mutating plan without `execution.validation.checks` (or
+the compatible legacy `execution.validation.command`) is rejected before
+dispatch. Existing explicit commands are preserved, but the
 whole mixed plan still inherits the strongest requirement and must run
 isolated.
 
@@ -342,7 +354,8 @@ scopelock plan prepare plan.json \
   --out ready-plan.json \
   --validation-cwd app \
   --validation-setup-command flutter pub get \
-  --validation-command flutter test
+  --validation-check flutter-test flutter test \
+  --acceptance-check flutter-test
 
 scopelock run ready-plan.json --yes --isolate --receipt receipt.json
 ```

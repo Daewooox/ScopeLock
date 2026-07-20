@@ -350,9 +350,11 @@ plan
   .requiredOption("--target <id>", "agent target: codex, claude, or cursor")
   .requiredOption("--out <path>", "write the ready plan to a separate file")
   .option("--manifest <path>", "check rules and skills from an agent workspace manifest")
-  .option("--validation-command <argv...>", "shell-free repository validation command")
+  .option("--validation-command <argv...>", "shell-free repository validation command (legacy alias for one --validation-check)")
   .option("--validation-setup-command <argv...>", "shell-free candidate setup command")
   .option("--validation-cwd <path>", "repository-relative validation working directory")
+  .option("--validation-check <id> <argv...>", "named shell-free validation check (repeatable)")
+  .option("--acceptance-check <id>", "id of a validation check required for acceptance (repeatable)")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
   .option("--json", "print machine-readable JSON")
   .action(
@@ -373,7 +375,7 @@ plan
         () =>
           planPrepareCommand(planPath, {
             ...options,
-            // Commander never sees these two flags' own tokens for `plan
+            // Commander never sees these flags' own tokens for `plan
             // prepare` (extracted from argv before parseAsync below), so its
             // own parsed values are always undefined here; use the
             // pre-extracted ones instead. See plan-prepare-argv.ts.
@@ -381,6 +383,8 @@ plan
               planPrepareValidationArgv?.validationCommand ?? options.validationCommand,
             validationSetupCommand:
               planPrepareValidationArgv?.validationSetupCommand ?? options.validationSetupCommand,
+            validationChecks: planPrepareValidationArgv?.validationChecks,
+            acceptanceChecks: planPrepareValidationArgv?.acceptanceChecks,
           }),
         jsonOf(command),
       ),

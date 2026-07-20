@@ -19,6 +19,8 @@
     "dist/process-tree.js",
     "dist/redaction.d.ts",
     "dist/redaction.js",
+    "dist/receipt-evidence.d.ts",
+    "dist/receipt-evidence.js",
     "dist/prompts.d.ts",
     "dist/prompts.js",
     "dist/run.d.ts",

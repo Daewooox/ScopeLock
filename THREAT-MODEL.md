@@ -60,12 +60,21 @@
   the user's privileges, so this reuses a trusted local toolchain; it is not a
   dependency sandbox or an integrity claim about installed packages.
 - Candidate setup is executable plan content under the same `--yes` and
-  `--allow-shell` gates as validation. Auto-detected npm `prepare` remains
+  `--allow-shell` gates as validation. Every validation check is a separately
+  reviewable argv array and runs sequentially with the invoking user's full
+  privileges; adding checks increases executable review surface and does not
+  strengthen OS containment. Required failures and unclassified blocked states
+  fail closed before promotion. Auto-detected npm `prepare` remains
   visible in the ready plan, runs only after agents finish, and fails closed
   before repository validation or promotion. After setup/check, the candidate
   must still be Git-clean (ignored generated artifacts excepted), preventing a
   command from validating bytes that are absent from the sealed aggregate
   patch.
+- Receipt v6 evidence is derived only from structured run state. It does not
+  parse human stderr text or use an LLM judge. “Configured gates cleared” means
+  the declared deterministic gates cleared, not that every natural-language
+  acceptance requirement was satisfied. Historical v4/v5 receipts remain
+  renderable but do not gain evidence they never recorded.
 - Commands produced by `plan prepare` or the lower-level `plan compose` are
   reviewable argv arrays and pass through the same `run <plan> --yes` trust
   gate as hand-written commands. Preparation never starts an agent.

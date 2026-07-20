@@ -40,9 +40,25 @@ type Receipt = {
     aggregatePatchBytes?: unknown;
     validationWorkspaceClean?: unknown;
     validationSetup?: { status?: unknown } | null;
+    /**
+     * Stale singular field from pre-v6 (v4/v5) receipts. Task 4 replaced it
+     * with the `validationChecks` array below and stopped writing it, but
+     * genuinely old receipts on disk still have this exact shape - read
+     * defensively here ONLY for the v4/v5 compatibility fallback, never for
+     * v6+ receipts (which carry `evidenceSummary` instead).
+     */
     validation?: { status?: unknown } | null;
+    validationChecks?: unknown;
     cleanup?: { status?: unknown; remaining?: unknown };
   } | null;
+  evidenceSummary?: {
+    execution?: unknown;
+    scope?: unknown;
+    validation?: unknown;
+    acceptance?: unknown;
+    promotion?: unknown;
+    cleanup?: unknown;
+  };
 };
 
 async function readReportInput(path: string): Promise<unknown> {
@@ -143,6 +159,32 @@ function taskRows(receipt: Receipt): Array<{ id: string; status: string; duratio
   });
 }
 
+function validationCheckRows(receipt: Receipt): Array<{
+  id: string;
+  status: string;
+  requirement: string;
+  cwd: string;
+  duration: string;
+}> {
+  if (!Array.isArray(receipt.isolation?.validationChecks)) return [];
+  return receipt.isolation.validationChecks.map((raw) => {
+    const check = raw as {
+      id?: unknown;
+      status?: unknown;
+      required?: unknown;
+      cwd?: unknown;
+      durationMs?: unknown;
+    };
+    return {
+      id: typeof check.id === "string" ? check.id : "unknown",
+      status: typeof check.status === "string" ? check.status : "unknown",
+      requirement: check.required === true ? "required" : "optional",
+      cwd: typeof check.cwd === "string" ? check.cwd : ".",
+      duration: typeof check.durationMs === "number" ? `${Math.round(check.durationMs)}ms` : "-",
+    };
+  });
+}
+
 function count(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
@@ -157,9 +199,48 @@ function escapeHtml(value: unknown): string {
 }
 
 function statusClass(status: string): string {
-  if (status === "passed" || status === "ok" || status === "pass") return "good";
-  if (status === "failed" || status === "fail" || status === "error") return "bad";
-  return "warn";
+  if (
+    status === "passed"
+    || status === "ok"
+    || status === "pass"
+    || status === "completed"
+    || status === "clear"
+    || status === "verified"
+    || status === "applied"
+    || status === "no-changes"
+    || status === "not-applicable"
+  ) {
+    return "good";
+  }
+  if (
+    status === "failed"
+    || status === "fail"
+    || status === "error"
+    || status === "violations"
+    || status === "blocked"
+  ) {
+    return "bad";
+  }
+  return "warn"; // attention / unverified / warning / not-run / not-checked / etc.
+}
+
+/**
+ * True when this receipt's evidence summary describes an attention-worthy
+ * run. Deliberately mirrors the terminal headline rule in run-plan.ts:
+ * `acceptance: "unverified"` never flips this by itself - an absent
+ * acceptance declaration stays informational, not a blocker.
+ */
+function evidenceNeedsAttention(evidence: NonNullable<Receipt["evidenceSummary"]>): boolean {
+  return (
+    evidence.execution === "blocked"
+    || evidence.execution === "attention"
+    || evidence.scope === "violations"
+    || evidence.validation === "failed"
+    || evidence.validation === "attention"
+    || evidence.acceptance === "failed"
+    || evidence.promotion === "blocked"
+    || evidence.cleanup === "warning"
+  );
 }
 
 function renderHtml(receipt: Receipt, receiptPath: string): string {
@@ -169,8 +250,12 @@ function renderHtml(receipt: Receipt, receiptPath: string): string {
   const skipped = arrayOfStrings(summary.skippedTasks);
   const blocked = arrayOfStrings(summary.blockedTasks);
   const tasks = taskRows(receipt);
-  const overall = failed.length > 0 || skipped.length > 0 || blocked.length > 0 || receipt.blockedByEnvironment === true ? "Attention" : "Cleared";
-  const overallClass = overall === "Cleared" ? "good" : "warn";
+  const evidence = receipt.evidenceSummary;
+  const validationChecks = validationCheckRows(receipt);
+  const overall = evidence !== undefined
+    ? (evidenceNeedsAttention(evidence) ? "Needs attention" : "Configured gates cleared")
+    : (failed.length > 0 || skipped.length > 0 || blocked.length > 0 || receipt.blockedByEnvironment === true ? "Attention" : "Cleared");
+  const overallClass = overall === "Cleared" || overall === "Configured gates cleared" ? "good" : "warn";
   const waves = Array.isArray(receipt.waves) ? receipt.waves : [];
   const raw = JSON.stringify(receipt, null, 2);
 
@@ -225,6 +310,19 @@ summary { cursor: pointer; font-weight: 700; }
     <div class="stat">Skipped/blocked<strong class="${skipped.length + blocked.length > 0 ? "warn" : "good"}">${skipped.length + blocked.length}</strong></div>
     <div class="stat">Conflicts found<strong class="${count(receipt.conflicts) > 0 ? "warn" : "good"}">${count(receipt.conflicts)}</strong></div>
   </div>
+  ${evidence === undefined ? "" : `<section>
+    <h2>Evidence Summary</h2>
+    <table>
+      <tbody>
+        <tr><th>Execution</th><td class="${statusClass(String(evidence.execution ?? "unknown"))}">${escapeHtml(evidence.execution ?? "unknown")}</td></tr>
+        <tr><th>Scope</th><td class="${statusClass(String(evidence.scope ?? "unknown"))}">${escapeHtml(evidence.scope ?? "unknown")}</td></tr>
+        <tr><th>Validation</th><td class="${statusClass(String(evidence.validation ?? "unknown"))}">${escapeHtml(evidence.validation ?? "unknown")}</td></tr>
+        <tr><th>Acceptance</th><td class="${statusClass(String(evidence.acceptance ?? "unknown"))}">${escapeHtml(evidence.acceptance ?? "unknown")}</td></tr>
+        <tr><th>Promotion</th><td class="${statusClass(String(evidence.promotion ?? "unknown"))}">${escapeHtml(evidence.promotion ?? "unknown")}</td></tr>
+        <tr><th>Cleanup</th><td class="${statusClass(String(evidence.cleanup ?? "unknown"))}">${escapeHtml(evidence.cleanup ?? "unknown")}</td></tr>
+      </tbody>
+    </table>
+  </section>`}
   <section>
     <h2>Execution Sequence</h2>
     <div class="timeline">
@@ -239,7 +337,7 @@ summary { cursor: pointer; font-weight: 700; }
         <tr><th>Drift</th><td class="${statusClass(String(summary.driftStatus ?? receipt.drift?.status ?? "not_checked"))}">${escapeHtml(summary.driftStatus ?? receipt.drift?.status ?? "not_checked")}</td></tr>
         <tr><th>Isolation</th><td>${escapeHtml(receipt.isolation?.mode ?? "off")} / ${escapeHtml(receipt.isolation?.trustTier ?? "not_applicable")}</td></tr>
         <tr><th>Validation setup</th><td class="${statusClass(String(receipt.isolation?.validationSetup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validationSetup?.status ?? "not_applicable")}</td></tr>
-        <tr><th>Repository validation</th><td class="${statusClass(String(receipt.isolation?.validation?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validation?.status ?? "not_applicable")}</td></tr>
+        ${evidence === undefined ? `<tr><th>Repository validation</th><td class="${statusClass(String(receipt.isolation?.validation?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validation?.status ?? "not_applicable")}</td></tr>` : ""}
         <tr><th>Candidate unchanged by validation</th><td class="${statusClass(receipt.isolation?.validationWorkspaceClean === false ? "failed" : "ok")}">${escapeHtml(receipt.isolation?.validationWorkspaceClean === false ? "no" : "yes")}</td></tr>
         <tr><th>Final promotion</th><td class="${statusClass(String(receipt.isolation?.finalPromotion === "applied" || receipt.isolation?.finalPromotion === "no-changes" ? "ok" : receipt.isolation?.finalPromotion ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.finalPromotion ?? "not_applicable")}</td></tr>
         <tr><th>Cleanup</th><td class="${statusClass(String(receipt.isolation?.cleanup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.cleanup?.status ?? "not_applicable")}</td></tr>
@@ -247,6 +345,15 @@ summary { cursor: pointer; font-weight: 700; }
       </tbody>
     </table>
   </section>
+  ${validationChecks.length === 0 ? "" : `<section>
+    <h2>Validation Checks</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Status</th><th>Requirement</th><th>Working directory</th><th>Duration</th></tr></thead>
+      <tbody>
+        ${validationChecks.map((check) => `<tr><td>${escapeHtml(check.id)}</td><td class="${statusClass(check.status)}">${escapeHtml(check.status)}</td><td>${escapeHtml(check.requirement)}</td><td>${escapeHtml(check.cwd)}</td><td>${escapeHtml(check.duration)}</td></tr>`).join("")}
+      </tbody>
+    </table>
+  </section>`}
   <section>
     <h2>Tasks</h2>
     <table>

@@ -10,6 +10,7 @@ import {
   contractIdSchema,
   driftReportSchema,
   formatZodError,
+  normalizePlanValidation,
   repoManifestSchema,
   schedulePlanSchema,
   scopelockConfigSchema,
@@ -215,6 +216,205 @@ describe("ScopeLock schemas", () => {
         tasks: [{ id: "task", contract: "task.json" }],
       }).success, false, cwd);
     }
+  });
+
+  it("accepts an ordered list of shell-free validation checks", () => {
+    const parsed = schedulePlanSchema.parse({
+      schemaVersion: 1,
+      planId: "checks",
+      execution: {
+        isolation: "required",
+        validation: {
+          cwd: "app",
+          setup: ["flutter", "pub", "get"],
+          checks: [
+            {
+              id: "widget-tests",
+              command: ["flutter", "test", "test/widgets/async_submit_test.dart"],
+              required: true,
+            },
+            {
+              id: "analyze",
+              command: ["flutter", "analyze"],
+              cwd: "app/tools",
+            },
+          ],
+          acceptance: { checkIds: ["widget-tests", "analyze"] },
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    });
+
+    const validation = parsed.execution?.validation;
+    assert.equal(validation?.checks?.length, 2);
+    assert.equal(validation?.checks?.[1]?.cwd, "app/tools");
+    // required defaults to true when omitted
+    assert.equal(validation?.checks?.[1]?.required, true);
+    assert.deepEqual(validation?.acceptance?.checkIds, ["widget-tests", "analyze"]);
+  });
+
+  it("rejects legacy command combined with checks", () => {
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "both",
+      execution: {
+        validation: {
+          command: ["npm", "test"],
+          checks: [{ id: "a", command: ["npm", "test"] }],
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("rejects validation with neither command nor checks", () => {
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "neither",
+      execution: {
+        validation: { cwd: "app" },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("rejects duplicate check ids", () => {
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "dupe",
+      execution: {
+        validation: {
+          checks: [
+            { id: "a", command: ["npm", "test"] },
+            { id: "a", command: ["npm", "lint"] },
+          ],
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("rejects acceptance ids that reference unknown checks", () => {
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "unknown-acceptance",
+      execution: {
+        validation: {
+          checks: [{ id: "a", command: ["npm", "test"] }],
+          acceptance: { checkIds: ["missing"] },
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("rejects acceptance ids that reference optional checks", () => {
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "optional-acceptance",
+      execution: {
+        validation: {
+          checks: [{ id: "a", command: ["npm", "test"], required: false }],
+          acceptance: { checkIds: ["a"] },
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("rejects duplicate acceptance check ids", () => {
+    assert.throws(() => schedulePlanSchema.parse({
+      schemaVersion: 1,
+      planId: "duplicate-acceptance",
+      execution: {
+        validation: {
+          checks: [{ id: "test", command: ["npm", "test"] }],
+          acceptance: { checkIds: ["test", "test"] },
+        },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }), /duplicate acceptance check id/);
+  });
+
+  it("rejects invalid check ids", () => {
+    for (const id of ["Bad-ID", "-leading", "has space", "", "a".repeat(65)]) {
+      assert.equal(schedulePlanSchema.safeParse({
+        schemaVersion: 1,
+        planId: "invalid-id",
+        execution: {
+          validation: { checks: [{ id, command: ["npm", "test"] }] },
+        },
+        tasks: [{ id: "task", contract: "task.json" }],
+      }).success, false, id);
+    }
+  });
+
+  it("rejects more than 16 checks", () => {
+    const checks = Array.from({ length: 17 }, (_, i) => ({
+      id: `check-${i}`,
+      command: ["npm", "test"],
+    }));
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "too-many-checks",
+      execution: { validation: { checks } },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("rejects empty commands and unsafe check cwd values", () => {
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "empty-command",
+      execution: { validation: { checks: [{ id: "a", command: [] }] } },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+
+    assert.equal(schedulePlanSchema.safeParse({
+      schemaVersion: 1,
+      planId: "unsafe-check-cwd",
+      execution: {
+        validation: { checks: [{ id: "a", command: ["npm", "test"], cwd: "../outside" }] },
+      },
+      tasks: [{ id: "task", contract: "task.json" }],
+    }).success, false);
+  });
+
+  it("normalizes legacy command into a single required repository-validation check", () => {
+    const normalized = normalizePlanValidation({
+      cwd: "apps/mobile",
+      setup: ["npm", "run", "prepare"],
+      command: ["npm", "run", "check"],
+    });
+
+    assert.deepEqual(normalized.setup, ["npm", "run", "prepare"]);
+    assert.deepEqual(normalized.checks, [
+      {
+        id: "repository-validation",
+        command: ["npm", "run", "check"],
+        cwd: "apps/mobile",
+        required: true,
+      },
+    ]);
+    // Legacy plans have no declared acceptance ids: unverified by default.
+    assert.deepEqual(normalized.acceptanceCheckIds, []);
+  });
+
+  it("normalizes modern checks, inheriting shared cwd when a check omits its own", () => {
+    const normalized = normalizePlanValidation({
+      cwd: "app",
+      checks: [
+        { id: "widget-tests", command: ["flutter", "test"], required: true },
+        { id: "analyze", command: ["flutter", "analyze"], cwd: "app/tools", required: false },
+      ],
+      acceptance: { checkIds: ["widget-tests"] },
+    });
+
+    assert.deepEqual(normalized.checks, [
+      { id: "widget-tests", command: ["flutter", "test"], cwd: "app", required: true },
+      { id: "analyze", command: ["flutter", "analyze"], cwd: "app/tools", required: false },
+    ]);
+    assert.deepEqual(normalized.acceptanceCheckIds, ["widget-tests"]);
   });
 });
 
