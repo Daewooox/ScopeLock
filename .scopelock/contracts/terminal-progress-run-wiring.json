@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "terminal-progress-run-wiring",
+  "task": "Wire deterministic progress reporting into direct and isolated plan runs",
+  "createdAt": "2026-07-20T20:11:16.157Z",
+  "baseline": {
+    "headSha": "bb6ebb90c2d25c4c4cfcaeb96c17af88531d2e34",
+    "branch": "feature/terminal-progress-run-wiring",
+    "capturedAt": "2026-07-20T20:11:16.247Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/index.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/src/progress/types.ts",
+      "packages/cli/src/progress/line-reporter.ts",
+      "packages/cli/src/progress/line-reporter.test.ts",
+      "packages/cli/src/progress/live-panel-reporter.ts",
+      "packages/cli/src/progress/live-panel-reporter.test.ts",
+      "packages/cli/src/progress/create-reporter.ts",
+      "packages/cli/src/progress/create-reporter.test.ts",
+      "packages/cli/src/ui.ts",
+      "packages/cli/src/ui.test.ts",
+      "docs/reference.md",
+      "CHANGELOG.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/task-start.ts",
+      "packages/cli/src/commands/task-finish.ts",
+      "packages/core/**",
+      "packages/mcp/**",
+      ".github/workflows/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
