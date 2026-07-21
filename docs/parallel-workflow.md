@@ -269,6 +269,42 @@ from this example becomes two execution stages. It writes nothing if contracts
 are unapproved, the dependency graph is unschedulable, the selected harness is
 missing, or a configured workspace preflight fails. It never starts an agent.
 
+Real output (two contracts with a read dependency; phases stream live, and the
+Checks section renders as a failure-first status table where passing rows stay
+dim and warnings carry an inline reason):
+
+```
+[phase] scheduling
+[phase] preflight
+[phase] composing
+Context
+  Plan    release-notes
+  Target  codex
+
+Execution stages
+  stage 1: [config-writer]
+  stage 2: [summary-reader]
+
+Checks
+  Check                                   Status  Detail
+  Scope overlaps                          WARN    1 ordered safely
+      ↳ overlapping scope was reordered into separate stages
+  Codex CLI                               PASS    found
+  Hook confidence                         WARN    degraded
+      ↳ project trust is not statically verifiable; run `scopelock hooks verify --target codex`
+  Rules and skills                        WARN    not configured
+      ↳ no manifest supplied
+  Agent commands                          PASS    2 composed
+  Validation check repository-validation  PASS    required=true node -e process.exit(0)
+
+Result
+  Ready plan written  ./ready-plan.json
+  No agent was started
+
+Next
+  Review the file, then run: scopelock run "./ready-plan.json" --yes --isolate
+```
+
 The prepared plan also contains the exact repository validation argv. ScopeLock
 auto-detects common JavaScript `check`/`test` scripts, `swift test`, `cargo
 test`, and `go test ./...`. If the repository has a different canonical gate,

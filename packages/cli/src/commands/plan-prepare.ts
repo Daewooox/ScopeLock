@@ -302,7 +302,10 @@ async function planPrepareWithReporter(
   const hook = probeHookConfig(root, target);
   checks.push(`${HARNESSES[target].label} CLI  ${executable.found ? "found" : "not found"}`);
   checkRows.push({
-    id: `${HARNESSES[target].label} CLI`,
+    // The label alone: "Codex CLI" already ends in CLI, so appending " CLI"
+    // (as the JSON data.checks string historically does) would read
+    // "Codex CLI CLI" in the human table. data.checks stays unchanged.
+    id: HARNESSES[target].label,
     status: executable.found ? "pass" : "fail",
     cells: [executable.found ? "found" : "not found"],
     reason: executable.found ? undefined : "install the target agent's CLI",
@@ -312,8 +315,13 @@ async function planPrepareWithReporter(
     id: "Hook confidence",
     status: hook.capabilities.confidence === "degraded" ? "warn" : "pass",
     cells: [hook.capabilities.confidence],
+    // Live verification only exists for codex (`hooks verify --target codex`),
+    // which is also the only target whose probe reports "degraded". Kept
+    // under renderStatusTable's 100-char reason truncation limit.
     reason: hook.capabilities.confidence === "degraded"
-      ? "project trust could not be verified statically"
+      ? target === "codex"
+        ? "project trust is not statically verifiable; run `scopelock hooks verify --target codex`"
+        : "project trust could not be verified statically"
       : undefined,
   });
 
