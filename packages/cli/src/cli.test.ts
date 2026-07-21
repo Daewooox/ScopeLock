@@ -3545,6 +3545,85 @@ describe("run", () => {
     }
   });
 
+  it("checks drift against every task's own contract, not just the last-approved one", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      // The plan file and the contract drafts are the test harness's own
+      // control-plane clutter, not agent-authored output - they must land in
+      // the baseline commit (plan.json) or under the drift-exempt
+      // .scopelock/contracts/ path (the approved copies) *before* the
+      // baseline is captured, or they would themselves surface as
+      // false-positive outside_scope violations and mask the assertion this
+      // test exists to make. See collectChangedFiles's isScopelockArtifact
+      // exemption in packages/core/src/drift/collect.ts.
+      await writeFile(
+        join(dir, "plan.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          planId: "isolated-multi-contract-drift",
+          execution: isolatedExecution(),
+          tasks: [
+            {
+              id: "writer",
+              contract: ".scopelock/contracts/writer.json",
+              expectsChanges: true,
+              command: [process.execPath, "-e", "require('node:fs').writeFileSync('shared.txt','wave-one')"],
+            },
+            {
+              id: "reader",
+              contract: ".scopelock/contracts/reader.json",
+              expectsChanges: true,
+              command: [
+                process.execPath,
+                "-e",
+                "const f=require('node:fs');f.writeFileSync('observed.txt',f.readFileSync('shared.txt','utf8'))",
+              ],
+            },
+          ],
+        }),
+      );
+      commitFixture(dir, "isolated multi-contract drift plan fixture");
+
+      await writeContract(dir, join(tmpdir(), `sl-run-drift-writer-${Date.now()}.json`), "writer", ["shared.txt"]);
+      await writeContract(
+        dir,
+        join(tmpdir(), `sl-run-drift-reader-${Date.now()}.json`),
+        "reader",
+        ["observed.txt"],
+        ["shared.txt"],
+      );
+      commitFixture(dir, "isolated multi-contract drift contracts fixture");
+
+      const receiptPath = join(dir, ".scopelock", "reports", "isolated-drift.json");
+      const result = runCli(dir, [
+        "--json",
+        "run",
+        "--yes",
+        "--isolate",
+        "--plan",
+        "plan.json",
+        "--receipt",
+        receiptPath,
+      ]);
+
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      assert.equal(receipt.drift.status, "ok");
+      const violations = receipt.drift.data.report.violations as { type: string; path: string | null }[];
+      assert.deepEqual(
+        violations.filter((v) => v.type === "outside_scope"),
+        [],
+      );
+      assert.deepEqual(receipt.drift.data.report.contractIds.slice().sort(), ["reader", "writer"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("lets a real agent hook invocation pass inside an isolated task worktree (Pilot 4 P0 regression)", async (t) => {
     // .scopelock/active and the OS-level approval seal are per-machine state
     // that `git worktree add` never copies into an isolated task worktree.
@@ -5446,6 +5525,32 @@ describe("run", () => {
       assert.match(html, /task&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
       assert.match(html, /src\/&lt;unsafe&gt;\.ts/);
       assert.doesNotMatch(html, /Execution Sequence|Passed tasks|<script>alert/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("shows every checked contract id in the drift HTML heading when contractIds is present", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-drift-multi-report-"));
+    try {
+      const driftPath = join(dir, "drift.json");
+      const reportPath = join(dir, "drift.html");
+      await writeFile(driftPath, JSON.stringify({
+        schemaVersion: 1,
+        contractId: "writer",
+        contractIds: ["writer", "reader"],
+        checkedAt: "2026-07-21T00:00:00.000Z",
+        repoMode: "normal",
+        repoState: { kind: "clean" },
+        changedFiles: [],
+        violations: [],
+      }));
+
+      const result = runCli(dir, ["--json", "report", driftPath, "--out", reportPath]);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      const html = await readFile(reportPath, "utf8");
+      assert.match(html, /writer, reader/);
+      assert.doesNotMatch(html, /<title>ScopeLock Drift Report - writer<\/title>/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

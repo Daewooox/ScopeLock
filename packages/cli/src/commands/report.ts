@@ -82,12 +82,15 @@ async function readReportInput(path: string): Promise<unknown> {
 function renderDriftHtml(report: DriftReport, reportPath: string): string {
   const clean = report.violations.length === 0;
   const raw = JSON.stringify(report, null, 2);
+  const contractLabel = report.contractIds !== undefined && report.contractIds.length > 0
+    ? report.contractIds.join(", ")
+    : report.contractId;
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ScopeLock Drift Report - ${escapeHtml(report.contractId)}</title>
+<title>ScopeLock Drift Report - ${escapeHtml(contractLabel)}</title>
 <style>
 :root { color-scheme: light; --ink:#18202a; --muted:#637083; --line:#d9e1ea; --good:#127a52; --warn:#a86200; --bad:#b42318; --panel:#f7f9fb; }
 * { box-sizing: border-box; }
@@ -114,7 +117,7 @@ summary { cursor:pointer; font-weight:700; }
 <body><main>
   <header>
     <div class="eyebrow">ScopeLock Drift Report</div>
-    <h1>${escapeHtml(report.contractId)}: <span class="${clean ? "good" : "warn"}">${clean ? "Cleared" : "Attention"}</span></h1>
+    <h1>${escapeHtml(contractLabel)}: <span class="${clean ? "good" : "warn"}">${clean ? "Cleared" : "Attention"}</span></h1>
     <div class="meta">${escapeHtml(report.checkedAt)} · ${escapeHtml(reportPath)}</div>
   </header>
   <div class="grid">
