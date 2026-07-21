@@ -33,6 +33,13 @@ All notable changes to ScopeLock will be documented here.
 - Live `task start` progress shows three phases ("Describe and scope the task",
   "Review and approve", "Connect the agent") in the interactive wizard; scope and
   sensitive-file warnings visually stand out on the review screen.
+- `plan prepare`'s Checks section now renders as a failure-first status table
+  (colored PASS/WARN/FAIL rows with inline reasons), matching the treatment
+  already used by `task finish` and `task start`.
+- `check-drift` is multi-contract-aware for `run`'s end-of-run drift check:
+  every task's own approved contract is checked, not just whichever contract
+  happens to be active, eliminating false-positive outside-scope findings on
+  multi-task runs.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta

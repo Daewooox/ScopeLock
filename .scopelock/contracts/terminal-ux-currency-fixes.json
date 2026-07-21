@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "terminal-ux-currency-fixes",
+  "task": "document terminal UX + multi-contract check-drift currency",
+  "createdAt": "2026-07-21T14:53:55.237Z",
+  "baseline": {
+    "headSha": "3ff2c83bcffa05d733ff49ae7ea2974eb63eb8b2",
+    "branch": "docs/terminal-ux-currency-fixes",
+    "capturedAt": "2026-07-21T14:53:55.339Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "CHANGELOG.md",
+      "docs/reference.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
