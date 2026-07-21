@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "beta-quickstart-friction-fixes",
+  "task": "fix quickstart first-run friction points",
+  "createdAt": "2026-07-21T18:44:23.238Z",
+  "baseline": {
+    "headSha": "cd9f613f567c5707ebb2d4f2a4e288190f460d21",
+    "branch": "docs/beta-quickstart-friction-fixes",
+    "capturedAt": "2026-07-21T18:44:23.324Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "docs/beta-quickstart.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
