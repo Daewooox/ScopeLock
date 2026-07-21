@@ -1,55 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1082" viewBox="0 0 960 1082" role="img" aria-labelledby="title desc">
   <title id="title">ScopeLock Guided terminal demo</title>
-  <desc id="desc">An animated terminal replay of setup, task start, and task finish. The final state shows a cleared Flight Report and states that no agent or tests were run.</desc>
+  <desc id="desc">A real, regenerated terminal replay of task start and task finish.</desc>
   <style>
-    .ui{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0}.mono{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace;letter-spacing:0}
-    .text{fill:#e6edf3}.muted{fill:#8b949e}.blue{fill:#79c0ff}.green{fill:#7ee787}.amber{fill:#e3b341}.spinner{fill:none;stroke:#79c0ff;stroke-width:3;stroke-linecap:round;stroke-dasharray:16 10}
-    .animated{opacity:0;animation-duration:8s;animation-timing-function:steps(1,end);animation-iteration-count:infinite}.pending1{animation-name:pending1}.after1{animation-name:after1}.pending2{animation-name:pending2}.after2{animation-name:after2}.pending3{animation-name:pending3}.after3{animation-name:after3}
-    @keyframes pending1{0%,25.25%{opacity:1}25.251%,100%{opacity:0}}@keyframes after1{0%,24.999%{opacity:0}25%,100%{opacity:1}}
-    @keyframes pending2{0%,24.999%{opacity:0}25%,50.25%{opacity:1}50.251%,100%{opacity:0}}@keyframes after2{0%,49.999%{opacity:0}50%,100%{opacity:1}}
-    @keyframes pending3{0%,49.999%{opacity:0}50%,75.25%{opacity:1}75.251%,100%{opacity:0}}@keyframes after3{0%,74.999%{opacity:0}75%,100%{opacity:1}}
+    .ui{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .mono{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace}
+    .text{fill:#e6edf3}.muted{fill:#8b949e}.blue{fill:#79c0ff}
+    .animated{opacity:0;animation-duration:8s;animation-timing-function:steps(1,end);animation-iteration-count:infinite}
+    .pending0{animation-name:pending0}.after0{animation-name:after0}.pending1{animation-name:pending1}.after1{animation-name:after1}
+    @keyframes pending0{0%,0.000%{opacity:0}0.001%,25.000%{opacity:1}25.001%,100%{opacity:0}}@keyframes after0{0%,24.999%{opacity:0}25.000%,100%{opacity:1}}@keyframes pending1{0%,50.000%{opacity:0}50.001%,75.000%{opacity:1}75.001%,100%{opacity:0}}@keyframes after1{0%,74.999%{opacity:0}75.000%,100%{opacity:1}}
     @media (prefers-reduced-motion:reduce){.animated{animation:none;opacity:0}.final{opacity:1}}
   </style>
-
-  <rect width="960" height="360" rx="12" fill="#0d1117"/>
+  <rect width="960" height="1082" rx="12" fill="#0d1117"/>
   <rect width="960" height="48" rx="12" fill="#161b22"/>
   <circle cx="24" cy="24" r="6" fill="#ff5f56"/><circle cx="46" cy="24" r="6" fill="#ffbd2e"/><circle cx="68" cy="24" r="6" fill="#27c93f"/>
-  <text class="ui text" x="92" y="30" font-size="15" font-weight="700">Guided: one protected task</text>
-  <text class="ui muted" x="764" y="30" font-size="12">deterministic replay</text>
-  <text class="mono blue" x="32" y="82" font-size="14">$ scopelock setup</text>
-
-  <g class="animated pending1">
-    <circle class="spinner" cx="42" cy="108" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 108" to="360 42 108" dur=".8s" repeatCount="indefinite"/></circle>
-    <text class="ui muted" x="62" y="113" font-size="13">Checking repository and agent environment...</text>
-  </g>
-  <g class="animated after1 final">
-    <rect x="32" y="94" width="600" height="30" fill="#0d1117"/>
-    <circle cx="42" cy="108" r="10" fill="#238636"/><path d="m37 108 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/>
-    <text class="ui text" x="62" y="113" font-size="13">Repository and agent environment checked</text>
-    <text class="mono blue" x="32" y="154" font-size="14">$ scopelock task start "Update greeting" --agent codex</text>
-  </g>
-  <g class="animated pending2">
-    <circle class="spinner" cx="42" cy="180" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 180" to="360 42 180" dur=".8s" repeatCount="indefinite"/></circle>
-    <text class="ui muted" x="62" y="185" font-size="13">Reviewing the task boundary...</text>
-  </g>
-  <g class="animated after2 final">
-    <rect x="32" y="166" width="896" height="54" rx="7" fill="#11161d" stroke="#30363d"/>
-    <text class="ui green" x="50" y="190" font-size="13" font-weight="700">Boundary approved</text>
-    <text class="mono muted" x="50" y="210" font-size="12">may change  src/greeting.js, tests/greeting.test.js</text>
-    <text class="ui amber" x="770" y="190" font-size="12">agent started: no</text>
-    <text class="mono blue" x="32" y="252" font-size="14">$ scopelock task finish --open</text>
-  </g>
-  <g class="animated pending3">
-    <circle class="spinner" cx="42" cy="278" r="9"><animateTransform attributeName="transform" type="rotate" from="0 42 278" to="360 42 278" dur=".8s" repeatCount="indefinite"/></circle>
-    <text class="ui muted" x="62" y="283" font-size="13">Checking repository evidence...</text>
-  </g>
-  <g class="animated after3 final">
-    <rect x="32" y="264" width="896" height="42" rx="7" fill="#0f2d1d" stroke="#238636"/>
-    <circle cx="50" cy="285" r="10" fill="#238636"/><path d="m45 285 3 3 7-8" fill="none" stroke="#fff" stroke-width="2.2"/>
-    <text class="ui green" x="70" y="290" font-size="14" font-weight="700">Cleared</text>
-    <text class="ui text" x="136" y="290" font-size="13">Flight Report saved</text>
-    <text class="ui amber" x="796" y="290" font-size="12">tests run: no</text>
-    <line x1="32" y1="326" x2="928" y2="326" stroke="#30363d"/>
-    <text class="ui muted" x="32" y="347" font-size="12">Same contracts and reports as Standard. No model or agent executed.</text>
-  </g>
+  <text class="ui text" x="92" y="30" font-size="15" font-weight="700">ScopeLock Guided terminal demo</text>
+  <text class="mono blue" x="32" y="82" font-size="14">$ scopelock task start &quot;Add a dark mode toggle&quot; --agent codex --allow src --yes</text>
+  <g class="animated pending0"><text class="ui muted" x="32" y="116" font-size="13">Describe and scope the task -&gt; Review and approve -&gt; Connect the agent...</text></g>
+  <g class="animated after0 final"><text class="mono" x="32" y="136" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Review</tspan></text><text class="mono" x="32" y="156" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Task      Add a dark mode toggle</tspan></text><text class="mono" x="32" y="176" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Agent     Codex CLI</tspan></text><text class="mono" x="32" y="196" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  May edit  src/**</tspan></text><text class="mono" x="32" y="216" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Blocked   none</tspan></text><text class="mono" x="32" y="236" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Context   none</tspan></text><text class="mono" x="32" y="256" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Tests     unit</tspan></text><text class="mono" x="32" y="276" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Coverage  0/2 tracked files; future matching files are included</tspan></text><text class="mono" x="32" y="296" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Draft     ./.scopelock/drafts/demo-guided.json</tspan></text><text class="mono" x="32" y="316" font-size="13" xml:space="preserve"></text><text class="mono" x="32" y="336" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Checks</tspan></text><text class="mono" x="32" y="356" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Approved  yes, active baseline captured</tspan></text><text class="mono" x="32" y="376" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Environment  Ready with drift detection; no active write hook</tspan></text><text class="mono" x="32" y="396" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Instructions  not changed</tspan></text><text class="mono" x="32" y="416" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Agent started  no</tspan></text><text class="mono" x="32" y="436" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Tests executed no</tspan></text><text class="mono" x="32" y="456" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  OS sandbox     no</tspan></text><text class="mono" x="32" y="476" font-size="13" xml:space="preserve"></text><text class="mono" x="32" y="496" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Result</tspan></text><text class="mono" x="32" y="516" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Task boundary is ready</tspan></text><text class="mono" x="32" y="536" font-size="13" xml:space="preserve"></text><text class="mono" x="32" y="556" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Next</tspan></text><text class="mono" x="32" y="576" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Let the agent work, then run: scopelock task finish</tspan></text></g>
+  <text class="mono blue" x="32" y="596" font-size="14">$ scopelock task finish</text>
+  <g class="animated pending1"><text class="ui muted" x="32" y="630" font-size="13">checking-drift -&gt; rendering-report...</text></g>
+  <g class="animated after1 final"><text class="mono" x="32" y="650" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Context</tspan></text><text class="mono" x="32" y="670" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Task boundary  demo-guided</tspan></text><text class="mono" x="32" y="690" font-size="13" xml:space="preserve"></text><text class="mono" x="32" y="710" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Checks</tspan></text><text class="mono" x="32" y="730" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  </tspan><tspan fill="#8b949e">Finding</tspan><tspan fill="#e6edf3">          </tspan><tspan fill="#8b949e">Status</tspan><tspan fill="#e6edf3">  </tspan><tspan fill="#8b949e">Count</tspan><tspan fill="#e6edf3">  </tspan><tspan fill="#8b949e">Paths</tspan><tspan fill="#e6edf3">                                  </tspan></text><text class="mono" x="32" y="750" font-size="13" xml:space="preserve"><tspan fill="#8b949e">Allowed changes</tspan><tspan fill="#e6edf3">  </tspan><tspan fill="#7ee787">PASS</tspan><tspan fill="#e6edf3">    </tspan><tspan fill="#8b949e">2</tspan><tspan fill="#e6edf3">      </tspan><tspan fill="#8b949e">src/dark-mode.js, src/dark-mode.test.js</tspan></text><text class="mono" x="32" y="770" font-size="13" xml:space="preserve"><tspan fill="#8b949e">Blocked changes</tspan><tspan fill="#e6edf3">  </tspan><tspan fill="#7ee787">PASS</tspan><tspan fill="#e6edf3">    </tspan><tspan fill="#8b949e">0</tspan><tspan fill="#e6edf3">      </tspan><tspan fill="#8b949e">none</tspan><tspan fill="#e6edf3">                                   </tspan></text><text class="mono" x="32" y="790" font-size="13" xml:space="preserve"><tspan fill="#8b949e">Outside scope</tspan><tspan fill="#e6edf3">    </tspan><tspan fill="#7ee787">PASS</tspan><tspan fill="#e6edf3">    </tspan><tspan fill="#8b949e">0</tspan><tspan fill="#e6edf3">      </tspan><tspan fill="#8b949e">none</tspan><tspan fill="#e6edf3">                                   </tspan></text><text class="mono" x="32" y="810" font-size="13" xml:space="preserve"><tspan fill="#8b949e">High risk</tspan><tspan fill="#e6edf3">        </tspan><tspan fill="#7ee787">PASS</tspan><tspan fill="#e6edf3">    </tspan><tspan fill="#8b949e">0</tspan><tspan fill="#e6edf3">      </tspan><tspan fill="#8b949e">none</tspan><tspan fill="#e6edf3">                                   </tspan></text><text class="mono" x="32" y="830" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Tests executed  no (ScopeLock checked contract evidence only)</tspan></text><text class="mono" x="32" y="850" font-size="13" xml:space="preserve"></text><text class="mono" x="32" y="870" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Result</tspan></text><text class="mono" x="32" y="890" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Cleared</tspan></text><text class="mono" x="32" y="910" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Drift report  ./.scopelock/reports/drift-demo.json</tspan></text><text class="mono" x="32" y="930" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Flight Report ./.scopelock/reports/drift-demo.html</tspan></text><text class="mono" x="32" y="950" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Browser       not opened</tspan></text><text class="mono" x="32" y="970" font-size="13" xml:space="preserve"></text><text class="mono" x="32" y="990" font-size="13" xml:space="preserve"><tspan fill="#79c0ff">Next</tspan></text><text class="mono" x="32" y="1010" font-size="13" xml:space="preserve"><tspan fill="#e6edf3">  Review and commit the accepted changes</tspan></text></g>
 </svg>
