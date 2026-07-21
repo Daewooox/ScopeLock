@@ -290,7 +290,9 @@ interactive wizard shows step progress with three phases: "Describe and scope th
 "Review and approve", and "Connect the agent"; broad-scope and sensitive-file warnings
 on the review screen visually stand out from other summary lines. Like `run`, they display
 a live panel on interactive TTYs, one flat line per phase in pipes or CI, and no progress
-output under `--json`.
+output under `--json`. `plan prepare`'s Checks section and `task finish`'s findings render
+as a failure-first status table: passing rows stay dim, failing or warning rows stay bright
+with an inline reason underneath.
 
 Compose agent commands into a separate reviewable plan before dispatch:
 
@@ -399,7 +401,10 @@ Other `run` options:
 - `--timeout-ms <ms>` bounds each task's process (default 900000 = 15 minutes).
 - `--isolate` gates each task patch in a detached worktree and promotes once.
 - `--no-check-drift` skips the final `check-drift` step the receipt normally
-  includes.
+  includes. For a multi-task plan, that final check is run against every
+  task's own approved contract, not just whichever one happens to be active
+  on disk — a file legitimately owned by one task is never flagged just
+  because a sibling task's contract forbids that path.
 - `--no-read-hazards` schedules using only write-write conflicts (F1),
   ignoring each contract's `readPathPatterns` (F2).
 
