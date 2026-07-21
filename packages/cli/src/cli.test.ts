@@ -2093,6 +2093,10 @@ describe("plan prepare", () => {
           reporter: recording.reporter,
         });
         assert.equal(prepared.exitCode, 0, prepared.human ?? "");
+        // The degraded codex hook-confidence WARN must point at the concrete
+        // command that upgrades it, and must not render as "Codex CLI CLI".
+        assert.match(prepared.human ?? "", /hooks verify --target codex/);
+        assert.doesNotMatch(prepared.human ?? "", /Codex CLI CLI/);
         assert.deepEqual(recording.events, [
           { type: "phase", name: "scheduling" },
           { type: "phase", name: "preflight" },
