@@ -30,6 +30,9 @@ All notable changes to ScopeLock will be documented here.
 - Live `plan prepare` and `task finish` progress with phase-based reporting: same
   spinner, flat-line, and silent behavior as `run`. Task finish findings now
   visually distinguish blocked, outside-scope, and high-risk findings from clean ones.
+- Live `task start` progress shows three phases ("Describe and scope the task",
+  "Review and approve", "Connect the agent") in the interactive wizard; scope and
+  sensitive-file warnings visually stand out on the review screen.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta

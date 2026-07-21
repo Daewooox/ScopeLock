@@ -261,6 +261,7 @@ task
     ) => {
       const json = jsonOf(command);
       const interactive = !json.json && process.stdin.isTTY === true && process.stdout.isTTY === true;
+      const reporter = createReporter(process.stdout, json);
       return run(
         () => taskStartCommand(
           {
@@ -268,6 +269,7 @@ task
             ...options,
             context: [...options.context, ...options.read],
             interactive,
+            reporter,
           },
           {
             question: questionPrompt,

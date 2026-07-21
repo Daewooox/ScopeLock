@@ -11,12 +11,14 @@ import {
   type AgentId,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
-import { renderSections } from "../ui.js";
+import { renderSections, renderStatusTable, type StatusRow } from "../ui.js";
 import { approveCommand } from "./approve.js";
 import { contractNewCommand } from "./contract-new.js";
 import { initCommand } from "./init.js";
 import { injectContractCommand } from "./inject-contract.js";
 import { setupCommand } from "./setup.js";
+import { createNoopReporter } from "../progress/noop-reporter.js";
+import type { ProgressReporter } from "../progress/types.js";
 
 export type TaskStartOptions = {
   description?: string;
@@ -30,6 +32,7 @@ export type TaskStartOptions = {
   inject?: boolean;
   interactive: boolean;
   cwd?: string;
+  reporter?: ProgressReporter;
 };
 
 type TaskStartDependencies = {
@@ -77,13 +80,16 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export async function taskStartCommand(
+async function taskStartWithReporter(
   options: TaskStartOptions,
-  dependencies: TaskStartDependencies = {},
+  dependencies: TaskStartDependencies,
+  reporter: ProgressReporter,
 ): Promise<CommandResult> {
   const cwd = options.cwd ?? process.cwd();
   const root = findRepoRoot(cwd);
   if (root === null) throw new CliError("NOT_A_GIT_REPO", "task start must run inside a git repository");
+
+  reporter.emit({ type: "step", index: 1, total: 3, label: "Describe and scope the task" });
 
   const question = dependencies.question;
   const ask = async (message: string, current: string | undefined): Promise<string> => {
@@ -133,6 +139,21 @@ export async function taskStartCommand(
       : null,
     risky.length > 0 ? `Sensitive files included: ${risky.join(", ")}` : null,
   ].filter((value): value is string => value !== null);
+  const warningRows: StatusRow[] = [
+    ...(coverage >= 0.5
+      ? [{
+          id: "Broad scope",
+          status: "warn" as const,
+          cells: [] as string[],
+          reason: `${covered.length}/${manifest.files.length} tracked files (${Math.round(coverage * 100)}%)`,
+        }]
+      : []),
+    ...(risky.length > 0
+      ? [{ id: "Sensitive files", status: "warn" as const, cells: [] as string[], reason: risky.join(", ") }]
+      : []),
+  ];
+
+  reporter.emit({ type: "step", index: 2, total: 3, label: "Review and approve" });
 
   await initCommand(root);
   const draftResult = await contractNewCommand({
@@ -160,7 +181,7 @@ export async function taskStartCommand(
     `Tests     ${tests.join(", ")}`,
     `Coverage  ${covered.length}/${manifest.files.length} tracked files; future matching files are included`,
     `Draft     ${draftPath}`,
-    ...warnings.map((warning) => `Warning   ${warning}`),
+    ...(warningRows.length > 0 ? [renderStatusTable("Warning", [], warningRows)] : []),
   ];
 
   let approved = options.yes === true;
@@ -187,6 +208,8 @@ export async function taskStartCommand(
       exitCode: 0,
     };
   }
+
+  reporter.emit({ type: "step", index: 3, total: 3, label: "Connect the agent" });
 
   const approval = await approveCommand(draftPath, { activate: true }, root);
   const setup = dependencies.setup ?? setupCommand;
@@ -247,4 +270,16 @@ export async function taskStartCommand(
     ]),
     exitCode: environmentReady ? 0 : 1,
   };
+}
+
+export async function taskStartCommand(
+  options: TaskStartOptions,
+  dependencies: TaskStartDependencies = {},
+): Promise<CommandResult> {
+  const reporter = options.reporter ?? createNoopReporter();
+  try {
+    return await taskStartWithReporter(options, dependencies, reporter);
+  } finally {
+    reporter.dispose();
+  }
 }

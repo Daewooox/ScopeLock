@@ -285,9 +285,12 @@ all progress output, so stdout remains one parseable JSON document.
 
 `plan prepare` and `task finish` use the same phase-based progress reporting:
 `plan prepare` reports `scheduling`, `preflight`, and `composing` phases, while
-`task finish` reports `checking-drift` and `rendering-report` phases. Like `run`,
-they display a live panel on interactive TTYs, one flat line per phase in pipes
-or CI, and no progress output under `--json`.
+`task finish` reports `checking-drift` and `rendering-report` phases. `task start`'s
+interactive wizard shows step progress with three phases: "Describe and scope the task",
+"Review and approve", and "Connect the agent"; broad-scope and sensitive-file warnings
+on the review screen visually stand out from other summary lines. Like `run`, they display
+a live panel on interactive TTYs, one flat line per phase in pipes or CI, and no progress
+output under `--json`.
 
 Compose agent commands into a separate reviewable plan before dispatch:
 

@@ -323,7 +323,73 @@ describe("guided task start", () => {
         interactive: true,
         cwd: dir,
       }, { confirm: async () => false, setup: readySetup });
-      assert.match(result.human ?? "", /Broad scope: 1\/2 tracked files \(50%\)/);
+      assert.match(result.human ?? "", /Broad scope/);
+      assert.match(result.human ?? "", /1\/2 tracked files \(50%\)/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits three review steps and disposes the reporter on approval", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const recording = recordingReporter();
+      const result = await taskStartCommand({
+        description: "step events task",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "step-events-task",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+        reporter: recording.reporter,
+      }, { setup: readySetup });
+      assert.equal(result.exitCode, 0);
+      assert.deepEqual(recording.events, [
+        { type: "step", index: 1, total: 3, label: "Describe and scope the task" },
+        { type: "step", index: 2, total: 3, label: "Review and approve" },
+        { type: "step", index: 3, total: 3, label: "Connect the agent" },
+      ]);
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("stops after step 2 and still disposes when approval is declined", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const recording = recordingReporter();
+      const result = await taskStartCommand({
+        description: "declined step events task",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "declined-step-events-task",
+        interactive: true,
+        cwd: dir,
+        reporter: recording.reporter,
+      }, { confirm: async () => false, setup: readySetup });
+      assert.equal(result.exitCode, 0);
+      assert.equal((result.data as { approved: boolean }).approved, false);
+      assert.deepEqual(recording.events, [
+        { type: "step", index: 1, total: 3, label: "Describe and scope the task" },
+        { type: "step", index: 2, total: 3, label: "Review and approve" },
+      ]);
+      assert.equal(recording.disposeCount(), 1);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
