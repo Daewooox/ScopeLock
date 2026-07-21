@@ -114,22 +114,35 @@ below) to be stable.
 
 ### Component 3: `scripts/demo-svg/render.mjs`
 
-`renderStatusFrames(captures): Frame[]` turns each scenario's captured
-data into an ordered list of frames:
+Turns each scenario's captured data into an ordered list of animated
+"scenes" — **one scene per real CLI command invoked in the scenario**
+(Guided: 2 scenes, for task start and task finish; Standard: 1 scene, for
+the single `plan prepare` call). This is a deliberate scope cut from an
+earlier draft of this section, made explicitly with the maintainer during
+planning: a fully generic per-phase reveal (one frame per `step`/`phase`
+event, splitting the settled command's `human` text at its `renderSections`
+boundaries and revealing one section at a time) was considered and
+rejected as unnecessary implementation complexity for a two-scene hero
+animation — it would require coupling the renderer to `renderSections`'
+internal block-separator convention for no benefit proportional to the
+added code and test surface.
 
-- One "reveal" frame per distinct `step`/`phase` event label encountered
-  across the scenario's commands, in the order they were actually
-  emitted (e.g. Guided: "Describe and scope the task" → "Review and
-  approve" → "Connect the agent" → "checking-drift" → "rendering-report").
-  Each reveal frame shows the accumulated list of labels seen so far,
-  each with a spinner-style glyph, mirroring the existing SVGs' visual
-  grammar of a stepped checklist filling in.
-- One final "settled" frame showing the last command's sanitized `human`
-  text, ANSI-colored spans mapped 1:1 from the 7 known SGR codes to fixed
-  SVG hex colors (reusing the current SVGs' existing palette: `#238636`
-  green / pass, an amber for warn, `#f85149`-family red for fail, matching
-  GitHub-dark-adjacent tones already used in the hand-authored originals
-  for visual continuity).
+Each scene has two sub-frames:
+
+- A **pending** sub-frame: the real `step`/`phase` event labels captured
+  for that command, joined in emission order (e.g. "scheduling ->
+  preflight -> composing" for `plan prepare`), shown once as a single
+  static in-progress line — not a literal multi-stage reveal.
+- A **settled** sub-frame: that command's full sanitized `human` text,
+  rendered line by line, with ANSI-colored spans mapped 1:1 from the 7
+  known SGR codes to fixed SVG hex colors (reusing the current SVGs'
+  existing palette — green/pass, amber/warn — plus one new red for
+  fail, which the all-happy-path hand-authored originals never needed).
+
+Scenes accumulate visually in the same way the original hand-authored
+SVGs did: once a scene settles, its content stays visible while the next
+scene's prompt and pending line appear below it, so the final frame shows
+every scene's real settled output stacked in order.
 
 `renderSvg(frames, { title, description }): string` emits the SVG
 markup: fixed 960×360 canvas, dark terminal chrome (reusing the existing
