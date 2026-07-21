@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-svg-capture-pipeline",
+  "task": "real terminal-capture pipeline for README hero SVGs",
+  "createdAt": "2026-07-21T15:17:51.197Z",
+  "baseline": {
+    "headSha": "7b5f71fade1b5b9f2379db541cf0351ce1bfbead",
+    "branch": "demo-svg/real-capture-pipeline",
+    "capturedAt": "2026-07-21T15:17:51.288Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "scripts/demo-svg/**",
+      "package.json",
+      ".github/workflows/test.yml",
+      "README.md",
+      "docs/assets/scopelock-demo.svg",
+      "docs/assets/scopelock-plan-demo.svg"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
