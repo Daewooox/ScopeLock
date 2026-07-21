@@ -4,9 +4,9 @@
   "task": "evidence status transparency: muted not-exercised states",
   "createdAt": "2026-07-21T19:24:41.129Z",
   "baseline": {
-    "headSha": "c966e71a3475fd2e3c58c19fd29e8eb1eb878a47",
+    "headSha": "4cbacab46ac4844790c6fdb0d61dd5d6738710b4",
     "branch": "ux/evidence-status-transparency",
-    "capturedAt": "2026-07-21T19:24:41.216Z"
+    "capturedAt": "2026-07-21T19:55:07.939Z"
   },
   "targetAgents": [],
   "scope": {
