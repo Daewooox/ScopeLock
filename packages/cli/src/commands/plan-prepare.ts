@@ -16,7 +16,7 @@ import {
   type ScopeConflict,
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
-import { renderSections } from "../ui.js";
+import { renderSections, renderStatusTable, type StatusRow } from "../ui.js";
 import { createNoopReporter } from "../progress/noop-reporter.js";
 import type { ProgressReporter } from "../progress/types.js";
 import { agentsPreflightCommand } from "./agents-preflight.js";
@@ -221,6 +221,7 @@ function stageLines(stages: string[][]): string[] {
 
 function result(
   data: Record<string, unknown>,
+  checkRows: StatusRow[],
   humanResult: string,
   next: string,
   exitCode: 0 | 1,
@@ -232,7 +233,7 @@ function result(
     human: renderSections([
       { title: "Context", lines: [`Plan    ${schedule.planId}`, `Target  ${String(data.target)}`] },
       { title: "Execution stages", lines: stages.length > 0 ? stages : "none" },
-      { title: "Checks", lines: data.checks as string[] },
+      { title: "Checks", lines: renderStatusTable("Check", ["Detail"], checkRows) },
       { title: "Result", lines: humanResult },
       { title: "Next", lines: next },
     ]),
@@ -267,11 +268,28 @@ async function planPrepareWithReporter(
       ? "No scope overlaps found"
       : `${schedule.conflicts.length} scope overlap${schedule.conflicts.length === 1 ? "" : "s"} ordered safely`,
   ];
+  const checkRows: StatusRow[] = [
+    schedule.conflicts.length === 0
+      ? { id: "Scope overlaps", status: "pass", cells: ["No overlaps found"] }
+      : {
+          id: "Scope overlaps",
+          status: "warn",
+          cells: [`${schedule.conflicts.length} ordered safely`],
+          reason: "overlapping scope was reordered into separate stages",
+        },
+  ];
   const base = { target, schedule, checks };
   if (schedule.cycles.length > 0) {
     checks.push(`${schedule.cycles.length} unschedulable read-write group${schedule.cycles.length === 1 ? "" : "s"}`);
+    checkRows.push({
+      id: "Unschedulable groups",
+      status: "fail",
+      cells: [`${schedule.cycles.length} read-write group${schedule.cycles.length === 1 ? "" : "s"}`],
+      reason: "circular dependencies block scheduling",
+    });
     return result(
       { ...base, preflight: null, outputPath: null },
+      checkRows,
       "Plan needs changes; no ready plan was written",
       `Adjust task boundaries, then run: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)}`,
       1,
@@ -283,20 +301,49 @@ async function planPrepareWithReporter(
   const executable = { name: target === "cursor" ? "agent" : target, found: executablePath !== null, path: executablePath };
   const hook = probeHookConfig(root, target);
   checks.push(`${HARNESSES[target].label} CLI  ${executable.found ? "found" : "not found"}`);
+  checkRows.push({
+    id: `${HARNESSES[target].label} CLI`,
+    status: executable.found ? "pass" : "fail",
+    cells: [executable.found ? "found" : "not found"],
+    reason: executable.found ? undefined : "install the target agent's CLI",
+  });
   checks.push(`Hook confidence  ${hook.capabilities.confidence}`);
+  checkRows.push({
+    id: "Hook confidence",
+    status: hook.capabilities.confidence === "degraded" ? "warn" : "pass",
+    cells: [hook.capabilities.confidence],
+    reason: hook.capabilities.confidence === "degraded"
+      ? "project trust could not be verified statically"
+      : undefined,
+  });
 
   let workspace: AgentEnvironmentPreflightReport | null = null;
   if (options.manifest !== undefined) {
     const preflight = await agentsPreflightCommand({ manifest: options.manifest, target: [target] });
     workspace = (preflight.data as { report: AgentEnvironmentPreflightReport }).report;
     checks.push(`Rules and skills  ${workspace.summary.status}`);
+    checkRows.push({
+      id: "Rules and skills",
+      status: workspace.summary.status as StatusRow["status"],
+      cells: [workspace.summary.status],
+      reason: workspace.summary.status !== "pass"
+        ? `${workspace.summary.violationsCount} violation${workspace.summary.violationsCount === 1 ? "" : "s"} found`
+        : undefined,
+    });
   } else {
     checks.push("Rules and skills  not configured (no manifest supplied)");
+    checkRows.push({
+      id: "Rules and skills",
+      status: "warn",
+      cells: ["not configured"],
+      reason: "no manifest supplied",
+    });
   }
   const preflight = { executable, hook, workspace };
   if (!executable.found || (workspace !== null && workspace.summary.violationsCount > 0)) {
     return result(
       { ...base, preflight, outputPath: null },
+      checkRows,
       "Environment needs attention; no ready plan was written",
       !executable.found
         ? `Install ${HARNESSES[target].label}, then run: scopelock setup --target ${target}`
@@ -315,6 +362,7 @@ async function planPrepareWithReporter(
   if (composed.exitCode !== 0 || composition.unsupported.length > 0) {
     return result(
       { ...base, preflight, composition, outputPath: null },
+      checkRows,
       "Agent commands could not be composed; no ready plan was written",
       "Review the unsupported tasks, then run: scopelock plan prepare",
       1,
@@ -345,8 +393,15 @@ async function planPrepareWithReporter(
   });
   if (composedValidation === null) {
     checks.push("Repository validation  not detected");
+    checkRows.push({
+      id: "Repository validation",
+      status: "fail",
+      cells: ["not detected"],
+      reason: "pass --validation-check to supply one",
+    });
     return result(
       { ...base, preflight, composition, outputPath: null },
+      checkRows,
       "Validation check is required; no ready plan was written",
       `Run again with: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)} --validation-check <id> <executable> [args...]`,
       1,
@@ -378,16 +433,29 @@ async function planPrepareWithReporter(
   }
   await writeJsonAtomic(outputPath, readyPlan);
   checks.push(`${readyPlan.tasks.length} shell-free agent command${readyPlan.tasks.length === 1 ? "" : "s"} composed`);
-  if (composedValidation.setup) checks.push(`Validation setup  ${composedValidation.setup.join(" ")}`);
-  if (validationCwd) checks.push(`Validation cwd  ${validationCwd}`);
+  checkRows.push({ id: "Agent commands", status: "pass", cells: [`${readyPlan.tasks.length} composed`] });
+  if (composedValidation.setup) {
+    checks.push(`Validation setup  ${composedValidation.setup.join(" ")}`);
+    checkRows.push({ id: "Validation setup", status: "pass", cells: [composedValidation.setup.join(" ")] });
+  }
+  if (validationCwd) {
+    checks.push(`Validation cwd  ${validationCwd}`);
+    checkRows.push({ id: "Validation cwd", status: "pass", cells: [validationCwd] });
+  }
   for (const check of composedValidation.checks) {
     checks.push(
       `Validation check ${check.id}  required=${check.required}` +
         `${check.cwd ? ` cwd=${check.cwd}` : ""}  ${check.command.join(" ")}`,
     );
+    checkRows.push({
+      id: `Validation check ${check.id}`,
+      status: "pass",
+      cells: [`required=${check.required}${check.cwd ? ` cwd=${check.cwd}` : ""} ${check.command.join(" ")}`],
+    });
   }
   return result(
     { ...base, preflight, plan: readyPlan, outputPath },
+    checkRows,
     `Ready plan written  ${outputPath}\nNo agent was started`,
     `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes --isolate`,
     0,
