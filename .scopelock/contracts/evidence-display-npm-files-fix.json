@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "evidence-display-npm-files-fix",
+  "task": "ci fix: include evidence-display.js in npm package files",
+  "createdAt": "2026-07-21T20:01:33.578Z",
+  "baseline": {
+    "headSha": "897c18accd0a0b3a616379d0e8c568897a63e5ac",
+    "branch": "ux/evidence-status-transparency",
+    "capturedAt": "2026-07-21T20:01:33.665Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/package.json"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

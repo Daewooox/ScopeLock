@@ -21,6 +21,8 @@
     "dist/redaction.js",
     "dist/receipt-evidence.d.ts",
     "dist/receipt-evidence.js",
+    "dist/evidence-display.d.ts",
+    "dist/evidence-display.js",
     "dist/prompts.d.ts",
     "dist/prompts.js",
     "dist/run.d.ts",
