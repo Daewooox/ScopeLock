@@ -1,10 +1,14 @@
 import { createInterface } from "node:readline/promises";
 import { CliError } from "./run.js";
 
-type PromptOptions = {
+export type PromptOptions = {
   suffix?: string;
   cancellationCode?: string;
   cancellationMessage?: string;
+  /** When true, a bare Enter (empty answer) counts as accepted. Every
+   *  existing caller omits this and keeps today's default-no-on-Enter
+   *  behavior unchanged. */
+  defaultYes?: boolean;
 };
 
 async function ask(message: string, options: PromptOptions = {}): Promise<string> {
@@ -39,7 +43,9 @@ async function ask(message: string, options: PromptOptions = {}): Promise<string
 
 export async function confirmPrompt(message: string, options: PromptOptions = {}): Promise<boolean> {
   const answer = await ask(message, options);
-  return /^(y|yes)$/i.test(answer.trim());
+  const trimmed = answer.trim();
+  if (trimmed.length === 0 && options.defaultYes === true) return true;
+  return /^(y|yes)$/i.test(trimmed);
 }
 
 export function questionPrompt(message: string): Promise<string> {
