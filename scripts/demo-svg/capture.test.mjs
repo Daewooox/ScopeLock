@@ -12,10 +12,23 @@ import {
   cliBinPath,
 } from "./capture.mjs";
 
-describe("capture", () => {
-  it("forces stdout.isTTY to true", () => {
+// The capture toolchain is POSIX-only by design (the fake `codex` shim is a
+// `#!/bin/sh` script) - a documented scope cut in the plan's Global
+// Constraints. The CI staleness gate runs on ubuntu-latest only.
+const posixOnly = process.platform === "win32"
+  ? { skip: "demo-svg capture toolchain is POSIX-only" }
+  : {};
+
+describe("capture", posixOnly, () => {
+  it("forces stdout.isTTY to true and clears color-disabling env vars", () => {
+    process.env.CI = "true";
+    process.env.NO_COLOR = "1";
     forceTtyColor();
     assert.equal(process.stdout.isTTY, true);
+    // ui.ts disables color when CI=true or NO_COLOR is set; capture must
+    // neutralize both so CI-regenerated SVGs match locally-generated ones.
+    assert.equal(process.env.CI, undefined);
+    assert.equal(process.env.NO_COLOR, undefined);
   });
 
   it("recordingReporter records emitted events and dispose calls", () => {

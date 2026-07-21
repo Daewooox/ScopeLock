@@ -17,7 +17,13 @@ function run(args) {
   });
 }
 
-describe("generate", () => {
+// POSIX-only, like capture.mjs (the generator drives the `#!/bin/sh` fake
+// codex shim) - documented scope cut; the CI gate runs on ubuntu-latest only.
+const posixOnly = process.platform === "win32"
+  ? { skip: "demo-svg generation is POSIX-only" }
+  : {};
+
+describe("generate", posixOnly, () => {
   it("writes both demo SVGs with real content", () => {
     const result = run([]);
     assert.equal(result.status, 0, result.stderr || result.stdout);

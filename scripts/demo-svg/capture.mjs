@@ -10,6 +10,13 @@ export const cliBinPath = join(repoRoot, "packages/cli/dist/index.js");
 
 export function forceTtyColor() {
   Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+  // ui.ts computes supportsColor once at module load from isTTY, NO_COLOR and
+  // CI. GitHub Actions sets CI=true, which would strip ANSI colors from the
+  // captured output and make CI-regenerated SVGs differ from the committed,
+  // locally-generated (colored) ones. Clear both so capture is
+  // environment-independent.
+  delete process.env.CI;
+  delete process.env.NO_COLOR;
 }
 
 export function recordingReporter() {
