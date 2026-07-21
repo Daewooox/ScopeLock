@@ -3172,6 +3172,42 @@ describe("run", () => {
     }
   });
 
+  it("suggests opening the Flight Report as the next command after a successful run", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "suggest-report",
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt', 'a')"],
+        }],
+      }));
+      process.chdir(dir);
+
+      const result = await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+      });
+
+      assert.equal(result.exitCode, 0);
+      const receiptPath = (result.data as { receiptPath: string }).receiptPath;
+      assert.deepEqual(result.suggestedNext, { label: "Open the Flight Report", argv: ["report", "--open", receiptPath] });
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("does not start a later direct wave before the previous wave finishes", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

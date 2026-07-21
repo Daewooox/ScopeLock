@@ -1709,6 +1709,7 @@ async function runPlanWithReporter(
       evidenceSummary,
     ),
     exitCode,
+    suggestedNext: { label: "Open the Flight Report", argv: ["report", "--open", receiptPath] },
   };
 }
 
