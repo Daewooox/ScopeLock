@@ -116,6 +116,19 @@ Gloss map (exact text):
 | `skipped` | `an earlier required step failed or was interrupted` |
 | `not-started` | `the run ended before this step` |
 
+### Naming policy (explicit decision)
+
+The machine status tokens (`unverified`, `not-run`, `not-applicable`,
+`not-checked`, ...) are deliberately NOT renamed, not even at the display
+layer: they are the receipt-JSON vocabulary, and a user comparing the
+HTML report against the receipt or `--json` output (the product's core
+verifiability scenario) must find the same words in both. Human language
+is added as a layer *around* the tokens (glosses, row descriptions, the
+run-mode summary), never instead of them. One display-label exception:
+the cryptic row title `Candidate unchanged by validation` is re-worded to
+`Validation left the candidate unchanged` (same meaning, readable
+actively; the underlying receipt field is unchanged).
+
 ### HTML report (`packages/cli/src/commands/report.ts`)
 
 - `statusClass` is replaced by `classifyEvidenceStatus` from the new
@@ -124,24 +137,41 @@ Gloss map (exact text):
   (grey, matching the existing `--muted: #637083` custom property already
   defined in the drift report's stylesheet; the receipt report's
   stylesheet gains the same).
+- **Run-mode summary sentence** directly under the report header: one
+  line assembled from the same fixed causes as the gloss map, naming
+  which evidence steps do not apply to this run and why, e.g. `Direct
+  run without isolation: validation, promotion and cleanup do not apply;
+  the drift step was skipped by --no-check-drift.` Only clauses whose
+  condition holds are included; a fully-exercised isolated run renders no
+  summary sentence at all.
+- **Pipeline stepper diagram** between the header and the Evidence
+  Summary: a horizontal six-node inline SVG (Execution → Scope →
+  Validation → Acceptance → Promotion → Cleanup), no external
+  dependencies, each node colored by its `classifyEvidenceStatus` class;
+  `not-exercised` nodes render grey with a dashed outline. Node label =
+  row name, sub-label = status token. This is a static generated SVG
+  string in the same template literal style as the rest of the renderer,
+  not a charting library.
+- **In-table row descriptions:** every Evidence Summary row carries a
+  permanent muted description sub-line (the `↳` visual idiom already
+  used by the terminal failure-first tables): Execution ↳ did every task
+  run finish; Scope ↳ final drift check against every task contract;
+  Validation ↳ the configured repository checks; Acceptance ↳ the checks
+  you declared as required evidence; Promotion ↳ applying accepted
+  patches to your branch; Cleanup ↳ removing temporary worktrees.
 - Every cell whose status classifies as `not-exercised` renders the gloss
   inline as small muted text after the status value, e.g.
   `not-run <span class="gloss">- no validation checks configured for this run</span>`.
 - A new `Legend` section at the bottom of the receipt Flight Report
-  (before the raw-JSON details block):
-  - Three lines explaining the color classes: green/red/amber are
-    *outcomes of checks that ran*; grey means *this step was deliberately
-    not exercised in this run* and is not a warning.
-  - A six-row glossary of the Evidence Summary rows, one short line each:
-    Execution (did every task run finish), Scope (final drift check
-    against every task contract), Validation (the configured repository
-    checks), Acceptance (the checks you declared as required evidence),
-    Promotion (applying accepted patches to your branch), Cleanup
-    (removing temporary worktrees).
-- The `Candidate unchanged by validation` row's displayed `yes`/`no`
-  values classify directly through the shared map (`yes` → good, `no` →
-  bad, per the table above), replacing today's indirection through
-  `statusClass(clean ? "ok" : "failed")`.
+  (before the raw-JSON details block), now colors-only (the six-row
+  glossary lives in the table itself): three lines explaining that
+  green/red/amber are *outcomes of checks that ran*, and grey means
+  *this step was deliberately not exercised in this run* - not a
+  warning.
+- The `Validation left the candidate unchanged` row's displayed
+  `yes`/`no` values classify directly through the shared map (`yes` →
+  good, `no` → bad, per the table above), replacing today's indirection
+  through `statusClass(clean ? "ok" : "failed")`.
 
 ### Terminal (`packages/cli/src/commands/run-plan.ts`)
 
@@ -164,11 +194,16 @@ string values are unchanged (they are uncolored today and stay so).
   underscore), maps to its expected class; unknown strings map to
   `attention`; every not-exercised status has a non-empty gloss.
 - `cli.test.ts` HTML assertions: existing tests asserting
-  `<td class="good">`/`class="bad"` cells keep passing; new assertions
-  that a direct-mode receipt (no isolation, no drift) renders its
-  Evidence Summary with zero `class="warn"` cells and at least one
-  `class="muted"` cell with a gloss, and that the Legend section is
-  present.
+  `<td class="good">`/`class="bad"` cells keep passing (except any that
+  assert the old `Candidate unchanged by validation` label text, which
+  update to the new wording); new assertions that a direct-mode receipt
+  (no isolation, no drift) renders its Evidence Summary with zero
+  `class="warn"` cells and at least one `class="muted"` cell with a
+  gloss, that the run-mode summary sentence appears for a direct-mode
+  receipt and is absent for a fully-exercised isolated one, that the
+  stepper SVG contains six nodes with the expected classes, that every
+  Evidence row renders its `↳` description sub-line, and that the
+  colors-only Legend section is present.
 - Terminal assertions: a direct-mode run's human output contains
   `SKIP` + `unverified` and `SKIP` + `not-applicable` (not `WARN
   unverified`, not `PASS not-applicable`).
