@@ -33,6 +33,21 @@ describe("generate", posixOnly, () => {
     assert.match(standard, /ordered safely/);
   });
 
+  it("bakes no machine-specific absolute paths into either SVG", () => {
+    run([]);
+    for (const name of ["scopelock-demo.svg", "scopelock-plan-demo.svg"]) {
+      const svg = readFileSync(join(repoRoot, "docs/assets", name), "utf8");
+      // The same-machine determinism test below cannot catch cross-machine
+      // leaks (e.g. process.execPath baked into the validation command, or
+      // an unsanitized temp path) - they are identical across local runs
+      // but differ on CI runners. Scan for the leak classes directly.
+      assert.equal(svg.includes(process.execPath), false, `${name} leaks process.execPath`);
+      for (const prefix of ["/opt/", "/home/", "/Users/", "/private/", "/var/", "/tmp/"]) {
+        assert.equal(svg.includes(prefix), false, `${name} leaks a path under ${prefix}`);
+      }
+    }
+  });
+
   it("produces byte-identical output across two runs", () => {
     run([]);
     const first = readFileSync(join(repoRoot, "docs/assets/scopelock-demo.svg"), "utf8");

@@ -143,10 +143,14 @@ async function buildStandardDemo() {
     process.chdir(dir);
     try {
       const recording = recordingReporter();
+      // The validation command is composed into the ready plan and echoed in
+      // the Checks table, never executed here - use the bare "node" name, not
+      // process.execPath, whose machine-specific absolute path would bake
+      // into the generated SVG and differ across machines/CI runners.
       const result = await planPrepareCommand("plan.json", {
         target: "codex",
         out: "ready.json",
-        validationCommand: [process.execPath, "-e", "process.exit(0)"],
+        validationCommand: ["node", "-e", "process.exit(0)"],
         reporter: recording.reporter,
       });
 
