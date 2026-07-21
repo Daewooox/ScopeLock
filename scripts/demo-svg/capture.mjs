@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +26,16 @@ export function recordingReporter() {
 }
 
 export function initFixtureRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "scopelock-demo-svg-"));
+  // mkdtempSync returns a path under os.tmpdir(), which on macOS is under
+  // /var, itself a symlink to /private/var. `git rev-parse --show-toplevel`
+  // (used internally by ScopeLock's findRepoRoot) resolves symlinks and
+  // returns the physical /private/var/... path, so if `dir` here stayed
+  // unresolved, every string match against real CLI output (e.g. in
+  // sanitize.mjs's sanitizeHuman) would only match the tail of the path and
+  // leak a dangling "/private" prefix into captured output. Resolve once,
+  // here, so every downstream consumer of `dir` sees the same canonical
+  // path that git and the CLI actually emit.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "scopelock-demo-svg-")));
   spawnSync("git", ["init", "-q"], { cwd: dir });
   spawnSync("git", ["config", "user.email", "demo@example.com"], { cwd: dir });
   spawnSync("git", ["config", "user.name", "ScopeLock Demo"], { cwd: dir });

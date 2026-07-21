@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import {
   forceTtyColor,
@@ -33,6 +33,19 @@ describe("capture", () => {
       cleanupFixtureRepo(dir);
     }
     assert.equal(existsSync(dir), false);
+  });
+
+  it("initFixtureRepo returns an already-resolved (symlink-free) path", () => {
+    const dir = initFixtureRepo();
+    try {
+      // If `dir` still contained an unresolved symlink component (e.g. the
+      // macOS /var -> /private/var alias under os.tmpdir()), resolving it
+      // again would produce a different, longer path. Asserting the
+      // resolve is a no-op proves `dir` is already canonical.
+      assert.equal(realpathSync(dir), dir);
+    } finally {
+      cleanupFixtureRepo(dir);
+    }
   });
 
   it("fakeCodexOnPath puts a resolvable codex executable on PATH", () => {
