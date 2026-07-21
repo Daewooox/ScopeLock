@@ -40,6 +40,11 @@ All notable changes to ScopeLock will be documented here.
   every task's own approved contract is checked, not just whichever contract
   happens to be active, eliminating false-positive outside-scope findings on
   multi-task runs.
+- Flight Report and terminal summaries now distinguish "deliberately not
+  exercised" statuses (not-run, not-checked, unverified, not-applicable) from
+  real warnings: muted rendering with an inline reason, a run-mode summary,
+  a pipeline stepper diagram, per-row descriptions, and a legend in the HTML
+  report; dim SKIP labels in the terminal.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta

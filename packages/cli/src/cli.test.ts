@@ -3037,6 +3037,41 @@ describe("run", () => {
     }
   });
 
+  it("renders not-exercised evidence as dim SKIP in the terminal summary", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "skip-labels",
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt', 'a')"],
+        }],
+      }));
+      const res = runCli(dir, [
+        "run", "--yes", "--plan", "plan.json",
+        "--receipt", join(dir, "receipt.json"),
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      assert.match(res.stdout, /Configured gates cleared/);
+      // Informational statuses are dim SKIP, not WARN and not PASS.
+      assert.match(res.stdout, /SKIP unverified/);
+      assert.match(res.stdout, /SKIP not-applicable/);
+      assert.match(res.stdout, /SKIP not-checked/);
+      assert.doesNotMatch(res.stdout, /WARN unverified/);
+      assert.doesNotMatch(res.stdout, /PASS not-applicable/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("reports concurrent direct-task lifecycle without serializing a wave", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {
@@ -5453,6 +5488,7 @@ describe("run", () => {
         deferredTasks: [],
         handoffSummary: { passedTasks: ["a"], failedTasks: [], skippedTasks: [], blockedTasks: [] },
         taskRuns: [{ id: "a", status: "passed", durationMs: 12, stderr: "" }],
+        drift: { status: "ok" },
         evidenceSummary: {
           execution: "completed",
           scope: "clear",
@@ -5482,12 +5518,61 @@ describe("run", () => {
       assert.equal(result.status, 0, result.stdout || result.stderr);
       const html = await readFile(reportPath, "utf8");
       assert.match(html, /Configured gates cleared/);
-      assert.match(html, /<th>Execution<\/th><td class="good">completed<\/td>/);
-      assert.match(html, /<th>Acceptance<\/th><td class="good">verified<\/td>/);
+      assert.match(html, /<th>Execution<div class="rowdesc">↳ did every task run finish<\/div><\/th><td class="good">completed<\/td>/);
+      assert.match(html, /<th>Acceptance<div class="rowdesc">↳ the checks you declared as required evidence<\/div><\/th><td class="good">verified<\/td>/);
+      assert.doesNotMatch(html, /class="runmode"/);
+      assert.match(html, /Validation left the candidate unchanged/);
+      assert.doesNotMatch(html, /Candidate unchanged by validation/);
       assert.match(html, /test&lt;script&gt;/);
       assert.match(html, /<td>required<\/td><td>app<\/td>/);
       assert.equal(html.includes("<script>"), false);
       assert.doesNotMatch(html, /Repository validation<\/th><td class="bad">failed/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("renders not-exercised evidence as muted with glosses, a run-mode summary, a stepper, and a legend", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scopelock-report-muted-"));
+    try {
+      const receiptPath = join(dir, "receipt.json");
+      const reportPath = join(dir, "report.html");
+      await writeFile(receiptPath, JSON.stringify({
+        schemaVersion: 6,
+        planId: "direct-report",
+        startedAt: "2026-07-21T00:00:00.000Z",
+        finishedAt: "2026-07-21T00:00:01.000Z",
+        waves: [["a"]],
+        conflicts: [],
+        deferredTasks: [],
+        handoffSummary: { passedTasks: ["a"], failedTasks: [], skippedTasks: [], blockedTasks: [], driftStatus: "not_checked" },
+        taskRuns: [{ id: "a", status: "passed", durationMs: 12, stderr: "" }],
+        evidenceSummary: {
+          execution: "completed",
+          scope: "not-checked",
+          validation: "not-run",
+          acceptance: "unverified",
+          promotion: "not-applicable",
+          cleanup: "not-applicable",
+        },
+      }));
+
+      const result = runCli(dir, ["--json", "report", receiptPath, "--out", reportPath]);
+      assert.equal(result.status, 0, result.stdout || result.stderr);
+      const html = await readFile(reportPath, "utf8");
+      // Not-exercised statuses are muted, never amber.
+      assert.doesNotMatch(html, /<td class="warn">(not-run|not-checked|unverified|not-applicable)/);
+      assert.match(html, /<td class="muted">not-run <span class="gloss">- no validation checks configured for this run<\/span><\/td>/);
+      assert.match(html, /<td class="muted">unverified <span class="gloss">- no acceptance checks were declared<\/span><\/td>/);
+      // Run-mode summary names why the muted steps did not run.
+      assert.match(html, /class="runmode"/);
+      assert.match(html, /do not apply/);
+      assert.match(html, /--no-check-drift/);
+      // Six-node stepper and colors-only legend.
+      assert.equal((html.match(/data-node=/g) ?? []).length, 6);
+      assert.match(html, /class="stepper"/);
+      assert.match(html, /<h2>Legend<\/h2>/);
+      assert.match(html, /not a warning/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

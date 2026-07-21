@@ -6,6 +6,12 @@ import { pathToFileURL } from "node:url";
 import { driftReportSchema, type DriftReport } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
+import {
+  EVIDENCE_GLOSSES,
+  classifyEvidenceStatus,
+  normalizeEvidenceStatus,
+  type EvidenceDisplayClass,
+} from "../evidence-display.js";
 
 type ReportOptions = {
   out?: string;
@@ -201,30 +207,77 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
-function statusClass(status: string): string {
-  if (
-    status === "passed"
-    || status === "ok"
-    || status === "pass"
-    || status === "completed"
-    || status === "clear"
-    || status === "verified"
-    || status === "applied"
-    || status === "no-changes"
-    || status === "not-applicable"
-  ) {
-    return "good";
+const DISPLAY_CSS: Record<EvidenceDisplayClass, string> = {
+  good: "good",
+  bad: "bad",
+  attention: "warn",
+  "not-exercised": "muted",
+};
+
+function statusCss(status: string): string {
+  return DISPLAY_CSS[classifyEvidenceStatus(status)];
+}
+
+/** One <td> for a status value: class from the shared map, plus an inline
+ *  gloss explaining WHY when the status was deliberately not exercised. */
+function statusCell(status: string): string {
+  const css = statusCss(status);
+  const gloss = EVIDENCE_GLOSSES[normalizeEvidenceStatus(status)];
+  const glossHtml = css === "muted" && gloss !== undefined
+    ? ` <span class="gloss">- ${escapeHtml(gloss)}</span>`
+    : "";
+  return `<td class="${css}">${escapeHtml(status)}${glossHtml}</td>`;
+}
+
+const EVIDENCE_ROWS = [
+  { key: "execution", label: "Execution", description: "did every task run finish" },
+  { key: "scope", label: "Scope", description: "final drift check against every task contract" },
+  { key: "validation", label: "Validation", description: "the configured repository checks" },
+  { key: "acceptance", label: "Acceptance", description: "the checks you declared as required evidence" },
+  { key: "promotion", label: "Promotion", description: "applying accepted patches to your branch" },
+  { key: "cleanup", label: "Cleanup", description: "removing temporary worktrees" },
+] as const;
+
+const STEPPER_FILL: Record<EvidenceDisplayClass, string> = {
+  good: "#127a52",
+  bad: "#b42318",
+  attention: "#a86200",
+  "not-exercised": "#637083",
+};
+
+function renderStepper(evidence: NonNullable<Receipt["evidenceSummary"]>): string {
+  const nodeWidth = 176;
+  const nodes = EVIDENCE_ROWS.map((row, index) => {
+    const status = String(evidence[row.key] ?? "unknown");
+    const cls = classifyEvidenceStatus(status);
+    const cx = index * nodeWidth + 88;
+    const dashed = cls === "not-exercised" ? ' stroke-dasharray="4 3" fill="none"' : ` fill="${STEPPER_FILL[cls]}"`;
+    const connector = index === 0 ? "" : `<line x1="${cx - nodeWidth + 12}" y1="28" x2="${cx - 12}" y2="28" stroke="#d9e1ea" stroke-width="2"/>`;
+    return `${connector}<circle data-node="${escapeHtml(row.label)}" cx="${cx}" cy="28" r="10" stroke="${STEPPER_FILL[cls]}" stroke-width="2"${dashed}/><text x="${cx}" y="58" text-anchor="middle" font-size="13" fill="#18202a">${escapeHtml(row.label)}</text><text x="${cx}" y="76" text-anchor="middle" font-size="11" fill="#637083">${escapeHtml(status)}</text>`;
+  }).join("");
+  const width = EVIDENCE_ROWS.length * nodeWidth;
+  return `<div class="stepper"><svg width="${width}" height="88" viewBox="0 0 ${width} 88" role="img" aria-label="Evidence pipeline">${nodes}</svg></div>`;
+}
+
+function runModeSummary(
+  receipt: Receipt,
+  summary: NonNullable<Receipt["handoffSummary"]>,
+  evidence: Receipt["evidenceSummary"],
+): string {
+  const clauses: string[] = [];
+  if (receipt.isolation === undefined || receipt.isolation === null) {
+    clauses.push("direct run without isolation - validation, promotion and cleanup do not apply");
   }
-  if (
-    status === "failed"
-    || status === "fail"
-    || status === "error"
-    || status === "violations"
-    || status === "blocked"
-  ) {
-    return "bad";
+  const drift = normalizeEvidenceStatus(String(summary.driftStatus ?? receipt.drift?.status ?? "not_checked"));
+  if (drift === "not-checked") {
+    clauses.push("the drift step was skipped by --no-check-drift");
   }
-  return "warn"; // attention / unverified / warning / not-run / not-checked / etc.
+  if (evidence !== undefined && evidence.acceptance === "unverified") {
+    clauses.push("no acceptance checks were declared");
+  }
+  if (clauses.length === 0) return "";
+  const sentence = clauses.join("; ");
+  return `<p class="runmode">${escapeHtml(sentence.charAt(0).toUpperCase() + sentence.slice(1))}.</p>`;
 }
 
 /**
@@ -281,7 +334,12 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 52px); line-height: 1.02; letter-spa
 .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 22px 0; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-height: 92px; }
 .stat strong { display: block; font-size: 28px; line-height: 1; margin-top: 10px; }
-.good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.gloss { color: var(--muted); font-weight: 400; font-size: 12px; }
+.rowdesc { color: var(--muted); font-weight: 400; font-size: 12px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+.runmode { margin: 0; color: var(--muted); }
+.stepper { margin: 22px 0 0; overflow-x: auto; }
+.legend p { margin: 4px 0; color: var(--muted); font-size: 13px; }
 section { margin-top: 28px; }
 h2 { font-size: 18px; margin: 0 0 12px; }
 .timeline { display: grid; gap: 10px; }
@@ -306,6 +364,7 @@ summary { cursor: pointer; font-weight: 700; }
       <span class="pill">${escapeHtml(receipt.startedAt ?? "unknown")} - ${escapeHtml(receipt.finishedAt ?? "unknown")}</span>
       <span class="pill">${escapeHtml(receiptPath)}</span>
     </div>
+    ${runModeSummary(receipt, summary, evidence)}
   </header>
   <div class="grid">
     <div class="stat">Passed tasks<strong class="good">${passed.length}</strong></div>
@@ -315,14 +374,10 @@ summary { cursor: pointer; font-weight: 700; }
   </div>
   ${evidence === undefined ? "" : `<section>
     <h2>Evidence Summary</h2>
+    ${renderStepper(evidence)}
     <table>
       <tbody>
-        <tr><th>Execution</th><td class="${statusClass(String(evidence.execution ?? "unknown"))}">${escapeHtml(evidence.execution ?? "unknown")}</td></tr>
-        <tr><th>Scope</th><td class="${statusClass(String(evidence.scope ?? "unknown"))}">${escapeHtml(evidence.scope ?? "unknown")}</td></tr>
-        <tr><th>Validation</th><td class="${statusClass(String(evidence.validation ?? "unknown"))}">${escapeHtml(evidence.validation ?? "unknown")}</td></tr>
-        <tr><th>Acceptance</th><td class="${statusClass(String(evidence.acceptance ?? "unknown"))}">${escapeHtml(evidence.acceptance ?? "unknown")}</td></tr>
-        <tr><th>Promotion</th><td class="${statusClass(String(evidence.promotion ?? "unknown"))}">${escapeHtml(evidence.promotion ?? "unknown")}</td></tr>
-        <tr><th>Cleanup</th><td class="${statusClass(String(evidence.cleanup ?? "unknown"))}">${escapeHtml(evidence.cleanup ?? "unknown")}</td></tr>
+        ${EVIDENCE_ROWS.map((row) => `<tr><th>${row.label}<div class="rowdesc">↳ ${row.description}</div></th>${statusCell(String(evidence[row.key] ?? "unknown"))}</tr>`).join("\n        ")}
       </tbody>
     </table>
   </section>`}
@@ -336,14 +391,14 @@ summary { cursor: pointer; font-weight: 700; }
     <h2>Safety Checks</h2>
     <table>
       <tbody>
-        <tr><th>Environment</th><td class="${statusClass(String(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured"))}">${escapeHtml(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured")}</td></tr>
-        <tr><th>Drift</th><td class="${statusClass(String(summary.driftStatus ?? receipt.drift?.status ?? "not_checked"))}">${escapeHtml(summary.driftStatus ?? receipt.drift?.status ?? "not_checked")}</td></tr>
+        <tr><th>Environment</th>${statusCell(String(receipt.environment?.status ?? summary.environmentStatus ?? "not_configured"))}</tr>
+        <tr><th>Drift</th>${statusCell(String(summary.driftStatus ?? receipt.drift?.status ?? "not_checked"))}</tr>
         <tr><th>Isolation</th><td>${escapeHtml(receipt.isolation?.mode ?? "off")} / ${escapeHtml(receipt.isolation?.trustTier ?? "not_applicable")}</td></tr>
-        <tr><th>Validation setup</th><td class="${statusClass(String(receipt.isolation?.validationSetup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validationSetup?.status ?? "not_applicable")}</td></tr>
-        ${evidence === undefined ? `<tr><th>Repository validation</th><td class="${statusClass(String(receipt.isolation?.validation?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.validation?.status ?? "not_applicable")}</td></tr>` : ""}
-        <tr><th>Candidate unchanged by validation</th><td class="${statusClass(receipt.isolation?.validationWorkspaceClean === false ? "failed" : "ok")}">${escapeHtml(receipt.isolation?.validationWorkspaceClean === false ? "no" : "yes")}</td></tr>
-        <tr><th>Final promotion</th><td class="${statusClass(String(receipt.isolation?.finalPromotion === "applied" || receipt.isolation?.finalPromotion === "no-changes" ? "ok" : receipt.isolation?.finalPromotion ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.finalPromotion ?? "not_applicable")}</td></tr>
-        <tr><th>Cleanup</th><td class="${statusClass(String(receipt.isolation?.cleanup?.status ?? "not_applicable"))}">${escapeHtml(receipt.isolation?.cleanup?.status ?? "not_applicable")}</td></tr>
+        <tr><th>Validation setup</th>${statusCell(String(receipt.isolation?.validationSetup?.status ?? "not_applicable"))}</tr>
+        ${evidence === undefined ? `<tr><th>Repository validation</th>${statusCell(String(receipt.isolation?.validation?.status ?? "not_applicable"))}</tr>` : ""}
+        <tr><th>Validation left the candidate unchanged</th>${statusCell(receipt.isolation?.validationWorkspaceClean === false ? "no" : "yes")}</tr>
+        <tr><th>Final promotion</th>${statusCell(String(receipt.isolation?.finalPromotion ?? "not_applicable"))}</tr>
+        <tr><th>Cleanup</th>${statusCell(String(receipt.isolation?.cleanup?.status ?? "not_applicable"))}</tr>
         <tr><th>Deferred tasks</th><td>${escapeHtml(arrayOfStrings(receipt.deferredTasks).join(", ") || "none")}</td></tr>
       </tbody>
     </table>
@@ -353,7 +408,7 @@ summary { cursor: pointer; font-weight: 700; }
     <table>
       <thead><tr><th>Check</th><th>Status</th><th>Requirement</th><th>Working directory</th><th>Duration</th></tr></thead>
       <tbody>
-        ${validationChecks.map((check) => `<tr><td>${escapeHtml(check.id)}</td><td class="${statusClass(check.status)}">${escapeHtml(check.status)}</td><td>${escapeHtml(check.requirement)}</td><td>${escapeHtml(check.cwd)}</td><td>${escapeHtml(check.duration)}</td></tr>`).join("")}
+        ${validationChecks.map((check) => `<tr><td>${escapeHtml(check.id)}</td>${statusCell(check.status)}<td>${escapeHtml(check.requirement)}</td><td>${escapeHtml(check.cwd)}</td><td>${escapeHtml(check.duration)}</td></tr>`).join("")}
       </tbody>
     </table>
   </section>`}
@@ -362,9 +417,15 @@ summary { cursor: pointer; font-weight: 700; }
     <table>
       <thead><tr><th>Task</th><th>Status</th><th>Duration</th><th>Notes</th></tr></thead>
       <tbody>
-      ${tasks.map((task) => `<tr><td>${escapeHtml(task.id)}</td><td class="${statusClass(task.status)}">${escapeHtml(task.status)}</td><td>${escapeHtml(task.duration)}</td><td>${escapeHtml(task.notes || "-")}</td></tr>`).join("") || `<tr><td colspan="4">No task runs recorded.</td></tr>`}
+      ${tasks.map((task) => `<tr><td>${escapeHtml(task.id)}</td>${statusCell(task.status)}<td>${escapeHtml(task.duration)}</td><td>${escapeHtml(task.notes || "-")}</td></tr>`).join("") || `<tr><td colspan="4">No task runs recorded.</td></tr>`}
       </tbody>
     </table>
+  </section>
+  <section class="legend">
+    <h2>Legend</h2>
+    <p>Green means a check ran and passed. Red means a check ran and failed.</p>
+    <p>Amber means a check ran and needs your attention.</p>
+    <p>Grey means the step was deliberately not exercised in this run - it is not a warning.</p>
   </section>
   <section>
     <details>
