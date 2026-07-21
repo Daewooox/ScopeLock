@@ -324,6 +324,8 @@ async function planPrepareWithReporter(
     checks.push(`Rules and skills  ${workspace.summary.status}`);
     checkRows.push({
       id: "Rules and skills",
+      // summary.status is typed pass|warn|fail|blocked, but the roll-up in
+      // preflight.ts never emits "blocked"; StatusRowStatus lacks it.
       status: workspace.summary.status as StatusRow["status"],
       cells: [workspace.summary.status],
       reason: workspace.summary.status !== "pass"
