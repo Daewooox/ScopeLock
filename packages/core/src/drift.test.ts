@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildDriftReport,
+  buildMultiContractDriftReport,
   changedSinceBaseline,
   classifyPath,
   collectChangedFiles,
@@ -16,6 +17,7 @@ import {
   parsePorcelainV2,
   type ApprovedContract,
   type ChangedFile,
+  type DriftViolation,
 } from "./index.js";
 
 function changed(path: string): ChangedFile {
@@ -234,6 +236,106 @@ describe("rules and engine", () => {
       report.violations.map((violation) => violation.type),
       ["outside_scope", "high_risk_file", "missing_tests", "repo_state"],
     );
+  });
+});
+
+describe("multi-contract drift", () => {
+  it("treats a file planned by one contract as planned even if another contract forbids it", () => {
+    const a = contract({
+      id: "a",
+      scope: { plannedPathPatterns: ["a/**"], forbiddenPathPatterns: [], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const b = contract({
+      id: "b",
+      scope: { plannedPathPatterns: ["b/**"], forbiddenPathPatterns: ["a/**"], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const report = buildMultiContractDriftReport({
+      contracts: [a, b],
+      files: [changed("a/file.ts")],
+      repoState: { kind: "clean" },
+      repoMode: "normal",
+      checkedAt: "2026-07-21T00:00:00.000Z",
+    });
+    assert.deepEqual(report.violations, []);
+  });
+
+  it("flags a file unclaimed by any contract as outside_scope", () => {
+    const a = contract({
+      id: "a",
+      scope: { plannedPathPatterns: ["a/**"], forbiddenPathPatterns: [], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const b = contract({
+      id: "b",
+      scope: { plannedPathPatterns: ["b/**"], forbiddenPathPatterns: [], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const report = buildMultiContractDriftReport({
+      contracts: [a, b],
+      files: [changed("c/file.ts")],
+      repoState: { kind: "clean" },
+      repoMode: "normal",
+      checkedAt: "2026-07-21T00:00:00.000Z",
+    });
+    assert.deepEqual(report.violations.map((violation: DriftViolation) => violation.type), ["outside_scope"]);
+  });
+
+  it("flags a file forbidden by at least one contract and planned by none as forbidden_path", () => {
+    const a = contract({
+      id: "a",
+      scope: { plannedPathPatterns: ["a/**"], forbiddenPathPatterns: ["secrets/**"], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const b = contract({
+      id: "b",
+      scope: { plannedPathPatterns: ["b/**"], forbiddenPathPatterns: [], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const report = buildMultiContractDriftReport({
+      contracts: [a, b],
+      files: [changed("secrets/key.txt")],
+      repoState: { kind: "clean" },
+      repoMode: "normal",
+      checkedAt: "2026-07-21T00:00:00.000Z",
+    });
+    assert.deepEqual(report.violations.map((violation: DriftViolation) => violation.type), ["forbidden_path"]);
+  });
+
+  it("de-duplicates missing_tests across multiple contracts that both declare tests", () => {
+    const a = contract({ id: "a" });
+    const b = contract({ id: "b" });
+    const report = buildMultiContractDriftReport({
+      contracts: [a, b],
+      files: [changed("src/file.ts")],
+      repoState: { kind: "clean" },
+      repoMode: "normal",
+      checkedAt: "2026-07-21T00:00:00.000Z",
+    });
+    assert.deepEqual(report.violations.map((violation: DriftViolation) => violation.type), ["missing_tests"]);
+  });
+
+  it("sets contractId to the first contract and lists every id in contractIds", () => {
+    const a = contract({
+      id: "a",
+      scope: { plannedPathPatterns: ["**"], forbiddenPathPatterns: [], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const b = contract({
+      id: "b",
+      scope: { plannedPathPatterns: ["**"], forbiddenPathPatterns: [], allowAllPaths: false, readPathPatterns: [] },
+      tests: [],
+    });
+    const report = buildMultiContractDriftReport({
+      contracts: [a, b],
+      files: [],
+      repoState: { kind: "clean" },
+      repoMode: "normal",
+      checkedAt: "2026-07-21T00:00:00.000Z",
+    });
+    assert.equal(report.contractId, "a");
+    assert.deepEqual(report.contractIds, ["a", "b"]);
   });
 });
 

@@ -60,6 +60,7 @@ export const driftViolationSchema = z.object({
 export const driftReportSchema = z.object({
   schemaVersion: z.literal(DRIFT_REPORT_SCHEMA_VERSION),
   contractId: z.string().min(1),
+  contractIds: z.array(z.string().min(1)).min(1).optional(),
   checkedAt: z.iso.datetime(),
   repoMode: repoModeSchema.default("normal"),
   repoState: repoStateSchema.default({ kind: "clean" }),

@@ -1619,7 +1619,9 @@ async function runPlanWithReporter(
   let drift: { status: "ok" | "violations" | "error"; data?: unknown; error?: string } | null = null;
   if (options.checkDrift !== false) {
     try {
-      const result = await checkDriftCommand({});
+      const result = await checkDriftCommand({
+        contractIds: Array.from(taskContracts.values()).map((contract) => contract.id),
+      });
       drift = { status: result.exitCode === 0 ? "ok" : "violations", data: result.data };
     } catch (error) {
       drift = { status: "error", error: error instanceof Error ? error.message : String(error) };
