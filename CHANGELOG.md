@@ -27,6 +27,9 @@ All notable changes to ScopeLock will be documented here.
 - Live `scopelock run` progress for direct and isolated execution: TTYs receive
   a settled failure-first panel, pipes and CI receive flat lifecycle lines, and
   `--json` remains a single progress-free JSON document.
+- Live `plan prepare` and `task finish` progress with phase-based reporting: same
+  spinner, flat-line, and silent behavior as `run`. Task finish findings now
+  visually distinguish blocked, outside-scope, and high-risk findings from clean ones.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
   a protected OIDC staging workflow. No npm package has been published yet.
 - Deterministic progressive demo plus a real-user and real-repository beta

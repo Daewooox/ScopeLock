@@ -283,6 +283,12 @@ phase. Failed or blocked rows include the bounded redacted reason and the
 redacted artifact path when `--store-raw-output` produced one. `--json` disables
 all progress output, so stdout remains one parseable JSON document.
 
+`plan prepare` and `task finish` use the same phase-based progress reporting:
+`plan prepare` reports `scheduling`, `preflight`, and `composing` phases, while
+`task finish` reports `checking-drift` and `rendering-report` phases. Like `run`,
+they display a live panel on interactive TTYs, one flat line per phase in pipes
+or CI, and no progress output under `--json`.
+
 Compose agent commands into a separate reviewable plan before dispatch:
 
 ```bash
