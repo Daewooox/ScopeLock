@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "interactive-next-command",
+  "task": "interactive suggested-next-command prompt",
+  "createdAt": "2026-07-21T20:41:13.621Z",
+  "baseline": {
+    "headSha": "2dd56690dfde950d5b4eff9a5b817abd2d9d9978",
+    "branch": "ux/interactive-next-command",
+    "capturedAt": "2026-07-21T20:41:13.706Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/run.ts",
+      "packages/cli/src/run.test.ts",
+      "packages/cli/src/prompts.ts",
+      "packages/cli/src/commands/rebaseline.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
