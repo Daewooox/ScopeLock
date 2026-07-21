@@ -505,6 +505,65 @@ describe("guided task start", () => {
       }).summary;
       assert.equal(summary.blocked, 1);
       assert.equal(summary.outside, 1);
+      assert.match(finished.human ?? "", /Blocked changes/);
+      assert.match(finished.human ?? "", /changes touched forbidden paths/);
+      assert.match(finished.human ?? "", /Outside scope/);
+      assert.match(finished.human ?? "", /changes fell outside the approved scope/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits checking-drift then rendering-report phases and disposes the reporter", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "app.ts"), "export const value = 1;\n");
+      commitFixture(dir, "task fixture");
+      assert.equal((await taskStartCommand({
+        description: "phase events",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "phase-events-finish",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup })).exitCode, 0);
+
+      const recording = recordingReporter();
+      const finished = await taskFinishCommand({ cwd: dir, reporter: recording.reporter });
+      assert.equal(finished.exitCode, 0);
+      assert.deepEqual(recording.events, [
+        { type: "phase", name: "checking-drift" },
+        { type: "phase", name: "rendering-report" },
+      ]);
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("disposes the reporter even when there is no active contract", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const recording = recordingReporter();
+      await assert.rejects(
+        taskFinishCommand({ cwd: dir, reporter: recording.reporter }),
+        /no active task/,
+      );
+      assert.equal(recording.disposeCount(), 1);
+      assert.deepEqual(recording.events, []);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
