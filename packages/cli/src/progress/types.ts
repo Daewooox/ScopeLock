@@ -25,7 +25,18 @@ export type ProgressEvent =
       logPath?: string;
       updated?: boolean;
     }
-  | { type: "phase"; name: "validating" | "promoting" | "cleaning-up" }
+  | {
+      type: "phase";
+      name:
+        | "validating"
+        | "promoting"
+        | "cleaning-up"
+        | "scheduling"
+        | "preflight"
+        | "composing"
+        | "checking-drift"
+        | "rendering-report";
+    }
   | { type: "step"; index: number; total: number; label: string }
   | { type: "interrupted" };
 

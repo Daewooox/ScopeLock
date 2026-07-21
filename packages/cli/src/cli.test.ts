@@ -76,6 +76,23 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
+function recordingReporter(): {
+  events: ProgressEvent[];
+  disposeCount: () => number;
+  reporter: ProgressReporter;
+} {
+  const events: ProgressEvent[] = [];
+  let disposed = 0;
+  return {
+    events,
+    disposeCount: () => disposed,
+    reporter: {
+      emit(event) { events.push(event); },
+      dispose() { disposed += 1; },
+    },
+  };
+}
+
 describe("public command language", () => {
   it("shows canonical command groups and hides compatibility aliases", () => {
     const help = runCli(process.cwd(), ["--help"]);
@@ -2545,23 +2562,6 @@ describe("plan prepare", () => {
 });
 
 describe("run", () => {
-  function recordingReporter(): {
-    events: ProgressEvent[];
-    disposeCount: () => number;
-    reporter: ProgressReporter;
-  } {
-    const events: ProgressEvent[] = [];
-    let disposed = 0;
-    return {
-      events,
-      disposeCount: () => disposed,
-      reporter: {
-        emit(event) { events.push(event); },
-        dispose() { disposed += 1; },
-      },
-    };
-  }
-
   async function writeContract(
     dir: string,
     file: string,
