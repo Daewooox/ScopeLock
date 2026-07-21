@@ -3037,6 +3037,41 @@ describe("run", () => {
     }
   });
 
+  it("renders not-exercised evidence as dim SKIP in the terminal summary", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "skip-labels",
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt', 'a')"],
+        }],
+      }));
+      const res = runCli(dir, [
+        "run", "--yes", "--plan", "plan.json",
+        "--receipt", join(dir, "receipt.json"),
+        "--no-check-drift",
+      ]);
+      assert.equal(res.status, 0, res.stdout || res.stderr);
+      assert.match(res.stdout, /Configured gates cleared/);
+      // Informational statuses are dim SKIP, not WARN and not PASS.
+      assert.match(res.stdout, /SKIP unverified/);
+      assert.match(res.stdout, /SKIP not-applicable/);
+      assert.match(res.stdout, /SKIP not-checked/);
+      assert.doesNotMatch(res.stdout, /WARN unverified/);
+      assert.doesNotMatch(res.stdout, /PASS not-applicable/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("reports concurrent direct-task lifecycle without serializing a wave", async (t) => {
     const dir = await makeRepo();
     if (dir === null) {

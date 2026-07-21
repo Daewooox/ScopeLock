@@ -46,6 +46,7 @@ import { checkDriftCommand } from "./check-drift.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
 import { color, normalizeTerminalDetail, renderTable, statusLabel } from "../ui.js";
 import { deriveEvidenceSummary, type EvidenceSummary } from "../receipt-evidence.js";
+import { classifyEvidenceStatus } from "../evidence-display.js";
 import {
   createRunSignalCoordinator,
   spawnProcessTree,
@@ -1265,21 +1266,11 @@ function reportCheckDone(
 
 /** Maps one evidence-summary value to the shared pass/warn/fail/skip label vocabulary. */
 function evidenceLabel(status: string): "pass" | "warn" | "fail" | "skip" {
-  if (
-    status === "completed"
-    || status === "clear"
-    || status === "passed"
-    || status === "verified"
-    || status === "applied"
-    || status === "no-changes"
-    || status === "ok"
-    || status === "not-applicable"
-  ) {
-    return "pass";
-  }
-  if (status === "failed" || status === "violations" || status === "blocked") return "fail";
-  if (status === "attention" || status === "warning" || status === "unverified") return "warn";
-  return "skip"; // not-run / not-checked
+  const cls = classifyEvidenceStatus(status);
+  if (cls === "good") return "pass";
+  if (cls === "bad") return "fail";
+  if (cls === "attention") return "warn";
+  return "skip"; // deliberately not exercised: dim, informational
 }
 
 /**
