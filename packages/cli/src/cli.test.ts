@@ -12,6 +12,7 @@ import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { runPlanCommand } from "./commands/run-plan.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
+import { planPrepareCommand } from "./commands/plan-prepare.js";
 import type { ProgressEvent, ProgressReporter } from "./progress/types.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
@@ -74,6 +75,23 @@ function processIsAlive(pid: number): boolean {
   } catch {
     return false;
   }
+}
+
+function recordingReporter(): {
+  events: ProgressEvent[];
+  disposeCount: () => number;
+  reporter: ProgressReporter;
+} {
+  const events: ProgressEvent[] = [];
+  let disposed = 0;
+  return {
+    events,
+    disposeCount: () => disposed,
+    reporter: {
+      emit(event) { events.push(event); },
+      dispose() { disposed += 1; },
+    },
+  };
 }
 
 describe("public command language", () => {
@@ -488,6 +506,65 @@ describe("guided task start", () => {
       }).summary;
       assert.equal(summary.blocked, 1);
       assert.equal(summary.outside, 1);
+      assert.match(finished.human ?? "", /Blocked changes/);
+      assert.match(finished.human ?? "", /changes touched forbidden paths/);
+      assert.match(finished.human ?? "", /Outside scope/);
+      assert.match(finished.human ?? "", /changes fell outside the approved scope/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits checking-drift then rendering-report phases and disposes the reporter", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "app.ts"), "export const value = 1;\n");
+      commitFixture(dir, "task fixture");
+      assert.equal((await taskStartCommand({
+        description: "phase events",
+        agent: "codex",
+        allow: ["src"],
+        block: [],
+        context: [],
+        test: ["unit"],
+        id: "phase-events-finish",
+        yes: true,
+        interactive: false,
+        cwd: dir,
+      }, { setup: readySetup })).exitCode, 0);
+
+      const recording = recordingReporter();
+      const finished = await taskFinishCommand({ cwd: dir, reporter: recording.reporter });
+      assert.equal(finished.exitCode, 0);
+      assert.deepEqual(recording.events, [
+        { type: "phase", name: "checking-drift" },
+        { type: "phase", name: "rendering-report" },
+      ]);
+      assert.equal(recording.disposeCount(), 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("disposes the reporter even when there is no active contract", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const recording = recordingReporter();
+      await assert.rejects(
+        taskFinishCommand({ cwd: dir, reporter: recording.reporter }),
+        /no active task/,
+      );
+      assert.equal(recording.disposeCount(), 1);
+      assert.deepEqual(recording.events, []);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -1920,6 +1997,83 @@ describe("plan prepare", () => {
     return { ...process.env, PATH: dirname(gitPath) };
   }
 
+  it("emits scheduling, preflight, and composing phases and disposes the reporter", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "phase-events-plan",
+        tasks: [{ id: "a", contract, command: "echo must-be-replaced" }],
+      }));
+      const env = await fakeCodexEnv(dir);
+      const previousCwd = process.cwd();
+      const previousPath = process.env.PATH;
+      process.chdir(dir);
+      process.env.PATH = env.PATH;
+      try {
+        const recording = recordingReporter();
+        const prepared = await planPrepareCommand("plan.json", {
+          target: "codex",
+          out: "ready.json",
+          validationCwd: ".",
+          validationCommand: [process.execPath],
+          reporter: recording.reporter,
+        });
+        assert.equal(prepared.exitCode, 0, prepared.human ?? "");
+        assert.deepEqual(recording.events, [
+          { type: "phase", name: "scheduling" },
+          { type: "phase", name: "preflight" },
+          { type: "phase", name: "composing" },
+        ]);
+        assert.equal(recording.disposeCount(), 1);
+      } finally {
+        process.chdir(previousCwd);
+        process.env.PATH = previousPath;
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still disposes the reporter and stops after scheduling when there is a cycle", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const a = await writeContract(dir, "a", ["a.txt"], ["b.txt"]);
+      const b = await writeContract(dir, "b", ["b.txt"], ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "cycle-plan",
+        tasks: [{ id: "a", contract: a }, { id: "b", contract: b }],
+      }));
+      const previousCwd = process.cwd();
+      process.chdir(dir);
+      try {
+        const recording = recordingReporter();
+        const prepared = await planPrepareCommand("plan.json", {
+          target: "codex",
+          out: "ready.json",
+          reporter: recording.reporter,
+        });
+        assert.equal(prepared.exitCode, 1);
+        assert.deepEqual(recording.events, [{ type: "phase", name: "scheduling" }]);
+        assert.equal(recording.disposeCount(), 1);
+      } finally {
+        process.chdir(previousCwd);
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("prepares a reviewable shell-free plan with a composed validation checks array", async (t) => {
     // NOTE: this test used to also round-trip the ready plan through
     // `scopelock run --isolate` to prove `run` accepts it unchanged.
@@ -2545,23 +2699,6 @@ describe("plan prepare", () => {
 });
 
 describe("run", () => {
-  function recordingReporter(): {
-    events: ProgressEvent[];
-    disposeCount: () => number;
-    reporter: ProgressReporter;
-  } {
-    const events: ProgressEvent[] = [];
-    let disposed = 0;
-    return {
-      events,
-      disposeCount: () => disposed,
-      reporter: {
-        emit(event) { events.push(event); },
-        dispose() { disposed += 1; },
-      },
-    };
-  }
-
   async function writeContract(
     dir: string,
     file: string,

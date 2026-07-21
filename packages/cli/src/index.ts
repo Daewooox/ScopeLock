@@ -289,9 +289,11 @@ task
   .option("--out <path>", "write HTML report to this path")
   .option("--open", "open the generated report in the default browser")
   .option("--json", "print machine-readable JSON")
-  .action((options: { out?: string; open?: boolean }, command: Command) =>
-    run(() => taskFinishCommand(options), jsonOf(command)),
-  );
+  .action((options: { out?: string; open?: boolean }, command: Command) => {
+    const json = jsonOf(command);
+    const reporter = createReporter(process.stdout, json);
+    return run(() => taskFinishCommand({ ...options, reporter }), json);
+  });
 
 program
   .command("check-drift")
@@ -371,8 +373,10 @@ plan
         validationCwd?: string;
       },
       command: Command,
-    ) =>
-      run(
+    ) => {
+      const json = jsonOf(command);
+      const reporter = createReporter(process.stdout, json);
+      return run(
         () =>
           planPrepareCommand(planPath, {
             ...options,
@@ -386,9 +390,11 @@ plan
               planPrepareValidationArgv?.validationSetupCommand ?? options.validationSetupCommand,
             validationChecks: planPrepareValidationArgv?.validationChecks,
             acceptanceChecks: planPrepareValidationArgv?.acceptanceChecks,
+            reporter,
           }),
-        jsonOf(command),
-      ),
+        json,
+      );
+    },
   );
 
 registerPlanCompose(plan, "fill-commands", true);

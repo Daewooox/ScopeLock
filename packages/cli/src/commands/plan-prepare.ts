@@ -17,6 +17,8 @@ import {
 } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
+import { createNoopReporter } from "../progress/noop-reporter.js";
+import type { ProgressReporter } from "../progress/types.js";
 import { agentsPreflightCommand } from "./agents-preflight.js";
 import { planFillCommandsCommand } from "./plan-fill-commands.js";
 import { planParallelCommand } from "./plan-parallel.js";
@@ -32,6 +34,7 @@ type PlanPrepareOptions = {
   validationCwd?: string;
   validationChecks?: Array<{ id: string; command: string[] }>;
   acceptanceChecks?: string[];
+  reporter?: ProgressReporter;
 };
 
 type ValidationCheckInput = {
@@ -237,9 +240,10 @@ function result(
   };
 }
 
-export async function planPrepareCommand(
+async function planPrepareWithReporter(
   planPath: string,
   options: PlanPrepareOptions,
+  reporter: ProgressReporter,
 ): Promise<CommandResult> {
   const target = parseTarget(options.target);
   const cwd = process.cwd();
@@ -252,6 +256,7 @@ export async function planPrepareCommand(
     throw new CliError("OUTPUT_MUST_DIFFER", "ready plan output must differ from the input plan");
   }
 
+  reporter.emit({ type: "phase", name: "scheduling" });
   const scheduled = await planParallelCommand(planPath, {
     includeReadHazards: options.readHazards !== false,
     requireApproved: true,
@@ -273,6 +278,7 @@ export async function planPrepareCommand(
     );
   }
 
+  reporter.emit({ type: "phase", name: "preflight" });
   const executablePath = findAgentExecutable(target);
   const executable = { name: target === "cursor" ? "agent" : target, found: executablePath !== null, path: executablePath };
   const hook = probeHookConfig(root, target);
@@ -299,6 +305,7 @@ export async function planPrepareCommand(
     );
   }
 
+  reporter.emit({ type: "phase", name: "composing" });
   const composed = await planFillCommandsCommand(planPath, {
     target,
     force: true,
@@ -385,4 +392,16 @@ export async function planPrepareCommand(
     `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes --isolate`,
     0,
   );
+}
+
+export async function planPrepareCommand(
+  planPath: string,
+  options: PlanPrepareOptions,
+): Promise<CommandResult> {
+  const reporter = options.reporter ?? createNoopReporter();
+  try {
+    return await planPrepareWithReporter(planPath, options, reporter);
+  } finally {
+    reporter.dispose();
+  }
 }

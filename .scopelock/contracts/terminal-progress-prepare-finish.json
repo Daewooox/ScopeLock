@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "terminal-progress-prepare-finish",
+  "task": "Wire progress reporters into plan prepare and task finish; give task finish's findings table failure-first treatment - no task start wizard, no Guided review screen, no core/MCP/hooks/receipt-schema/scheduler changes",
+  "createdAt": "2026-07-21T08:26:53.994Z",
+  "baseline": {
+    "headSha": "c59549299ef4556dbf1ad107f3b06ef9f38c87c8",
+    "branch": "feature/terminal-progress-prepare-finish",
+    "capturedAt": "2026-07-21T08:26:54.085Z"
+  },
+  "targetAgents": [
+    "claude"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/index.ts",
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/task-finish.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/src/progress/types.ts",
+      "packages/cli/src/ui.ts",
+      "docs/reference.md",
+      "CHANGELOG.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/cli/src/commands/task-start.ts",
+      "packages/core/**",
+      "packages/mcp/**",
+      ".github/workflows/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
