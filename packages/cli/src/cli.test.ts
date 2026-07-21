@@ -10,6 +10,7 @@ import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scop
 import { findAgentExecutable, setupCommand } from "./commands/setup.js";
 import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { runPlanCommand } from "./commands/run-plan.js";
+import { rebaselineCommand } from "./commands/rebaseline.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
 import { checkDriftCommand } from "./commands/check-drift.js";
@@ -1019,6 +1020,35 @@ describe("cli end-to-end", () => {
       assert.equal(repaired.createdAt, createdAt);
       assert.notEqual(repaired.baseline.headSha, "0".repeat(40));
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("suggests check-drift as the next command after a successful rebaseline", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      const draftPath = join(tmpdir(), `sl-rebase-suggest-${Date.now()}.json`);
+      assert.equal(
+        runCli(dir, ["contract", "new", "--task", "scoped change", "--planned", "src/**", "--out", draftPath]).status,
+        0,
+      );
+      assert.equal(runCli(dir, ["--json", "approve", draftPath]).status, 0);
+      const activeId = JSON.parse(
+        await readFile(join(dir, ".scopelock", "active"), "utf8"),
+      ) as string;
+
+      process.chdir(dir);
+      const result = await rebaselineCommand(activeId);
+      assert.equal(result.exitCode, 0);
+      assert.deepEqual(result.suggestedNext, { label: "Verify current changes", argv: ["check-drift"] });
+    } finally {
+      process.chdir(previousCwd);
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -3136,6 +3166,42 @@ describe("run", () => {
         .sort();
       assert.deepEqual(done, [["a", "passed"], ["b", "passed"]]);
       assert.equal(recording.disposeCount(), 1);
+    } finally {
+      process.chdir(previousCwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("suggests opening the Flight Report as the next command after a successful run", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const previousCwd = process.cwd();
+    try {
+      await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "suggest-report",
+        tasks: [{
+          id: "a",
+          contract: "a.json",
+          command: [process.execPath, "-e", "require('node:fs').writeFileSync('a.txt', 'a')"],
+        }],
+      }));
+      process.chdir(dir);
+
+      const result = await runPlanCommand({
+        plan: "plan.json",
+        yes: true,
+        checkDrift: false,
+        receipt: "receipt.json",
+      });
+
+      assert.equal(result.exitCode, 0);
+      const receiptPath = (result.data as { receiptPath: string }).receiptPath;
+      assert.deepEqual(result.suggestedNext, { label: "Open the Flight Report", argv: ["report", "--open", receiptPath] });
     } finally {
       process.chdir(previousCwd);
       await rm(dir, { recursive: true, force: true });

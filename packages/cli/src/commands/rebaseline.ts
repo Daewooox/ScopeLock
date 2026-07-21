@@ -89,5 +89,6 @@ export async function rebaselineCommand(
       { title: "Next", lines: "Verify current changes: scopelock check-drift" },
     ]),
     exitCode: 0,
+    suggestedNext: { label: "Verify current changes", argv: ["check-drift"] },
   };
 }
