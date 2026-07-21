@@ -19,6 +19,14 @@ describe("sanitizeHuman", () => {
     );
   });
 
+  it("replaces a timestamped flight report HTML filename with a fixed placeholder", () => {
+    const human = "Flight Report ./.scopelock/reports/drift-2026-07-21T14-04-44.234Z.html";
+    assert.equal(
+      sanitizeHuman(human, "/tmp/anything"),
+      "Flight Report ./.scopelock/reports/drift-demo.html",
+    );
+  });
+
   it("is idempotent when run twice", () => {
     const human = "Ready plan written  /tmp/scopelock-demo-svg-abc123/ready.json\nDrift report  ./.scopelock/reports/drift-2026-07-21T14-04-44.234Z.json";
     const once = sanitizeHuman(human, "/tmp/scopelock-demo-svg-abc123");
