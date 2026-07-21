@@ -53,13 +53,27 @@ Run these commands from the repository where the agent will work:
 
 ```bash
 scopelock setup
+```
 
+`setup`'s own "Next" hint points at `contract new`, the lower-level Standard
+command - for one protected task, skip it and continue with `task start`
+below instead.
+
+```bash
 scopelock task start "Add retry handling" \
   --agent claude \
   --allow src/network \
   --allow tests/network \
   --block .env \
   --test unit
+```
+
+In an interactive terminal this shows a review screen with a yes/no prompt.
+Run non-interactively - piped, scripted, or without a TTY, as above - it
+instead saves the draft and exits with the exact command to approve it:
+
+```bash
+scopelock contract approve .scopelock/drafts/add-retry-handling-<date>.json
 ```
 
 Review the draft before approving it. ScopeLock does not start the agent. Let
@@ -75,7 +89,23 @@ not run the tests named in the contract.
 
 ## Prepare several agents
 
-Start from a reviewed `plan.json` whose tasks reference approved contracts:
+Start from a reviewed `plan.json` whose tasks reference approved contracts -
+each created the same way as above, via `task start` or `contract new`/
+`contract approve`:
+
+```json
+{
+  "schemaVersion": 1,
+  "planId": "multi-agent-example",
+  "tasks": [
+    { "id": "network", "contract": ".scopelock/contracts/add-retry-handling-2026-07-21.json" },
+    { "id": "docs", "contract": ".scopelock/contracts/update-docs.json" }
+  ]
+}
+```
+
+See [Coordinating parallel agents](parallel-workflow.md) for scheduling, read
+hazards, and a full multi-task walkthrough. Once `plan.json` is ready:
 
 ```bash
 scopelock plan prepare plan.json --target claude --out ready-plan.json
