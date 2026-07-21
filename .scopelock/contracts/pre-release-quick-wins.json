@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "pre-release-quick-wins",
+  "task": "pre-release quick wins: degraded hint, docs example, contractIds dedup",
+  "createdAt": "2026-07-21T17:26:01.976Z",
+  "baseline": {
+    "headSha": "3757274c0eb7c2c5401963d93bc76f4b2ed446e9",
+    "branch": "polish/pre-release-quick-wins",
+    "capturedAt": "2026-07-21T17:26:02.069Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "docs/parallel-workflow.md",
+      "docs/assets/scopelock-demo.svg",
+      "docs/assets/scopelock-plan-demo.svg"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

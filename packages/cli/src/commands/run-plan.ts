@@ -1620,7 +1620,9 @@ async function runPlanWithReporter(
   if (options.checkDrift !== false) {
     try {
       const result = await checkDriftCommand({
-        contractIds: Array.from(taskContracts.values()).map((contract) => contract.id),
+        // De-duplicate: two tasks may legitimately share one contract, and a
+        // repeated id would classify the same file twice in the drift report.
+        contractIds: [...new Set(Array.from(taskContracts.values()).map((contract) => contract.id))],
       });
       drift = { status: result.exitCode === 0 ? "ok" : "violations", data: result.data };
     } catch (error) {
