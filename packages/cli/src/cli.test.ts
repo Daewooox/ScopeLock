@@ -12,6 +12,7 @@ import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { runPlanCommand } from "./commands/run-plan.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
+import { planPrepareCommand } from "./commands/plan-prepare.js";
 import type { ProgressEvent, ProgressReporter } from "./progress/types.js";
 
 const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
@@ -1995,6 +1996,83 @@ describe("plan prepare", () => {
     assert.ok(gitPath, "git must be discoverable for the fixture");
     return { ...process.env, PATH: dirname(gitPath) };
   }
+
+  it("emits scheduling, preflight, and composing phases and disposes the reporter", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "phase-events-plan",
+        tasks: [{ id: "a", contract, command: "echo must-be-replaced" }],
+      }));
+      const env = await fakeCodexEnv(dir);
+      const previousCwd = process.cwd();
+      const previousPath = process.env.PATH;
+      process.chdir(dir);
+      process.env.PATH = env.PATH;
+      try {
+        const recording = recordingReporter();
+        const prepared = await planPrepareCommand("plan.json", {
+          target: "codex",
+          out: "ready.json",
+          validationCwd: ".",
+          validationCommand: [process.execPath],
+          reporter: recording.reporter,
+        });
+        assert.equal(prepared.exitCode, 0, prepared.human ?? "");
+        assert.deepEqual(recording.events, [
+          { type: "phase", name: "scheduling" },
+          { type: "phase", name: "preflight" },
+          { type: "phase", name: "composing" },
+        ]);
+        assert.equal(recording.disposeCount(), 1);
+      } finally {
+        process.chdir(previousCwd);
+        process.env.PATH = previousPath;
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still disposes the reporter and stops after scheduling when there is a cycle", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const a = await writeContract(dir, "a", ["a.txt"], ["b.txt"]);
+      const b = await writeContract(dir, "b", ["b.txt"], ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "cycle-plan",
+        tasks: [{ id: "a", contract: a }, { id: "b", contract: b }],
+      }));
+      const previousCwd = process.cwd();
+      process.chdir(dir);
+      try {
+        const recording = recordingReporter();
+        const prepared = await planPrepareCommand("plan.json", {
+          target: "codex",
+          out: "ready.json",
+          reporter: recording.reporter,
+        });
+        assert.equal(prepared.exitCode, 1);
+        assert.deepEqual(recording.events, [{ type: "phase", name: "scheduling" }]);
+        assert.equal(recording.disposeCount(), 1);
+      } finally {
+        process.chdir(previousCwd);
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   it("prepares a reviewable shell-free plan with a composed validation checks array", async (t) => {
     // NOTE: this test used to also round-trip the ready plan through
