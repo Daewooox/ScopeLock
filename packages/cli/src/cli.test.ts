@@ -12,6 +12,8 @@ import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { runPlanCommand } from "./commands/run-plan.js";
 import { compileScopeInputs, taskStartCommand } from "./commands/task-start.js";
 import { taskFinishCommand } from "./commands/task-finish.js";
+import { checkDriftCommand } from "./commands/check-drift.js";
+import { CliError } from "./run.js";
 import { planPrepareCommand } from "./commands/plan-prepare.js";
 import type { ProgressEvent, ProgressReporter } from "./progress/types.js";
 
@@ -5444,6 +5446,88 @@ describe("run", () => {
       assert.match(html, /task&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
       assert.match(html, /src\/&lt;unsafe&gt;\.ts/);
       assert.doesNotMatch(html, /Execution Sequence|Passed tasks|<script>alert/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("check-drift", () => {
+  // Write drafts outside the repo (see the `check-drift` respects the
+  // exit-code contract test above) so the draft file itself does not count
+  // as drift once approved.
+  async function writeContract(
+    dir: string,
+    file: string,
+    id: string,
+    planned: string[],
+    forbidden: string[] = [],
+  ): Promise<void> {
+    const res = runCli(dir, [
+      "contract", "new", "--task", id, "--id", id,
+      ...planned.flatMap((glob) => ["--planned", glob]),
+      ...forbidden.flatMap((glob) => ["--forbidden", glob]),
+      "--out", file,
+    ]);
+    assert.equal(res.status, 0, res.stderr);
+    const approved = runCli(dir, ["approve", file]);
+    assert.equal(approved.status, 0, approved.stdout || approved.stderr);
+  }
+
+  it("classifies a file as planned when any contract claims it, even if another forbids it", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(tmpdir(), `sl-check-drift-a-${Date.now()}.json`), "a", ["a/**"]);
+      await writeContract(dir, join(tmpdir(), `sl-check-drift-b-${Date.now()}.json`), "b", ["b/**"], ["a/**"]);
+      await mkdir(join(dir, "a"), { recursive: true });
+      await writeFile(join(dir, "a", "file.ts"), "content");
+      const result = await checkDriftCommand({ contractIds: ["a", "b"] }, dir);
+      assert.equal(result.exitCode, 0, result.human ?? "");
+      const report = (result.data as { report: { violations: unknown[] } }).report;
+      assert.deepEqual(report.violations, []);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws CONTRACT_BASELINE_MISMATCH when contracts do not share a baseline", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(tmpdir(), `sl-check-drift-a-${Date.now()}.json`), "a", ["a/**"]);
+      commitFixture(dir, "advance baseline before approving b");
+      await writeContract(dir, join(tmpdir(), `sl-check-drift-b-${Date.now()}.json`), "b", ["b/**"]);
+      await assert.rejects(
+        checkDriftCommand({ contractIds: ["a", "b"] }, dir),
+        (error: unknown) =>
+          error instanceof CliError
+          && error.code === "CONTRACT_BASELINE_MISMATCH"
+          && /rebaseline/.test(error.message)
+          && error.message.includes("a:")
+          && error.message.includes("b:"),
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to the single active contract when contractIds is omitted", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      await writeContract(dir, join(tmpdir(), `sl-check-drift-a-${Date.now()}.json`), "a", ["a/**"]);
+      const result = await checkDriftCommand({}, dir);
+      assert.equal(result.exitCode, 0, result.human ?? "");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
