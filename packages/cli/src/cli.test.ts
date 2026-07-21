@@ -2130,6 +2130,8 @@ describe("plan prepare", () => {
           reporter: recording.reporter,
         });
         assert.equal(prepared.exitCode, 1);
+        assert.match(prepared.human ?? "", /Unschedulable groups/);
+        assert.match(prepared.human ?? "", /circular dependencies block scheduling/);
         assert.deepEqual(recording.events, [{ type: "phase", name: "scheduling" }]);
         assert.equal(recording.disposeCount(), 1);
       } finally {
@@ -2385,6 +2387,7 @@ describe("plan prepare", () => {
       ], env);
       assert.equal(unknown.status, 1, unknown.stdout || unknown.stderr);
       assert.match(unknown.stdout, /not detected/);
+      assert.match(unknown.stdout, /pass --validation-check to supply one/);
       assert.match(unknown.stdout, /--validation-check <id> <executable>/);
       await assert.rejects(readFile(join(dir, "unknown.json"), "utf8"));
 
