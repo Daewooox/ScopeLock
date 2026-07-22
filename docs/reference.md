@@ -546,9 +546,9 @@ pnpm release:evidence -- --smoke-dir .release-artifacts
 `release:pack` rejects tarballs containing compiled tests or source maps and
 requires a package README, license, manifest, and runtime entrypoint. It writes
 SHA-256 digests and file counts to `.release-artifacts/pack-manifest.json`.
-`release:smoke` installs all three unpublished tarballs into a clean temporary
-project, imports core, starts the CLI, runs `scopelock init`, and completes an
-MCP initialize handshake.
+`release:smoke` installs all three locally packed tarballs into a clean
+temporary project, imports core, starts the CLI, runs `scopelock init`, and
+completes an MCP initialize handshake.
 
 The `release-readiness` workflow repeats that install on Linux, macOS, and
 Windows and uploads a bounded evidence record. Evidence starts with security
@@ -568,7 +568,8 @@ following are true:
 The workflow uses `npm stage publish`, not direct publication. A maintainer
 must review and approve each staged package with npm 2FA before it becomes
 public. npm does not allow staged or trusted publishing for a brand-new
-package, so the first bootstrap publication remains a separate manual gate.
-The `@scopelock` npm scope must also be created and owned by the maintainer;
-the release preflight found no existing scope and no authenticated npm account.
-No package has been published as part of release-readiness work.
+package, so the first bootstrap publication was a separate manual gate,
+completed 2026-07-22. The `@scopelock` npm scope is created and owned by the
+maintainer (npm account `daewooox`); all three packages are published under
+the `beta` dist-tag at version `0.1.0-beta.1`. This staged-publish workflow
+governs subsequent releases.

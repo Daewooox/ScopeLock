@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "post-publish-docs",
+  "task": "Update docs to reflect actual npm publication of 0.1.0-beta.1",
+  "createdAt": "2026-07-22T13:52:05.376Z",
+  "baseline": {
+    "headSha": "70174e08971de744fcd6f8a32662c0570d68c8c9",
+    "branch": "docs/post-publish-currency",
+    "capturedAt": "2026-07-22T13:52:05.473Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/beta-quickstart.md",
+      "docs/reference.md",
+      "docs/release.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

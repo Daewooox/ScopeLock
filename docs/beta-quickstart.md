@@ -1,4 +1,4 @@
-# Private beta quick start
+# Beta quick start
 
 ScopeLock is an engineering beta for developers who use AI coding agents. It
 adds reviewable task boundaries, conflict-aware multi-agent plans, isolated
@@ -11,10 +11,17 @@ execution, drift checks, and local evidence. It is not an OS sandbox.
 - Claude Code, Codex, or Cursor CLI for real agent runs
 - A clean branch in the repository you want to test
 
-## Install a verified beta bundle
+## Install
 
-The npm packages are not public yet. A beta tester receives three tarballs from
-the same verified CI run. From the directory containing them, run:
+```bash
+npm install --global @scopelock/cli@beta
+scopelock --help
+```
+
+### Install a verified tarball bundle (offline, or a pinned CI artifact)
+
+If you have three tarballs from a specific verified CI run instead of
+installing from the registry, install them directly:
 
 ```bash
 npm install --global --ignore-scripts --no-audit --no-fund \
