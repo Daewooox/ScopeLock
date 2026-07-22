@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "package-readme-expansion",
+  "task": "Expand package READMEs (npm quality score + fix stale not-published claims)",
+  "createdAt": "2026-07-22T13:48:17.440Z",
+  "baseline": {
+    "headSha": "70174e08971de744fcd6f8a32662c0570d68c8c9",
+    "branch": "docs/package-readmes",
+    "capturedAt": "2026-07-22T13:48:30.388Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/README.md",
+      "packages/cli/README.md",
+      "packages/mcp/README.md",
+      "scripts/release/release-metadata.test.mjs"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

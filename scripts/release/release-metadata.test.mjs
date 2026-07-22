@@ -8,7 +8,7 @@ import { summarizeAudit } from "./audit-packed.mjs";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const packages = ["core", "cli", "mcp"];
 
-test("npm beta metadata stays public, reviewable, and explicitly unreleased", async () => {
+test("npm beta metadata stays public, reviewable, and points at the real install command", async () => {
   for (const name of packages) {
     const root = resolve(repoRoot, "packages", name);
     const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
@@ -22,11 +22,15 @@ test("npm beta metadata stays public, reviewable, and explicitly unreleased", as
     assert.ok(manifest.keywords.length > 0);
   }
 
-  for (const name of ["cli", "mcp"]) {
-    const readme = await readFile(resolve(repoRoot, "packages", name, "README.md"), "utf8");
-    assert.match(readme, /has not been published to npm yet/);
-    assert.match(readme, /After publication/);
-  }
+  // Published 2026-07-22 (@scopelock/{core,cli,mcp}@0.1.0-beta.1); READMEs
+  // must not regress to claiming the package isn't published yet.
+  const cliReadme = await readFile(resolve(repoRoot, "packages/cli/README.md"), "utf8");
+  assert.doesNotMatch(cliReadme, /has not been published to npm yet/);
+  assert.match(cliReadme, /npm install --global @scopelock\/cli@beta/);
+
+  const mcpReadme = await readFile(resolve(repoRoot, "packages/mcp/README.md"), "utf8");
+  assert.doesNotMatch(mcpReadme, /has not been published to npm yet/);
+  assert.match(mcpReadme, /npx --yes @scopelock\/mcp@beta/);
 });
 
 test("packed production audit fails closed on unsupported output", () => {
