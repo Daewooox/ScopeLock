@@ -98,10 +98,12 @@ pnpm@10` directly.
 
 ## Install
 
-The npm packages are not public yet. Private beta testers receive one verified
-bundle containing the core, CLI, and MCP tarballs from the same CI run. See the
-[private beta quick start](docs/beta-quickstart.md) for the checked install and
-uninstall commands.
+```bash
+npm install --global @scopelock/cli@beta
+```
+
+See the [beta quick start](docs/beta-quickstart.md) for uninstall and
+verified-tarball instructions.
 
 To run ScopeLock from source:
 
@@ -173,7 +175,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Release candidate: reproducible tarballs, dry-run evidence, and three-OS install smoke; not published |
+| npm distribution | Published: `@scopelock/core`, `@scopelock/cli`, `@scopelock/mcp` @ 0.1.0-beta.1 on the `beta` dist-tag |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for
@@ -182,7 +184,7 @@ the evidence and publication gates.
 ## Documentation
 
 - [Contributing](CONTRIBUTING.md)
-- [Private beta quick start](docs/beta-quickstart.md)
+- [Beta quick start](docs/beta-quickstart.md)
 - [Five-minute silent demo script](docs/beta-demo.md)
 - [Private beta feedback](docs/beta-feedback.md)
 - [CLI and configuration reference](docs/reference.md)

@@ -1,19 +1,28 @@
 # npm beta release runbook
 
-ScopeLock is prepared for an npm beta, but no npm package has been published.
-This runbook separates safe rehearsal from the first publication ceremony.
+`@scopelock/core`, `@scopelock/cli`, and `@scopelock/mcp` (version
+`0.1.0-beta.1`) were published to npm under the `beta` dist-tag on
+2026-07-22, under npm account `daewooox`. This runbook now governs the
+*next* publication (`beta.2` or later); the "First-publication checklist"
+below is kept as a historical record of the completed bootstrap, not a
+pending task.
 
 ## Current release boundary
 
-Preparation is allowed. Publication is not authorized by this document.
+Preparation is allowed. Publication of a new version is not authorized by
+this document alone.
 
 Do not run `npm publish`, `npm stage publish`, or `npm stage approve`; do not
 enable `NPM_PUBLISH_ENABLED`; and do not create a GitHub tag or release until a
-separate task explicitly authorizes the release.
+separate task explicitly authorizes the release. This boundary applied to
+`beta.1` (completed 2026-07-22) and applies again, unchanged, to every future
+version.
 
-The first publication cannot use npm staged publishing because each package
-must already exist before a trusted publisher can be configured. The existing
-`publish-npm.yml` workflow is therefore post-bootstrap infrastructure only.
+Bootstrap publication (the very first version of each package) could not use
+npm staged publishing, since each package had to already exist before a
+trusted publisher could be configured - that is why it was a manual,
+command-by-command gate. `publish-npm.yml`'s trusted-publisher flow now
+governs every subsequent release.
 
 ## Maintainer readiness
 
@@ -26,7 +35,9 @@ codes here.
 - second owner or documented account-recovery path available;
 - dedicated npm CLI profile selected so work credentials are not overwritten.
 
-Any missing item is a release blocker.
+Confirmed for the `beta.1` bootstrap (2026-07-22). Reconfirm before any
+future publish if the npm account, 2FA, or scope ownership changes. Any
+missing item is a release blocker.
 
 ## Candidate rehearsal
 
@@ -62,11 +73,13 @@ Download its artifacts, compare SHA-256 values independently, and require green
 Linux, macOS, and Windows smoke jobs plus CodeQL and gitleaks. A PR merge ref or
 a different SHA is not valid release evidence.
 
-## First-publication checklist (HOLD)
+## First-publication checklist (completed 2026-07-22)
 
-The commands below are release-day references only. Do not execute them during
-preparation. After explicit authorization, run each command separately and
-read back the result before continuing.
+Kept as a historical record of the `beta.1` bootstrap. For any future
+package that also needs a from-scratch bootstrap (unlikely for `core`/
+`cli`/`mcp`, now that all three exist), the same command-by-command
+discipline applies: run each command separately and read back the result
+before continuing, never as a batch.
 
 1. Reconfirm the package names are still available and scope ownership is
    correct.
@@ -122,3 +135,6 @@ Release is GO only when identity, 2FA, recovery, scope ownership, exact-main
 evidence, reproducible tarballs, three-OS smoke, security checks, dry-runs and
 the command-by-command bootstrap review are all complete, followed by explicit
 user authorization in a new task. Otherwise it is NO-GO.
+
+The `beta.1` GO decision was made and executed on 2026-07-22. This gate
+re-applies in full to the next version.
