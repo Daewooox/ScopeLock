@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "hono-node-server-dependabot-fix",
+  "task": "fix Dependabot alert: force patched @hono/node-server transitive dep",
+  "createdAt": "2026-07-22T07:14:48.000Z",
+  "baseline": {
+    "headSha": "4b56c0f07132c616606fe20bb1c92dc6996c4e6b",
+    "branch": "fix/hono-node-server-dependabot",
+    "capturedAt": "2026-07-22T07:14:48.088Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
