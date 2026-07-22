@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test && node --test benchmarks/coordination/*.test.mjs scripts/release/*.test.mjs scripts/demo-svg/*.test.mjs",
+    "test": "pnpm -r test && node --test benchmarks/coordination/*.test.mjs scripts/release/*.test.mjs scripts/demo-svg/*.test.mjs scripts/demo-vhs/*.test.mjs",
     "typecheck": "pnpm --filter @scopelock/core build && pnpm -r typecheck",
     "demo:flight-control": "pnpm build && node benchmarks/coordination/run-flight-control-demo.mjs",
     "demo:progressive": "pnpm build && node benchmarks/coordination/run-progressive-cli-demo.mjs",
