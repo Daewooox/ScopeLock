@@ -8,7 +8,7 @@ Set Theme "Dracula"
 Set Padding 20
 
 Hidden
-Type "REPO=$(pwd); cd $(node $REPO/scripts/demo-vhs/setup-fixture.mjs plan); export PATH=\"$(pwd)/.demo-fake-bin:$PATH\"; clear"
+Type "REPO=$(pwd); cd $(node \"$REPO\"/scripts/demo-vhs/setup-fixture.mjs plan); export PATH=\"$(pwd)/.demo-fake-bin:$PATH\"; clear"
 Enter
 Show
 
