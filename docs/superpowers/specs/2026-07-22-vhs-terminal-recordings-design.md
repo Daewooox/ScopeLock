@@ -152,10 +152,9 @@ and both MP4s in a new `.demo-vhs-out/` (gitignored).
 
 ### CI: `demo-vhs-check` job
 
-Replaces `demo-svg-check` in the release-readiness/test workflow(s).
-Ubuntu-only (matches today), using `charmbracelet/vhs-action` to install
-`vhs`/`ttyd`/`ffmpeg` rather than hand-rolled apt steps. The job does not
-invoke `vhs` at all - it runs `node scripts/demo-vhs/smoke.mjs`, which:
+Replaces `demo-svg-check` in `.github/workflows/test.yml`. Ubuntu-only
+(matches today). The job never installs or invokes the `vhs` binary at
+all - it only runs `node scripts/demo-vhs/smoke.mjs`, which:
 
 - reads each `.tape` file,
 - extracts every visible `Type` line's literal command text,
