@@ -1,6 +1,6 @@
 {
   "name": "@scopelock/cli",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Local guardrails for AI coding agents: approve a scope contract, export prompts, and enforce it with drift checks and editor hooks.",
   "license": "MIT",
   "type": "module",
