@@ -19,5 +19,8 @@ memory-bank/
 # Reproducible local release output; CI uploads it as an artifact.
 .release-artifacts/
 
+# VHS-rendered MP4s (for external/social sharing); GIFs are committed.
+.demo-vhs-out/
+
 # Local, machine-specific Claude Code permission overrides.
 .claude/settings.local.json

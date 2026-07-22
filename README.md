@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/assets/scopelock-demo.svg" width="900" alt="Animated ScopeLock Guided terminal replay: task start and task finish">
+  <img src="./docs/assets/scopelock-demo.gif" width="900" alt="Animated ScopeLock Guided terminal replay: task start and task finish">
 </p>
 
 AI coding agents are fast, but they do not share a reliable understanding of
@@ -55,9 +55,8 @@ Approval, instruction injection, and hook installation remain explicit
 decisions. `task finish` checks drift and creates a local Flight Report; it
 does not run the tests named in the contract.
 
-The animation above is generated from real `scopelock` command output -
-regenerate it with `pnpm demo:svg`. With reduced-motion enabled it stays on
-the completed frame.
+The animation above is a real recorded terminal session, regenerated with
+`pnpm demo:vhs`.
 
 ## Try the demo
 
@@ -121,7 +120,7 @@ You can now run `scopelock --help`. To avoid a global link, replace
 ## Coordinate several agents
 
 <p align="center">
-  <img src="./docs/assets/scopelock-plan-demo.svg" width="900" alt="Animated ScopeLock Standard terminal replay: prepare a conflict-aware two-stage plan">
+  <img src="./docs/assets/scopelock-plan-demo.gif" width="900" alt="Animated ScopeLock Standard terminal replay: prepare a conflict-aware two-stage plan">
 </p>
 
 ```bash

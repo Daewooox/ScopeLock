@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "vhs-terminal-recordings",
+  "task": "Replace hero SVG demos with real VHS terminal recordings",
+  "createdAt": "2026-07-22T09:01:46.805Z",
+  "baseline": {
+    "headSha": "69dbf79acf776bc4936968091fc14f257e003f6f",
+    "branch": "demo-vhs/terminal-recordings",
+    "capturedAt": "2026-07-22T09:01:46.895Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "scripts/demo-vhs/**",
+      "scripts/demo-svg/**",
+      "docs/assets/**",
+      "package.json",
+      ".github/workflows/test.yml",
+      ".gitignore",
+      "README.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

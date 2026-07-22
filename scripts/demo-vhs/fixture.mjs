@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,41 +8,8 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
 export const cliBinPath = join(repoRoot, "packages/cli/dist/index.js");
 
-export function forceTtyColor() {
-  Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-  // ui.ts computes supportsColor once at module load from isTTY, NO_COLOR and
-  // CI. GitHub Actions sets CI=true, which would strip ANSI colors from the
-  // captured output and make CI-regenerated SVGs differ from the committed,
-  // locally-generated (colored) ones. Clear both so capture is
-  // environment-independent.
-  delete process.env.CI;
-  delete process.env.NO_COLOR;
-}
-
-export function recordingReporter() {
-  const events = [];
-  return {
-    events,
-    reporter: {
-      emit(event) {
-        events.push(event);
-      },
-      dispose() {},
-    },
-  };
-}
-
 export function initFixtureRepo() {
-  // mkdtempSync returns a path under os.tmpdir(), which on macOS is under
-  // /var, itself a symlink to /private/var. `git rev-parse --show-toplevel`
-  // (used internally by ScopeLock's findRepoRoot) resolves symlinks and
-  // returns the physical /private/var/... path, so if `dir` here stayed
-  // unresolved, every string match against real CLI output (e.g. in
-  // sanitize.mjs's sanitizeHuman) would only match the tail of the path and
-  // leak a dangling "/private" prefix into captured output. Resolve once,
-  // here, so every downstream consumer of `dir` sees the same canonical
-  // path that git and the CLI actually emit.
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "scopelock-demo-svg-")));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "scopelock-demo-vhs-")));
   spawnSync("git", ["init", "-q"], { cwd: dir });
   spawnSync("git", ["config", "user.email", "demo@example.com"], { cwd: dir });
   spawnSync("git", ["config", "user.name", "ScopeLock Demo"], { cwd: dir });
@@ -65,6 +32,14 @@ export function fakeCodexOnPath(dir) {
   return { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}` };
 }
 
+export function writeScopelockShim(dir) {
+  const bin = join(dir, ".demo-fake-bin");
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, "scopelock");
+  writeFileSync(executable, `#!/bin/sh\nexec "${process.execPath}" "${cliBinPath}" "$@"\n`);
+  chmodSync(executable, 0o755);
+}
+
 export function approveContract(dir, cliPath, env, id, planned, read = []) {
   const draftPath = join(dir, `${id}.json`);
   const draft = spawnSync(process.execPath, [
@@ -82,4 +57,33 @@ export function approveContract(dir, cliPath, env, id, planned, read = []) {
   if (approved.status !== 0) {
     throw new Error(`contract approve failed for ${id}: ${approved.stderr || approved.stdout}`);
   }
+}
+
+export function buildScenarioFixture(name) {
+  const dir = initFixtureRepo();
+  const env = fakeCodexOnPath(dir);
+  writeScopelockShim(dir);
+
+  if (name === "guided") {
+    // Both shims must be committed as part of the baseline `task start`
+    // captures, or `task finish` reports them as out-of-scope drift (they
+    // live outside the --allow src scope).
+    spawnSync("git", ["add", "-A"], { cwd: dir });
+    spawnSync("git", ["commit", "-qm", "fixture: shims"], { cwd: dir });
+  } else if (name === "plan") {
+    approveContract(dir, cliBinPath, env, "writer", ["src/writer.js"]);
+    approveContract(dir, cliBinPath, env, "reader", ["src/reader.js"], ["src/writer.js"]);
+    writeFileSync(join(dir, "plan.json"), JSON.stringify({
+      schemaVersion: 1,
+      planId: "demo-standard",
+      tasks: [
+        { id: "writer", contract: ".scopelock/contracts/writer.json", expectsChanges: true },
+        { id: "reader", contract: ".scopelock/contracts/reader.json", expectsChanges: true },
+      ],
+    }));
+  } else {
+    throw new Error(`unknown scenario: ${name}`);
+  }
+
+  return { dir, env };
 }

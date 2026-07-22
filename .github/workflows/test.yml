@@ -47,7 +47,7 @@ jobs:
       - run: pnpm release:pack
       - run: pnpm release:audit
 
-  demo-svg-check:
+  demo-vhs-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -60,4 +60,4 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm demo:svg:check
+      - run: pnpm demo:vhs:check
