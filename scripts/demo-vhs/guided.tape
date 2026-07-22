@@ -12,12 +12,12 @@ Type "REPO=$(pwd); cd $(node $REPO/scripts/demo-vhs/setup-fixture.mjs guided); e
 Enter
 Show
 
-Type `scopelock task start "Add a dark mode toggle" --agent codex --allow src --yes`
+Type `scopelock task start "Add a dark mode toggle" --agent codex --allow src --test unit --yes`
 Enter
 Sleep 1.5s
 
 Hidden
-Type "node $REPO/scripts/demo-vhs/write-guided-source.mjs; clear"
+Type "node \"$REPO\"/scripts/demo-vhs/write-guided-source.mjs; clear"
 Enter
 Show
 

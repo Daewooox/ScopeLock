@@ -17,6 +17,7 @@
     "demo:svg": "pnpm build && node scripts/demo-svg/generate.mjs",
     "demo:svg:check": "pnpm build && node scripts/demo-svg/generate.mjs --check",
     "demo:vhs": "pnpm build && vhs scripts/demo-vhs/guided.tape && vhs scripts/demo-vhs/plan.tape",
+    "demo:vhs:check": "pnpm build && node scripts/demo-vhs/smoke.mjs",
     "benchmark:receipt": "pnpm build && node benchmarks/coordination/run-codex-real-agent-benchmark.mjs --runs 3 --modes scopelock_run --output-dir .scopelock/reports/receipt-baseline",
     "release:pack": "node scripts/release/pack.mjs",
     "release:smoke": "node scripts/release/smoke-packed.mjs",
