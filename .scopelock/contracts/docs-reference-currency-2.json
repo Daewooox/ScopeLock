@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "docs-reference-currency-2",
+  "task": "Document interactive next-command prompt and evidence-status transparency in reference.md",
+  "createdAt": "2026-07-22T08:08:42.546Z",
+  "baseline": {
+    "headSha": "41a757317558b252581598b2023862cefc2a510d",
+    "branch": "docs/reference-next-command-and-evidence-status",
+    "capturedAt": "2026-07-22T08:08:42.642Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "docs/reference.md"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
