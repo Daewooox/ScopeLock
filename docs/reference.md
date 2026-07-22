@@ -164,6 +164,26 @@ hidden from root help so new users see one coherent command model:
   deny. Codex deny requires a live-verified project hook. Cursor hooks remain
   audit-only; isolated runs add a separate validate-before-promote patch gate.
 
+## Interactive next-command prompts
+
+After `contract rebaseline` and `run` complete successfully in an interactive
+terminal, ScopeLock may ask:
+
+```text
+Run it now? scopelock check-drift [Y/n]
+```
+
+Pressing Enter (or `y`) runs the suggested command as a normal child process
+in the same terminal; `n` leaves it for you to run yourself. `contract
+rebaseline` suggests `check-drift`; `run` suggests `report --open
+<receiptPath>`. No other command currently offers a suggestion — each
+candidate was evaluated individually, and a command only qualifies when
+running it immediately is safe and requires no further judgment call.
+
+The prompt never appears under `--json`, in CI (`CI=true`), or when either
+stdin or stdout is not a TTY (pipes, redirected output, non-interactive
+shells) — automation always sees the same stable output it always has.
+
 ## Agent environment preflight
 
 `agents preflight` is read-only. It checks an existing workspace manifest and
@@ -423,6 +443,32 @@ shapes; see THREAT-MODEL.md for what it does and does not catch.
 
 Each `task.contract` path resolves from the current working directory, not from
 the directory containing `plan.json`.
+
+### Evidence status and the Flight Report
+
+The HTML Flight Report renders every evidence status through one shared
+classifier, so the same meaning always gets the same color regardless of
+which producer wrote the string (and regardless of `_` vs `-` spelling):
+
+- **good** (bright): `passed`, `completed`, `clear`, `verified`, `applied`,
+  `no-changes`, and equivalent affirmative statuses.
+- **bad** (bright): `failed`, `error`, `violations`, `blocked`, and
+  equivalent negative statuses.
+- **not-exercised** (muted, dashed): the step was never a candidate for this
+  run, not a warning about it — for example `not-applicable` (the step only
+  runs with `--isolate`), `unverified` (no acceptance checks were declared),
+  or `not-configured` (no environment manifest supplied). Each of these
+  statuses carries a one-line plain-language gloss inline in the report.
+- **attention** (bright, amber): any other status. Unrecognized statuses are
+  never silently muted; they surface as something to look at.
+
+The report also shows a one-sentence run-mode summary near the top (what
+kind of run produced this evidence), an inline six-node pipeline stepper
+(execution, scope, validation, acceptance, promotion, cleanup) reflecting
+which stages actually ran, and a permanent `↳` description under each
+evidence row explaining what that row means. The Legend section at the
+bottom of the report only explains the four colors above; it no longer
+carries prose descriptions, since those now live inline with each row.
 
 ## Repository manifest
 
