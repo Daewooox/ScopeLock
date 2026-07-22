@@ -7,20 +7,26 @@ Set Height 400
 Set Theme "Dracula"
 Set Padding 20
 
-Hidden
-Type "REPO=$(pwd); cd $(node \"$REPO\"/scripts/demo-vhs/setup-fixture.mjs guided); export PATH=\"$(pwd)/.demo-fake-bin:$PATH\"; clear"
+Hide
+Type `REPO=$(pwd); cd $(node "$REPO"/scripts/demo-vhs/setup-fixture.mjs guided); export PATH="$(pwd)/.demo-fake-bin:$PATH"`
 Enter
+Sleep 2s
+Ctrl+L
 Show
 
-Type `scopelock task start "Add a dark mode toggle" --agent codex --allow src --test unit --yes`
+Type `scopelock task start "Add a dark mode toggle" --agent codex --allow src --block .env --context src --test unit --yes`
 Enter
 Sleep 1.5s
-
-Hidden
-Type "node \"$REPO\"/scripts/demo-vhs/write-guided-source.mjs; clear"
 Enter
+Sleep 1s
+
+Hide
+Type `node "$REPO"/scripts/demo-vhs/write-guided-source.mjs`
+Enter
+Sleep 1s
+Ctrl+L
 Show
 
-Type "scopelock task finish"
+Type `scopelock task finish`
 Enter
 Sleep 2s

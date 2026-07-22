@@ -7,9 +7,11 @@ Set Height 300
 Set Theme "Dracula"
 Set Padding 20
 
-Hidden
-Type "REPO=$(pwd); cd $(node \"$REPO\"/scripts/demo-vhs/setup-fixture.mjs plan); export PATH=\"$(pwd)/.demo-fake-bin:$PATH\"; clear"
+Hide
+Type `REPO=$(pwd); cd $(node "$REPO"/scripts/demo-vhs/setup-fixture.mjs plan); export PATH="$(pwd)/.demo-fake-bin:$PATH"`
 Enter
+Sleep 2s
+Ctrl+L
 Show
 
 Type `scopelock plan prepare plan.json --target codex --out ready.json --validation-command node -e "process.exit(0)"`
