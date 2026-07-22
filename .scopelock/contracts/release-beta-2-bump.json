@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "release-beta-2-bump",
+  "task": "Bump to 0.1.0-beta.2 for republish (package README changes not yet on npm)",
+  "createdAt": "2026-07-22T14:26:43.886Z",
+  "baseline": {
+    "headSha": "4c4542182d6ce6c8a4361e17d9c47446168098a5",
+    "branch": "release/beta-2-version-bump",
+    "capturedAt": "2026-07-22T14:26:43.987Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/package.json",
+      "packages/cli/package.json",
+      "packages/mcp/package.json",
+      "pnpm-lock.yaml",
+      "scripts/release/release-metadata.test.mjs"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
