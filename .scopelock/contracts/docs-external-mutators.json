@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "docs-external-mutators",
+  "task": "Document external mutating tools workflow",
+  "createdAt": "2026-07-26T19:22:49.320Z",
+  "baseline": {
+    "headSha": "93d758b76eb13e70596d94c47996d644501d4880",
+    "branch": "docs/external-mutating-tools",
+    "capturedAt": "2026-07-26T19:22:49.415Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/external-tools.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
