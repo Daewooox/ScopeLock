@@ -153,6 +153,11 @@ setup step; both setup and validation must pass before promotion.
 For Automation, add `--json` to the preparation and inspection commands. The
 same schemas, exit codes, and artifacts are used without prompts or animation.
 
+Already have a trusted CLI that edits files in place? Use the same contract,
+validation, worktree, promotion, and receipt gates without a custom plugin. See
+[Gating external mutating tools](docs/external-tools.md) for a Semgrep autofix
+example.
+
 ## Agent support
 
 | Agent | Contract instructions | Environment preflight | Enforcement |
@@ -190,6 +195,7 @@ the evidence and publication gates.
 - [CLI and configuration reference](docs/reference.md)
 - [npm beta release runbook](docs/release.md)
 - [Running multiple agents safely](docs/parallel-workflow.md)
+- [Gating external mutating tools](docs/external-tools.md)
 - [Beta validation and pilot protocol](docs/beta-validation.md)
 - [Reproducible parallel example](examples/parallel/)
 - [Agent environment preflight example](examples/agent-workspace/)
