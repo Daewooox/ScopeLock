@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "codeql-action-combined-update",
+  "task": "Combine CodeQL action update",
+  "createdAt": "2026-07-26T20:17:12.536Z",
+  "baseline": {
+    "headSha": "61247aa7a2f4fef130c5ffe49d08b5d756845fb3",
+    "branch": "chore/codeql-action-4.37.3",
+    "capturedAt": "2026-07-26T20:17:21.119Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      ".github/workflows/codeql.yml",
+      ".github/dependabot.yml",
+      ".scopelock/contracts/codeql-action-combined-update.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      "docs/**",
+      "README.md"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
