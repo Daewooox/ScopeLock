@@ -4,9 +4,9 @@
   "task": "Document external mutating tools workflow",
   "createdAt": "2026-07-26T19:22:49.320Z",
   "baseline": {
-    "headSha": "93d758b76eb13e70596d94c47996d644501d4880",
+    "headSha": "18b46028bc2926252552961ef4dca8296fe2e9db",
     "branch": "docs/external-mutating-tools",
-    "capturedAt": "2026-07-26T19:22:49.415Z"
+    "capturedAt": "2026-07-26T19:23:08.627Z"
   },
   "targetAgents": [
     "codex"
