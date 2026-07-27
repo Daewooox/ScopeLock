@@ -6,7 +6,7 @@ temporary worktree, validate the combined candidate, and promote only a patch
 that stays inside its approved contract.
 
 Use this for trusted tools such as codemods, formatters, migration utilities,
-and scanner autofixes. The example below uses Semgrep.
+scanner autofixes, and local AI workers. The example below uses Semgrep.
 
 ## Example: gate a Semgrep autofix
 
