@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "openworkerproofdocs",
+  "task": "Document local AI worker safety envelope proof",
+  "createdAt": "2026-07-27T15:31:03.559Z",
+  "baseline": {
+    "headSha": "eb1eeb1adea98aae035b3350889a0ce6f3b3306d",
+    "branch": "docs/openworker-external-tools-proof",
+    "capturedAt": "2026-07-27T15:31:03.651Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "docs/external-tools.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
