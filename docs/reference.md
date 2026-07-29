@@ -571,5 +571,5 @@ public. npm does not allow staged or trusted publishing for a brand-new
 package, so the first bootstrap publication was a separate manual gate,
 completed 2026-07-22. The `@scopelock` npm scope is created and owned by the
 maintainer (npm account `daewooox`); all three packages are published under
-the `beta` dist-tag at version `0.1.0-beta.1`. This staged-publish workflow
+the `beta` dist-tag at version `0.1.0-beta.2`. This staged-publish workflow
 governs subsequent releases.

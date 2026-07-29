@@ -2,7 +2,7 @@
 
 All notable changes to ScopeLock will be documented here.
 
-## 0.1.0-beta.1 - Unreleased
+## 0.1.0-beta.2 - Published 2026-07-22
 
 - Scope contracts, deterministic drift checks, and agent hook enforcement.
 - Progressive CLI with Guided `setup`, `task start`, and `task finish` flows.
@@ -46,7 +46,8 @@ All notable changes to ScopeLock will be documented here.
   a pipeline stepper diagram, per-row descriptions, and a legend in the HTML
   report; dim SKIP labels in the terminal.
 - Reproducible npm tarballs, clean-install smoke tests, release evidence, and
-  a protected OIDC staging workflow. No npm package has been published yet.
+  a protected OIDC staging workflow. `@scopelock/core`, `@scopelock/cli`, and
+  `@scopelock/mcp` are published on npm under the `beta` dist-tag.
 - Deterministic progressive demo plus a real-user and real-repository beta
   validation protocol.
 - Reduced-motion-aware animated README replays for Guided task verification and
