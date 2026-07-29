@@ -1,11 +1,11 @@
 # npm beta release runbook
 
-`@scopelock/core`, `@scopelock/cli`, and `@scopelock/mcp` (version
-`0.1.0-beta.1`) were published to npm under the `beta` dist-tag on
-2026-07-22, under npm account `daewooox`. This runbook now governs the
-*next* publication (`beta.2` or later); the "First-publication checklist"
-below is kept as a historical record of the completed bootstrap, not a
-pending task.
+`@scopelock/core`, `@scopelock/cli`, and `@scopelock/mcp` are published to npm
+under the `beta` dist-tag. The current beta is `0.1.0-beta.2`; the first
+bootstrap publication was `0.1.0-beta.1` on 2026-07-22 under npm account
+`daewooox`. This runbook now governs the *next* publication (`beta.3` or
+later); the "First-publication checklist" below is kept as a historical record
+of the completed bootstrap, not a pending task.
 
 ## Current release boundary
 
@@ -97,7 +97,7 @@ before continuing, never as a batch.
    tag, then verify its registry metadata and clean install.
 5. Publish the already verified CLI and MCP tarballs one at a time, verifying
    each before continuing.
-6. Confirm only the `beta` dist-tag points to `0.1.0-beta.1`; never move
+6. Confirm the `beta` dist-tag points to `0.1.0-beta.1`; do not rely on
    `latest` during beta.
 
 Do not use loops, rebuilt tarballs, a long-lived automation token, or a
@@ -124,10 +124,11 @@ After an authorized publication, verify package owners, visibility, versions,
 dist-tags, provenance and registry integrity. Test Node.js 22 and 24 with a
 clean core import, CLI help/init/report flow, and MCP initialize handshake.
 
-Do not treat unpublish as routine rollback. If beta.1 is defective, deprecate
-it with a precise message, prepare beta.2 through the full gate, and move only
-the `beta` tag. For a security incident, disable publication, preserve the
-evidence, restrict package access as appropriate, and publish an advisory.
+Do not treat unpublish as routine rollback. If the current beta is defective,
+deprecate it with a precise message, prepare the next beta through the full
+gate, and move only the `beta` tag. For a security incident, disable
+publication, preserve the evidence, restrict package access as appropriate,
+and publish an advisory.
 
 ## GO / NO-GO
 
@@ -136,5 +137,5 @@ evidence, reproducible tarballs, three-OS smoke, security checks, dry-runs and
 the command-by-command bootstrap review are all complete, followed by explicit
 user authorization in a new task. Otherwise it is NO-GO.
 
-The `beta.1` GO decision was made and executed on 2026-07-22. This gate
-re-applies in full to the next version.
+The `beta.1` bootstrap GO decision was made and executed on 2026-07-22. This
+gate re-applies in full to every next version.
