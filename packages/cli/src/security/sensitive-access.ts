@@ -1,16 +1,16 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { realpath, stat, lstat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  changedSinceBaseline,
+  collectChangedFiles,
   commitExists,
   findRepoRoot,
   isRepoRelativeSafe,
   resolveRepoPath,
   toPosix,
-  type ChangedFile,
 } from "@scopelock/core";
 
 // `spawnProcessTree` lives in the CLI package; importing it locally avoids
@@ -19,6 +19,10 @@ import { createRunSignalCoordinator, spawnProcessTree } from "../process-tree.js
 
 export const SENSITIVE_ACCESS_PROFILE = "sensitive-local-files" as const;
 export type SensitiveAccessProfile = typeof SENSITIVE_ACCESS_PROFILE;
+export const SENSITIVE_ACCESS_ENGINE = "semgrep" as const;
+export const SENSITIVE_ACCESS_ENGINE_VERSION = "1.171.0" as const;
+export const SENSITIVE_ACCESS_RULE_PACK_SHA256 =
+  "5197d46ad53bd1f8c22b4ba1c3963154558808c3e0c9dfd486bca973cc347f51" as const; // gitleaks:allow -- public SHA-256 digest of bundled rules
 
 export type SensitiveAccessOutcome = "passed" | "not-applicable" | "denied" | "blocked";
 
@@ -33,6 +37,9 @@ export type SensitiveAccessResult = {
   profile: SensitiveAccessProfile;
   outcome: SensitiveAccessOutcome;
   baseSha: string;
+  engine: typeof SENSITIVE_ACCESS_ENGINE;
+  engineVersion: string | null;
+  rulePackSha256: string | null;
   targets: string[];
   scanned: string[];
   findings: SensitiveFinding[];
@@ -48,20 +55,40 @@ export type ScanInput = {
   /** Test-only argv prefix; production always invokes the semgrep executable directly. */
   semgrepArgsPrefix?: string[];
   rulesPath?: string;
+  expectedEngineVersion?: string;
+  expectedRulePackSha256?: string;
 };
 
 const supportedExtensions = new Set([".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
 const knownSourceExtensions = new Set([
   ...supportedExtensions,
   ".go", ".rs", ".java", ".kt", ".kts", ".swift", ".rb", ".php", ".c", ".cc", ".cpp", ".h", ".hpp",
+  ".vue", ".svelte", ".astro", ".sh", ".bash", ".zsh", ".fish", ".ps1", ".bat", ".cmd",
+  ".dart", ".ex", ".exs", ".scala", ".cs", ".fs", ".fsx", ".lua", ".r", ".sql", ".pl", ".jl",
+  ".hs", ".clj", ".groovy", ".m", ".mm", ".html", ".htm", ".css", ".scss", ".sass", ".less",
 ]);
+const ignoredExtensions = new Set([
+  ".md", ".mdx", ".txt", ".rst", ".adoc", ".json", ".jsonc", ".yaml", ".yml", ".toml", ".ini",
+  ".lock", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".map",
+]);
+const ignoredFileNames = new Set(["README", "README.md", "CHANGELOG.md", "LICENSE", "NOTICE"]);
 const outputLimitBytes = 4 * 1024 * 1024;
+const defaultRulesPath = fileURLToPath(new URL("../../security/sensitive-local-files.yml", import.meta.url));
+
+export type SensitiveScannerAttestation = {
+  engine: typeof SENSITIVE_ACCESS_ENGINE;
+  engineVersion: string;
+  rulePackSha256: string;
+};
 
 function resultBase(input: ScanInput, outcome: SensitiveAccessOutcome, targets: string[] = []): SensitiveAccessResult {
   return {
     profile: SENSITIVE_ACCESS_PROFILE,
     outcome,
     baseSha: input.baseSha,
+    engine: SENSITIVE_ACCESS_ENGINE,
+    engineVersion: null,
+    rulePackSha256: null,
     targets,
     scanned: [],
     findings: [],
@@ -89,12 +116,17 @@ function normalizeTarget(raw: string): string | null {
   return segments.join("/");
 }
 
-function isKnownSource(path: string): boolean {
-  return knownSourceExtensions.has(extname(path).toLowerCase());
-}
-
 function isSupportedSource(path: string): boolean {
   return supportedExtensions.has(extname(path).toLowerCase());
+}
+
+function isIgnoredPath(path: string): boolean {
+  const name = path.split("/").at(-1) ?? path;
+  if (ignoredFileNames.has(name)) return true;
+  if (path.startsWith("dist/") || path.startsWith("build/") || path.startsWith("coverage/") || path.includes("/generated/")) {
+    return true;
+  }
+  return ignoredExtensions.has(extname(path).toLowerCase());
 }
 
 async function safeTarget(repoRoot: string, path: string): Promise<boolean> {
@@ -113,9 +145,9 @@ async function changedTargets(input: ScanInput): Promise<
   if (!/^[a-f0-9]{40}$/u.test(input.baseSha) || !commitExists(input.repoRoot, input.baseSha)) {
     return { targets: [], blockedReason: "baseline is not a full commit SHA in this repository" };
   }
-  let files: ChangedFile[];
+  let files: Awaited<ReturnType<typeof collectChangedFiles>>["files"];
   try {
-    files = await changedSinceBaseline(input.repoRoot, input.baseSha);
+    files = (await collectChangedFiles(input.repoRoot, input.baseSha)).files;
   } catch (error) {
     return { targets: [], blockedReason: error instanceof Error ? error.message : "cannot enumerate changed files" };
   }
@@ -126,7 +158,10 @@ async function changedTargets(input: ScanInput): Promise<
     const path = normalizeTarget(file.path);
     if (path === null) return { targets, blockedReason: `unsafe changed path: ${file.path}` };
     if (file.isBinary) continue;
-    if (!isKnownSource(path)) continue;
+    if (isIgnoredPath(path)) continue;
+    if (!knownSourceExtensions.has(extname(path).toLowerCase())) {
+      return { targets, blockedReason: `unsupported changed source language: ${path}` };
+    }
     if (!isSupportedSource(path)) {
       return { targets, blockedReason: `unsupported changed source language: ${path}` };
     }
@@ -180,8 +215,8 @@ export function parseSensitiveSemgrepOutput(
   }
   if (typeof parsed !== "object" || parsed === null) return blockedResult(base, "scanner JSON must be an object", targets);
   const value = parsed as Record<string, unknown>;
-  if ("errors" in value && !Array.isArray(value.errors)) return blockedResult(base, "scanner errors must be an array", targets);
-  if (Array.isArray(value.errors) && value.errors.length > 0) return blockedResult(base, "scanner returned errors", targets);
+  if (!Array.isArray(value.errors)) return blockedResult(base, "scanner errors must be an array", targets);
+  if (value.errors.length > 0) return blockedResult(base, "scanner returned errors", targets);
   if (!Array.isArray(value.results)) return blockedResult(base, "scanner results must be an array", targets);
   const paths = value.paths;
   if (typeof paths !== "object" || paths === null || !Array.isArray((paths as Record<string, unknown>).scanned)) {
@@ -194,8 +229,8 @@ export function parseSensitiveSemgrepOutput(
     scanned.push(path);
   }
   const scannedSet = new Set(scanned);
-  if (targets.some((target) => !scannedSet.has(target))) {
-    return blockedResult(base, "scanner skipped a requested target", targets, scanned);
+  if (scannedSet.size !== targets.length || targets.some((target) => !scannedSet.has(target))) {
+    return blockedResult(base, "scanner target coverage did not match the requested set", targets, scanned);
   }
   const findings: SensitiveFinding[] = [];
   for (const rawFinding of value.results) {
@@ -223,13 +258,38 @@ export function parseSensitiveSemgrepOutput(
   };
 }
 
-function semgrepAvailable(path: string): boolean {
-  const result = spawnSync(path, ["--version"], { stdio: "ignore", shell: false, timeout: 5_000 });
-  return result.error === undefined && result.status === 0;
+function parseSemgrepVersion(output: string): string | null {
+  const match = output.match(/(?:semgrep\s+)?v?(\d+\.\d+\.\d+)/iu);
+  return match?.[1] ?? null;
+}
+
+export function getSemgrepAttestation(
+  path = "semgrep",
+  rulesPath = defaultRulesPath,
+): SensitiveScannerAttestation | null {
+  const result = spawnSync(path, ["--version"], {
+    encoding: "utf8",
+    shell: false,
+    timeout: 5_000,
+  });
+  if (result.error !== undefined || result.status !== 0) return null;
+  const engineVersion = parseSemgrepVersion(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+  if (engineVersion === null) return null;
+  let rulePackSha256: string;
+  try {
+    rulePackSha256 = createHash("sha256").update(readFileSync(rulesPath)).digest("hex");
+  } catch {
+    return null;
+  }
+  return {
+    engine: SENSITIVE_ACCESS_ENGINE,
+    engineVersion,
+    rulePackSha256,
+  };
 }
 
 export function isSemgrepAvailable(path = "semgrep"): boolean {
-  return semgrepAvailable(path);
+  return getSemgrepAttestation(path) !== null;
 }
 
 export async function runSensitiveAccessScan(input: ScanInput): Promise<SensitiveAccessResult> {
@@ -250,8 +310,16 @@ export async function runSensitiveAccessScan(input: ScanInput): Promise<Sensitiv
   const targets = selection.targets;
   if (targets.length === 0) return { ...resultBase(input, "not-applicable"), targets };
   const semgrepPath = input.semgrepPath ?? "semgrep";
-  const rulesPath = input.rulesPath ?? fileURLToPath(new URL("../../security/sensitive-local-files.yml", import.meta.url));
-  if (!semgrepAvailable(semgrepPath)) return blocked(input, "Semgrep is not available; install it and retry", targets);
+  const rulesPath = input.rulesPath ?? defaultRulesPath;
+  const attestation = getSemgrepAttestation(semgrepPath, rulesPath);
+  if (attestation === null) return blocked(input, "Semgrep is not available or could not be attested; install it and retry", targets);
+  if (input.expectedEngineVersion !== undefined && attestation.engineVersion !== input.expectedEngineVersion) {
+    return blocked(input, `Semgrep version mismatch: expected ${input.expectedEngineVersion}, got ${attestation.engineVersion}`, targets);
+  }
+  if (input.expectedRulePackSha256 !== undefined && attestation.rulePackSha256 !== input.expectedRulePackSha256) {
+    return blocked(input, "Semgrep rule pack hash mismatch", targets);
+  }
+  const attestedBase = { ...resultBase(input, "passed", targets), ...attestation };
   const args = [
     ...(input.semgrepArgsPrefix ?? []),
     "scan", "--config", rulesPath, "--json", "--metrics", "off", "--disable-nosem", "--no-git-ignore", "--",
@@ -278,5 +346,5 @@ export async function runSensitiveAccessScan(input: ScanInput): Promise<Sensitiv
   if (termination.reason === "timeout") return blocked(input, `scanner timed out after ${timeoutMs}ms`, targets);
   if (termination.reason !== null) return blocked(input, "scanner interrupted", targets);
   if (termination.exitCode !== 0) return blocked(input, "scanner exited unsuccessfully", targets);
-  return parseSensitiveSemgrepOutput(stdout, targets, resultBase(input, "passed", targets));
+  return parseSensitiveSemgrepOutput(stdout, targets, attestedBase);
 }

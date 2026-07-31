@@ -339,9 +339,11 @@ scopelock plan prepare plan.json \
   --out ready-plan.json
 ```
 
-This prepends one required check using the frozen full `HEAD` SHA. A sensitive
-access finding exits with `1`; scanner failure, timeout, malformed output, or
-incomplete target coverage exits with `2`. The profile covers selected local
+This prepends one required check using the frozen full `HEAD` SHA and records
+the pinned Semgrep version plus bundled rule-pack SHA-256 in its argv and
+receipt output. A sensitive access finding exits with `1`; scanner mismatch,
+failure, timeout, malformed output, unsupported source language, or incomplete
+target coverage exits with `2`. The profile covers selected local
 credential-file reads in changed Python, JavaScript, and TypeScript source. It
 does not provide runtime or operating-system containment.
 

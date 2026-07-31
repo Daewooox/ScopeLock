@@ -25,8 +25,10 @@ import { planFillCommandsCommand } from "./plan-fill-commands.js";
 import { planParallelCommand } from "./plan-parallel.js";
 import { findAgentExecutable } from "./setup.js";
 import {
-  isSemgrepAvailable,
+  getSemgrepAttestation,
   SENSITIVE_ACCESS_PROFILE,
+  SENSITIVE_ACCESS_ENGINE_VERSION,
+  SENSITIVE_ACCESS_RULE_PACK_SHA256,
 } from "../security/sensitive-access.js";
 
 type PlanPrepareOptions = {
@@ -415,10 +417,18 @@ async function planPrepareWithReporter(
   }
   const securityCheck: ValidationCheckInput | null = options.securityProfile === SENSITIVE_ACCESS_PROFILE
     ? (() => {
-      if (!isSemgrepAvailable()) {
+      const semgrep = getSemgrepAttestation();
+      if (semgrep === null) {
         throw new CliError(
           "SECURITY_SCANNER_NOT_FOUND",
-          "Semgrep is required for --security-profile sensitive-local-files; install Semgrep and retry",
+          "Semgrep is required and must be attested for --security-profile sensitive-local-files; install Semgrep and retry",
+        );
+      }
+      if (semgrep.engineVersion !== SENSITIVE_ACCESS_ENGINE_VERSION
+        || semgrep.rulePackSha256 !== SENSITIVE_ACCESS_RULE_PACK_SHA256) {
+        throw new CliError(
+          "SECURITY_SCANNER_NOT_PINNED",
+          `Semgrep ${SENSITIVE_ACCESS_ENGINE_VERSION} and the bundled rule pack are required; found ${semgrep.engineVersion}`,
         );
       }
       const baseline = headSha(root);
@@ -438,6 +448,10 @@ async function planPrepareWithReporter(
           SENSITIVE_ACCESS_PROFILE,
           "--base",
           baseline,
+          "--engine-version",
+          semgrep.engineVersion,
+          "--rules-sha256",
+          semgrep.rulePackSha256,
           "--format",
           "json",
         ],

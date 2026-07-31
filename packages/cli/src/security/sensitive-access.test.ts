@@ -60,6 +60,9 @@ function baseResult(targets: string[] = ["src/main.js"]): SensitiveAccessResult 
     profile: "sensitive-local-files",
     outcome: "passed",
     baseSha: "a".repeat(40),
+    engine: "semgrep",
+    engineVersion: "1.171.0",
+    rulePackSha256: "5197d46ad53bd1f8c22b4ba1c3963154558808c3e0c9dfd486bca973cc347f51",
     targets,
     scanned: [],
     findings: [],
@@ -100,6 +103,10 @@ test("blocks malformed scanner errors and incomplete coverage", () => {
   );
   assert.equal(
     parseSensitiveSemgrepOutput(JSON.stringify({ errors: [], results: [], paths: { scanned: [] } }), base.targets, base).outcome,
+    "blocked",
+  );
+  assert.equal(
+    parseSensitiveSemgrepOutput(JSON.stringify({ results: [], paths: { scanned: ["src/main.js"] } }), base.targets, base).outcome,
     "blocked",
   );
   assert.equal(
@@ -167,6 +174,89 @@ test("returns denied, not applicable, and blocked outcomes", async (t) => {
     semgrepPath: missingPath,
   });
   assert.equal(missingResult.outcome, "blocked");
+});
+
+test("scans an unstaged source change instead of returning not-applicable", async (t) => {
+  const fixture = await makeFixture();
+  const script = await fakeSemgrep("denied");
+  t.after(async () => {
+    await rm(fixture.root, { recursive: true, force: true });
+    await rm(join(script, ".."), { recursive: true, force: true });
+  });
+
+  git(fixture.root, ["reset", "--hard", fixture.base]);
+  await writeFile(
+    join(fixture.root, fixture.target),
+    "const value = readFileSync(join(homedir(), '.ssh', 'id_ed25519'));",
+    "utf8",
+  );
+  const result = await runSensitiveAccessScan({
+    repoRoot: fixture.root,
+    baseSha: fixture.base,
+    profile: "sensitive-local-files",
+    semgrepPath: process.execPath,
+    semgrepArgsPrefix: [script, "denied"],
+  });
+  assert.equal(result.outcome, "denied");
+  assert.deepEqual(result.targets, [fixture.target]);
+});
+
+test("scans an untracked source change instead of returning not-applicable", async (t) => {
+  const fixture = await makeFixture();
+  const script = await fakeSemgrep("denied");
+  const untracked = join(fixture.root, "src/untracked.js");
+  t.after(async () => {
+    await rm(fixture.root, { recursive: true, force: true });
+    await rm(join(script, ".."), { recursive: true, force: true });
+  });
+
+  await writeFile(untracked, "const value = readFileSync('~/.ssh/id_ed25519');\n", "utf8");
+  const result = await runSensitiveAccessScan({
+    repoRoot: fixture.root,
+    baseSha: fixture.base,
+    profile: "sensitive-local-files",
+    semgrepPath: process.execPath,
+    semgrepArgsPrefix: [script, "denied"],
+  });
+  assert.equal(result.outcome, "denied");
+  assert.deepEqual(result.targets, ["src/main.js", "src/untracked.js"]);
+});
+
+test("blocks changed source containers that are outside the supported languages", async (t) => {
+  const fixture = await makeFixture(".vue", "<template><div /></template>\n");
+  t.after(async () => {
+    await rm(fixture.root, { recursive: true, force: true });
+  });
+
+  const result = await runSensitiveAccessScan({
+    repoRoot: fixture.root,
+    baseSha: fixture.base,
+    profile: "sensitive-local-files",
+    semgrepPath: join(fixture.root, "missing-semgrep"),
+  });
+  assert.equal(result.outcome, "blocked");
+  assert.match(result.reason ?? "", /unsupported changed source language/u);
+});
+
+test("blocks when the prepared Semgrep version or rule pack does not match", async (t) => {
+  const fixture = await makeFixture();
+  const script = await fakeSemgrep("passed");
+  t.after(async () => {
+    await rm(fixture.root, { recursive: true, force: true });
+    await rm(join(script, ".."), { recursive: true, force: true });
+  });
+
+  const result = await runSensitiveAccessScan({
+    repoRoot: fixture.root,
+    baseSha: fixture.base,
+    profile: "sensitive-local-files",
+    semgrepPath: process.execPath,
+    semgrepArgsPrefix: [script, "passed"],
+    expectedEngineVersion: "1.171.0",
+    expectedRulePackSha256: "5197d46ad53bd1f8c22b4ba1c3963154558808c3e0c9dfd486bca973cc347f51",
+  } as Parameters<typeof runSensitiveAccessScan>[0]);
+  assert.equal(result.outcome, "blocked");
+  assert.match(result.reason ?? "", /Semgrep version mismatch|rule pack hash mismatch/u);
 });
 
 test("times out a hanging scanner and fails closed", async (t) => {

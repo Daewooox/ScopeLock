@@ -24,10 +24,13 @@
 - Any future automatic response to a finding must be gated by
   `resolveFindingAction`: unclassified, unknown, absent, or malformed actions
   resolve to `ask-user`, never `auto-fix`.
-- The opt-in `sensitive-local-files` validation profile fails closed when its
-  Semgrep scanner is missing, times out, returns malformed data, or skips a
-  requested changed source target. It records normalized finding metadata only;
-  it is a source-level gate, not runtime or OS-level secret containment.
+- The opt-in `sensitive-local-files` validation profile requires the pinned
+  Semgrep `1.171.0` release and the bundled rule-pack SHA-256 at both plan
+  preparation and execution. It fails closed when the scanner is missing,
+  mismatched, times out, returns malformed data, skips or adds a changed source
+  target, or encounters an unsupported source language. It records normalized
+  finding metadata only; it is a source-level gate, not runtime or OS-level
+  secret containment.
 
 ## What ScopeLock Does Not Protect
 

@@ -265,10 +265,13 @@ combined with `--validation-check`.
 ### Sensitive access profile
 
 The optional `sensitive-local-files` profile adds one required validation check
-to a prepared plan. It runs a bundled Semgrep rule pack against supported Python,
-JavaScript, and TypeScript files changed since the frozen baseline. It is a
-source-level policy check for common local credential paths, not an OS sandbox
-and not a guarantee that arbitrary runtime secret access is impossible.
+to a prepared plan. It runs the pinned Semgrep `1.171.0` release with the
+bundled rule pack against supported Python, JavaScript, and TypeScript files
+changed since the frozen baseline. The scanner version and rule-pack SHA-256
+are recorded in the JSON result and checked again during execution. Changed
+source files in other languages are blocked instead of silently skipped. It is
+a source-level policy check for common local credential paths, not an OS
+sandbox and not a guarantee that arbitrary runtime secret access is impossible.
 
 Install Semgrep separately, then opt in during preparation:
 
@@ -279,7 +282,9 @@ scopelock plan prepare plan.json \
   --out ready-plan.json
 ```
 
-For diagnosis, run the check directly with the full baseline SHA:
+For diagnosis, run the check directly with the full baseline SHA. Use the
+approved baseline, not a newly-created candidate commit; the command also
+includes staged, unstaged, and untracked worktree changes:
 
 ```bash
 scopelock security scan \

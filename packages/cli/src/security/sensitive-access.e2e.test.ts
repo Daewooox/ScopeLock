@@ -6,8 +6,10 @@ import { mkdir, mkdtemp, readFile, rm, writeFile, chmod } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import {
+  SENSITIVE_ACCESS_ENGINE_VERSION,
   isSemgrepAvailable,
   runSensitiveAccessScan,
+  SENSITIVE_ACCESS_RULE_PACK_SHA256,
 } from "./sensitive-access.js";
 
 const CLI = fileURLToPath(new URL("../index.js", import.meta.url));
@@ -143,6 +145,10 @@ async function runScenario(
   ]);
   assert.equal(securityCheck.command.at(-1), "json");
   assert.equal(securityCheck.command.includes(securityBase), true);
+  assert.equal(securityCheck.command.includes("--engine-version"), true);
+  assert.equal(securityCheck.command.includes(SENSITIVE_ACCESS_ENGINE_VERSION), true);
+  assert.equal(securityCheck.command.includes("--rules-sha256"), true);
+  assert.equal(securityCheck.command.includes(SENSITIVE_ACCESS_RULE_PACK_SHA256), true);
   git(dir, ["add", "ready-plan.json"]);
   git(dir, ["commit", "-qm", "reviewed ready plan"]);
 
@@ -171,6 +177,9 @@ it("runs the security profile through plan prepare and fail-closed promotion", a
       assert.ok(check, `${mode}: security check missing from receipt`);
       assert.equal(check.required, true);
       assert.match(check.stdout, new RegExp(`\\"outcome\\"\\s*:\\s*\\"${mode === "safe" ? "passed" : mode}\\"`));
+      assert.match(check.stdout, /"engine"\s*:\s*"semgrep"/u);
+      assert.match(check.stdout, new RegExp(`\\"engineVersion\\"\\s*:\\s*\\"${SENSITIVE_ACCESS_ENGINE_VERSION}\\"`));
+      assert.match(check.stdout, new RegExp(`\\"rulePackSha256\\"\\s*:\\s*\\"${SENSITIVE_ACCESS_RULE_PACK_SHA256}\\"`));
 
       if (mode === "safe") {
         assert.equal(result.status, 0, result.stderr || result.stdout);

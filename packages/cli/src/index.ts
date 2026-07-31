@@ -416,11 +416,19 @@ security
   .description("check changed source files for selected sensitive local-file reads")
   .requiredOption("--profile <id>", "security profile: sensitive-local-files")
   .requiredOption("--base <sha>", "full Git baseline commit SHA")
+  .option("--engine-version <version>", "expected pinned Semgrep version")
+  .option("--rules-sha256 <sha256>", "expected bundled rule pack SHA-256")
   .option("--format <format>", "output format: plain or json", "plain")
   .option("--json", "print machine-readable JSON")
   .action(
     (
-      options: { profile: string; base: string; format: "plain" | "json" },
+      options: {
+        profile: string;
+        base: string;
+        engineVersion?: string;
+        rulesSha256?: string;
+        format: "plain" | "json";
+      },
       command: Command,
     ) => run(() => securityScanCommand(options), jsonOf(command)),
   );
