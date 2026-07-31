@@ -13,13 +13,10 @@ import { runGitAsync } from "./exec.js";
 const objectIdPattern = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i;
 const worktreeIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 
-// `.scopelock/active` is per-machine bookkeeping that `createIsolatedWorktree`
-// callers mint fresh inside each isolated worktree (see run-plan.ts) so the
-// in-worktree agent hook can resolve the task's already-approved contract.
-// It must never be treated as agent-authored output: excluded here so it
-// can't trip a false scope violation or leak into a promoted patch, even in
-// repos where `.scopelock/.gitignore` is missing or stale.
-const EXCLUDE_ACTIVE_POINTER_PATHSPEC = ":(exclude).scopelock/active";
+// ScopeLock control state is not agent-authored output. Exclude the whole
+// control plane so a contract materialized into an otherwise clean isolated
+// worktree cannot become an out-of-scope promoted patch.
+const EXCLUDE_SCOPELOCK_PATHSPEC = ":(exclude).scopelock/**";
 
 export type IsolationPreflight = {
   headSha: string;
@@ -251,7 +248,7 @@ async function streamPatch(input: {
       input.worktree.baseSha,
       "--",
       ".",
-      EXCLUDE_ACTIVE_POINTER_PATHSPEC,
+      EXCLUDE_SCOPELOCK_PATHSPEC,
     ],
     { cwd: input.worktree.path, stdio: ["ignore", "pipe", "pipe"] },
   );
@@ -513,7 +510,7 @@ export async function prepareScopedPatch(input: {
         input.worktree.baseSha,
         "--",
         ".",
-        EXCLUDE_ACTIVE_POINTER_PATHSPEC,
+        EXCLUDE_SCOPELOCK_PATHSPEC,
       ],
       input.worktree.path,
       { timeoutMs: input.timeoutMs },
@@ -527,7 +524,7 @@ export async function prepareScopedPatch(input: {
         input.worktree.baseSha,
         "--",
         ".",
-        EXCLUDE_ACTIVE_POINTER_PATHSPEC,
+        EXCLUDE_SCOPELOCK_PATHSPEC,
       ],
       input.worktree.path,
       { timeoutMs: input.timeoutMs },
