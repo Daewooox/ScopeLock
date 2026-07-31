@@ -226,6 +226,40 @@ describe("public command language", () => {
   });
 });
 
+describe("security scan", () => {
+  it("returns stable JSON and exit 0 when no supported source changed", async () => {
+    const dir = await makeRepo();
+    if (dir === null) return;
+    try {
+      const base = spawnSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).stdout.trim();
+      const result = runCli(dir, [
+        "security", "scan",
+        "--profile", "sensitive-local-files",
+        "--base", base,
+        "--format", "json",
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+      const data = JSON.parse(result.stdout) as { outcome: string; targets: string[]; findings: unknown[] };
+      assert.equal(data.outcome, "not-applicable");
+      assert.deepEqual(data.targets, []);
+      assert.deepEqual(data.findings, []);
+      assert.doesNotMatch(result.stdout, /\nContext\n|\nNext\n/u);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unknown profile with exit 2", () => {
+    const result = runCli(process.cwd(), [
+      "security", "scan",
+      "--profile", "unknown",
+      "--base", "a".repeat(40),
+    ]);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /UNSUPPORTED_SECURITY_PROFILE/u);
+  });
+});
+
 describe("guided task start", () => {
   const readySetup = async () => ({
     data: {
@@ -2224,6 +2258,47 @@ describe("plan prepare", () => {
       assert.deepEqual(ready.execution.validation.checks[0].command, [process.execPath]);
       assert.equal(ready.execution.validation.checks[0].required, true);
       assert.equal(Array.isArray(ready.tasks[0].command), true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed before writing a ready plan when the security scanner is missing", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      const contract = await writeContract(dir, "a", ["a.txt"]);
+      await writeFile(join(dir, "plan.json"), JSON.stringify({
+        schemaVersion: 1,
+        planId: "security-profile-missing-scanner",
+        tasks: [{ id: "a", contract }],
+      }));
+      const fakeEnv = await fakeCodexEnv(dir);
+      const gitEnv = await gitOnlyEnv(dir);
+      const fakeBin = (fakeEnv.PATH ?? "").split(delimiter)[0]!;
+      const gitBin = (gitEnv.PATH ?? "").split(delimiter)[0]!;
+      const previousCwd = process.cwd();
+      const previousPath = process.env.PATH;
+      process.chdir(dir);
+      process.env.PATH = [fakeBin, gitBin].join(delimiter);
+      try {
+        await assert.rejects(
+          () => planPrepareCommand("plan.json", {
+            target: "codex",
+            out: "ready-plan.json",
+            securityProfile: "sensitive-local-files",
+          }),
+          (error: unknown) => error instanceof CliError
+            && error.code === "SECURITY_SCANNER_NOT_FOUND",
+        );
+        assert.equal(existsSync(join(dir, "ready-plan.json")), false);
+      } finally {
+        process.chdir(previousCwd);
+        process.env.PATH = previousPath;
+      }
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

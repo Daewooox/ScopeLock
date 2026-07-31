@@ -39,8 +39,11 @@
     "dist/progress/noop-reporter.js",
     "dist/progress/types.d.ts",
     "dist/progress/types.js",
+    "dist/security/sensitive-access.d.ts",
+    "dist/security/sensitive-access.js",
     "dist/commands/*.d.ts",
-    "dist/commands/*.js"
+    "dist/commands/*.js",
+    "security/*.yml"
   ],
   "repository": {
     "type": "git",

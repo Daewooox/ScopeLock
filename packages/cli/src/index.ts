@@ -17,6 +17,7 @@ import { runPlanCommand } from "./commands/run-plan.js";
 import { reportCommand } from "./commands/report.js";
 import { planFillCommandsCommand } from "./commands/plan-fill-commands.js";
 import { planPrepareCommand } from "./commands/plan-prepare.js";
+import { securityScanCommand } from "./commands/security-scan.js";
 import {
   hooksInstallCommand,
   hooksUninstallCommand,
@@ -358,6 +359,7 @@ plan
   .option("--validation-command <argv...>", "shell-free repository validation command (legacy alias for one --validation-check)")
   .option("--validation-setup-command <argv...>", "shell-free candidate setup command")
   .option("--validation-cwd <path>", "repository-relative validation working directory")
+  .option("--security-profile <id>", "opt-in security validation profile")
   .option("--validation-check <id> <argv...>", "named shell-free validation check (repeatable)")
   .option("--acceptance-check <id>", "id of a validation check required for acceptance (repeatable)")
   .option("--no-read-hazards", "ignore contract readPathPatterns when scheduling")
@@ -373,6 +375,7 @@ plan
         validationCommand?: string[];
         validationSetupCommand?: string[];
         validationCwd?: string;
+        securityProfile?: string;
       },
       command: Command,
     ) => {
@@ -392,6 +395,7 @@ plan
               planPrepareValidationArgv?.validationSetupCommand ?? options.validationSetupCommand,
             validationChecks: planPrepareValidationArgv?.validationChecks,
             acceptanceChecks: planPrepareValidationArgv?.acceptanceChecks,
+            securityProfile: options.securityProfile,
             reporter,
           }),
         json,
@@ -401,6 +405,25 @@ plan
 
 registerPlanCompose(plan, "fill-commands", true);
 registerPlanSchedule(program, "plan-parallel", true);
+
+const security = program
+  .command("security")
+  .helpGroup("Protect one task:")
+  .description("run opt-in semantic security checks");
+
+security
+  .command("scan")
+  .description("check changed source files for selected sensitive local-file reads")
+  .requiredOption("--profile <id>", "security profile: sensitive-local-files")
+  .requiredOption("--base <sha>", "full Git baseline commit SHA")
+  .option("--format <format>", "output format: plain or json", "plain")
+  .option("--json", "print machine-readable JSON")
+  .action(
+    (
+      options: { profile: string; base: string; format: "plain" | "json" },
+      command: Command,
+    ) => run(() => securityScanCommand(options), jsonOf(command)),
+  );
 
 program
   .command("manifest")

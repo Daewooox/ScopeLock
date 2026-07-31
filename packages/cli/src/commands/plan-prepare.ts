@@ -5,6 +5,7 @@ import {
   agentIdSchema,
   findRepoRoot,
   formatZodError,
+  headSha,
   probeHookConfig,
   planWorkingDirectorySchema,
   schedulePlanSchema,
@@ -23,6 +24,10 @@ import { agentsPreflightCommand } from "./agents-preflight.js";
 import { planFillCommandsCommand } from "./plan-fill-commands.js";
 import { planParallelCommand } from "./plan-parallel.js";
 import { findAgentExecutable } from "./setup.js";
+import {
+  isSemgrepAvailable,
+  SENSITIVE_ACCESS_PROFILE,
+} from "../security/sensitive-access.js";
 
 type PlanPrepareOptions = {
   target: string;
@@ -34,6 +39,7 @@ type PlanPrepareOptions = {
   validationCwd?: string;
   validationChecks?: Array<{ id: string; command: string[] }>;
   acceptanceChecks?: string[];
+  securityProfile?: string;
   reporter?: ProgressReporter;
 };
 
@@ -401,7 +407,45 @@ async function planPrepareWithReporter(
     existing: composition.plan.execution?.validation,
     detected: detectedValidation,
   });
-  if (composedValidation === null) {
+  if (options.securityProfile !== undefined && options.securityProfile !== SENSITIVE_ACCESS_PROFILE) {
+    throw new CliError(
+      "UNSUPPORTED_SECURITY_PROFILE",
+      "unsupported security profile: " + options.securityProfile,
+    );
+  }
+  const securityCheck: ValidationCheckInput | null = options.securityProfile === SENSITIVE_ACCESS_PROFILE
+    ? (() => {
+      if (!isSemgrepAvailable()) {
+        throw new CliError(
+          "SECURITY_SCANNER_NOT_FOUND",
+          "Semgrep is required for --security-profile sensitive-local-files; install Semgrep and retry",
+        );
+      }
+      const baseline = headSha(root);
+      if (baseline === null || !/^[a-f0-9]{40}$/u.test(baseline)) {
+        throw new CliError(
+          "SECURITY_BASELINE_UNAVAILABLE",
+          "cannot freeze a full Git HEAD SHA for the sensitive access check",
+        );
+      }
+      return {
+        id: "security-sensitive-local-files",
+        command: [
+          "scopelock",
+          "security",
+          "scan",
+          "--profile",
+          SENSITIVE_ACCESS_PROFILE,
+          "--base",
+          baseline,
+          "--format",
+          "json",
+        ],
+        required: true,
+      };
+    })()
+    : null;
+  if (composedValidation === null && securityCheck === null) {
     checks.push("Repository validation  not detected");
     checkRows.push({
       id: "Repository validation",
@@ -417,6 +461,20 @@ async function planPrepareWithReporter(
       1,
     );
   }
+  const validationChecks = [
+    ...(securityCheck !== null ? [securityCheck] : []),
+    ...(composedValidation?.checks ?? []),
+  ];
+  const duplicateValidationIds = new Set<string>();
+  for (const check of validationChecks) {
+    if (duplicateValidationIds.has(check.id)) {
+      throw new CliError(
+        "INVALID_VALIDATION_PROFILE",
+        "validation check id is already in use: " + check.id,
+      );
+    }
+    duplicateValidationIds.add(check.id);
+  }
   const acceptanceCheckIds = options.acceptanceChecks?.length
     ? options.acceptanceChecks
     : composition.plan.execution?.validation?.acceptance?.checkIds ?? [];
@@ -430,8 +488,8 @@ async function planPrepareWithReporter(
         isolation: "required",
         validation: {
           ...(validationCwd ? { cwd: validationCwd } : {}),
-          ...(composedValidation.setup ? { setup: composedValidation.setup } : {}),
-          checks: composedValidation.checks,
+          ...(composedValidation?.setup ? { setup: composedValidation.setup } : {}),
+          checks: validationChecks,
           ...(acceptanceCheckIds.length > 0 ? { acceptance: { checkIds: acceptanceCheckIds } } : {}),
         },
       },
@@ -444,7 +502,7 @@ async function planPrepareWithReporter(
   await writeJsonAtomic(outputPath, readyPlan);
   checks.push(`${readyPlan.tasks.length} shell-free agent command${readyPlan.tasks.length === 1 ? "" : "s"} composed`);
   checkRows.push({ id: "Agent commands", status: "pass", cells: [`${readyPlan.tasks.length} composed`] });
-  if (composedValidation.setup) {
+  if (composedValidation?.setup) {
     checks.push(`Validation setup  ${composedValidation.setup.join(" ")}`);
     checkRows.push({ id: "Validation setup", status: "pass", cells: [composedValidation.setup.join(" ")] });
   }
@@ -452,7 +510,7 @@ async function planPrepareWithReporter(
     checks.push(`Validation cwd  ${validationCwd}`);
     checkRows.push({ id: "Validation cwd", status: "pass", cells: [validationCwd] });
   }
-  for (const check of composedValidation.checks) {
+  for (const check of validationChecks) {
     checks.push(
       `Validation check ${check.id}  required=${check.required}` +
         `${check.cwd ? ` cwd=${check.cwd}` : ""}  ${check.command.join(" ")}`,

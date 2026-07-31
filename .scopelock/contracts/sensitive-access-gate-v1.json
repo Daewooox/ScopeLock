@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "sensitive-access-gate-v1",
+  "task": "Implement Sensitive Access Gate v1 from approved Step 0 GO",
+  "createdAt": "2026-07-31T10:07:16.332Z",
+  "baseline": {
+    "headSha": "15b6d61ca70983a958a98194228eb1e2043615fe",
+    "branch": "feature/sensitive-access-gate-v1",
+    "capturedAt": "2026-07-31T10:07:16.437Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/security/**",
+      "packages/cli/security/**",
+      "packages/cli/src/commands/security-scan.ts",
+      "packages/cli/src/commands/plan-prepare.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/security-scan.test.ts",
+      "packages/cli/package.json",
+      "docs/reference.md",
+      "docs/parallel-workflow.md",
+      "THREAT-MODEL.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/**",
+      "packages/mcp/**",
+      ".github/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [
+    {
+      "type": "unit",
+      "command": null,
+      "required": true
+    },
+    {
+      "type": "integration",
+      "command": null,
+      "required": true
+    }
+  ],
+  "assumptions": [],
+  "openQuestions": []
+}
