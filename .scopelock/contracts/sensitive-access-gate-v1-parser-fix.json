@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "sensitive-access-gate-v1-parser-fix",
+  "task": "Preserve security profile option parsing",
+  "createdAt": "2026-07-31T11:28:01.827Z",
+  "baseline": {
+    "headSha": "27e00076fb92e7ac84e067adb2ae3f40f3553b64",
+    "branch": "feature/sensitive-access-gate-v1",
+    "capturedAt": "2026-07-31T11:28:01.971Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/src/plan-prepare-argv.ts",
+      "packages/cli/src/plan-prepare-argv.test.ts"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

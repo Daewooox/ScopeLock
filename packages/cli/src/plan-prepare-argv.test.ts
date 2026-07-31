@@ -85,6 +85,31 @@ describe("extractPlanPrepareValidationArgv", () => {
     assert.deepEqual(result.rest, ["plan.json", "--target", "claude"]);
   });
 
+  it("keeps --security-profile outside a variadic validation check in either order", () => {
+    for (const argv of [
+      [
+        "plan.json",
+        "--validation-check", "lint", "npm", "run", "lint",
+        "--security-profile", "sensitive-local-files",
+        "--target", "codex",
+      ],
+      [
+        "plan.json",
+        "--security-profile", "sensitive-local-files",
+        "--validation-check", "lint", "npm", "run", "lint",
+        "--target", "codex",
+      ],
+    ]) {
+      const result = extractPlanPrepareValidationArgv(argv);
+      assert.deepEqual(result.validationChecks, [
+        { id: "lint", command: ["npm", "run", "lint"] },
+      ]);
+      assert.deepEqual(result.rest, [
+        "plan.json", "--security-profile", "sensitive-local-files", "--target", "codex",
+      ]);
+    }
+  });
+
   it("throws when --validation-check is missing both id and command", () => {
     const argv = ["plan.json", "--validation-check", "--target", "claude"];
     assert.throws(() => extractPlanPrepareValidationArgv(argv), /--validation-check requires an id/);
