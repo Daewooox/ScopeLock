@@ -25,6 +25,7 @@ export const PLAN_PREPARE_KNOWN_FLAGS = new Set([
   "--validation-cwd",
   "--validation-check",
   "--acceptance-check",
+  "--security-profile",
   "-h",
   "--help",
 ]);

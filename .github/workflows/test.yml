@@ -47,6 +47,35 @@ jobs:
       - run: pnpm release:pack
       - run: pnpm release:audit
 
+  sensitive-access-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @scopelock/core build && pnpm --filter @scopelock/cli build
+      - name: Install pinned Semgrep
+        run: |
+          python3 -m venv "$RUNNER_TEMP/semgrep-venv"
+          semgrep_wheel="$RUNNER_TEMP/semgrep-1.171.0-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-manylinux_2_34_x86_64.whl"
+          curl --fail --silent --show-error --location \
+            --output "$semgrep_wheel" \
+            "https://files.pythonhosted.org/packages/79/b9/269d27f2c7d03efaa28ec928d900ee650e581b8b05e7308dbe5d68ba78a7/semgrep-1.171.0-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-manylinux_2_34_x86_64.whl"
+          echo "3f12149e20e512289e517ae4e07e8db6bc3d251c9bdb59c3a59c0c385322893b  $semgrep_wheel" | sha256sum --check --strict
+          "$RUNNER_TEMP/semgrep-venv/bin/pip" install --disable-pip-version-check --no-cache-dir "$semgrep_wheel"
+          "$RUNNER_TEMP/semgrep-venv/bin/semgrep" --version
+      - name: Run real sensitive-access E2E
+        run: |
+          SCOPELOCK_SEMGREP="$RUNNER_TEMP/semgrep-venv/bin/semgrep" \
+            pnpm --filter @scopelock/cli exec node --test dist/security/sensitive-access.e2e.test.js
+
   demo-vhs-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10

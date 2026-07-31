@@ -36,6 +36,7 @@ and reports that Standard or Automation commands can consume directly.
 | `scopelock plan schedule <plan.json>` | Detect conflicts and build safe execution stages. |
 | `scopelock plan compose <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans require isolation. |
 | `scopelock plan prepare <plan.json> --target <id> --out <path>` | Validate, schedule, preflight, and compose a separate ready plan without running it. |
+| `scopelock security scan --profile <id> --base <sha>` | Run an opt-in, fail-closed semantic check over source files changed since a full Git baseline. |
 | `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
 | `scopelock run <plan.json>` | Dispatch a reviewed plan and write a bounded receipt. |
 | `scopelock report <result.json> --open` | Render a run receipt or drift result as a standalone local HTML Flight Report. |
@@ -260,6 +261,43 @@ shared validation directory. Acceptance ids must be unique and reference
 required checks. `--validation-command` remains a compatibility alias that is
 normalized to one required check named `repository-validation`; it cannot be
 combined with `--validation-check`.
+
+### Sensitive access profile
+
+The optional `sensitive-local-files` profile adds one required validation check
+to a prepared plan. It runs the pinned Semgrep `1.171.0` release with the
+bundled rule pack against supported Python, JavaScript, and TypeScript files
+changed since the frozen baseline. The scanner version and rule-pack SHA-256
+are recorded in the JSON result and checked again during execution. Changed
+source files in other languages are blocked instead of silently skipped. It is
+a source-level policy check for common local credential paths, not an OS
+sandbox and not a guarantee that arbitrary runtime secret access is impossible.
+
+Install Semgrep separately, then opt in during preparation:
+
+```bash
+scopelock plan prepare plan.json \
+  --target claude \
+  --security-profile sensitive-local-files \
+  --out ready-plan.json
+```
+
+For diagnosis, run the check directly with the full baseline SHA. Use the
+approved baseline, not a newly-created candidate commit; the command also
+includes staged, unstaged, and untracked worktree changes:
+
+```bash
+scopelock security scan \
+  --profile sensitive-local-files \
+  --base "$(git rev-parse HEAD)" \
+  --format plain
+```
+
+Exit `0` means the check passed or no supported changed source exists, `1`
+means a sensitive access finding was denied, and `2` means the scanner could
+not be trusted (missing Semgrep, timeout, malformed output, unsafe path, or
+incomplete coverage). ScopeLock stores only normalized finding metadata and
+never persists Semgrep output or source snippets.
 
 Every task command is regenerated through the selected shell-free harness
 adapter, including commands already present in the input plan. The input and

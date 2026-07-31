@@ -328,6 +328,25 @@ checks continue. The legacy `--validation-command` flag still maps to one
 required `repository-validation` check and cannot be mixed with the modern
 form.
 
+For an opt-in source-level sensitive-access gate, add the bundled Semgrep
+profile during preparation. Semgrep must already be installed; preparation
+fails before writing the ready plan when it is unavailable:
+
+```bash
+scopelock plan prepare plan.json \
+  --target codex \
+  --security-profile sensitive-local-files \
+  --out ready-plan.json
+```
+
+This prepends one required check using the frozen full `HEAD` SHA and records
+the pinned Semgrep version plus bundled rule-pack SHA-256 in its argv and
+receipt output. A sensitive access finding exits with `1`; scanner mismatch,
+failure, timeout, malformed output, unsupported source language, or incomplete
+target coverage exits with `2`. The profile covers selected local
+credential-file reads in changed Python, JavaScript, and TypeScript source. It
+does not provide runtime or operating-system containment.
+
 The lower-level primitives remain useful for diagnosis or custom automation:
 
 ```bash

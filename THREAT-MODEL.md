@@ -24,6 +24,13 @@
 - Any future automatic response to a finding must be gated by
   `resolveFindingAction`: unclassified, unknown, absent, or malformed actions
   resolve to `ask-user`, never `auto-fix`.
+- The opt-in `sensitive-local-files` validation profile requires the pinned
+  Semgrep `1.171.0` release and the bundled rule-pack SHA-256 at both plan
+  preparation and execution. It fails closed when the scanner is missing,
+  mismatched, times out, returns malformed data, skips or adds a changed source
+  target, or encounters an unsupported source language. It records normalized
+  finding metadata only; it is a source-level gate, not runtime or OS-level
+  secret containment.
 
 ## What ScopeLock Does Not Protect
 
@@ -38,6 +45,10 @@
   token shapes, base64-wrapped values, secrets split across output chunks,
   multi-line key material). Redaction is a best-effort safety net, not a
   guarantee that a receipt or `--store-raw-output` artifact is clean.
+- Reads of secrets through runtime behavior, indirect aliases, unsupported
+  languages, generated code, or credential formats outside the selected
+  Semgrep rules. The sensitive-access profile is deliberately narrow and does
+  not replace sandboxing or a general secret scanner.
 
 ## Trust Boundaries
 

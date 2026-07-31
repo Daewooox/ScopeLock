@@ -1,0 +1,68 @@
+rules:
+  - id: python.sensitive-local-file-read
+    languages: [python]
+    severity: ERROR
+    message: Sensitive local credential path reaches a file-read API
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: os.path.expanduser($PATH)
+              - metavariable-regex:
+                  metavariable: $PATH
+                  regex: '^["'']~/(?:\.ssh/(?:id_rsa|id_dsa|id_ecdsa|id_ed25519)|\.aws/credentials|\.config/gcloud/application_default_credentials\.json|\.kube/config|\.docker/config\.json|\.git-credentials|\.netrc|\.npmrc|\.pypirc)["'']$'
+          - patterns:
+              - pattern: Path($PATH).expanduser()
+              - metavariable-regex:
+                  metavariable: $PATH
+                  regex: '^["'']~/(?:\.ssh/(?:id_rsa|id_dsa|id_ecdsa|id_ed25519)|\.aws/credentials|\.config/gcloud/application_default_credentials\.json|\.kube/config|\.docker/config\.json|\.git-credentials|\.netrc|\.npmrc|\.pypirc)["'']$'
+          - pattern: os.path.join(os.path.expanduser("~"), ".aws", "credentials")
+          - patterns:
+              - pattern: os.path.join(os.path.expanduser("~"), ".ssh", $KEY)
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: '^["''](?:id_rsa|id_dsa|id_ecdsa|id_ed25519)["'']$'
+          - patterns:
+              - pattern: Path.home() / ".ssh" / $KEY
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: '^["''](?:id_rsa|id_dsa|id_ecdsa|id_ed25519)["'']$'
+          - pattern: Path.home() / ".aws" / "credentials"
+          - pattern: Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+          - pattern: Path.home() / ".kube" / "config"
+          - pattern: Path.home() / ".docker" / "config.json"
+          - pattern: Path.home() / ".git-credentials"
+          - pattern: Path.home() / ".netrc"
+          - pattern: Path.home() / ".npmrc"
+          - pattern: Path.home() / ".pypirc"
+    pattern-sinks:
+      - pattern-either:
+          - pattern: open($PATH, ...)
+          - pattern: $PATH.read_text(...)
+          - pattern: $PATH.read_bytes(...)
+
+  - id: javascript-typescript.sensitive-local-file-read
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Sensitive local credential path reaches a file-read API
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: path.join(os.homedir(), ".ssh", $KEY)
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: '^["''](?:id_rsa|id_dsa|id_ecdsa|id_ed25519)["'']$'
+          - pattern: path.join(os.homedir(), ".aws", "credentials")
+          - pattern: path.join(os.homedir(), ".config", "gcloud", "application_default_credentials.json")
+          - pattern: path.join(os.homedir(), ".kube", "config")
+          - pattern: path.join(os.homedir(), ".docker", "config.json")
+          - pattern: path.join(os.homedir(), ".git-credentials")
+          - pattern: path.join(os.homedir(), ".netrc")
+          - pattern: path.join(os.homedir(), ".npmrc")
+          - pattern: path.join(os.homedir(), ".pypirc")
+    pattern-sinks:
+      - pattern-either:
+          - pattern: fs.readFileSync($PATH, ...)
+          - pattern: fs.readFile($PATH, ...)
+          - pattern: fs.promises.readFile($PATH, ...)
