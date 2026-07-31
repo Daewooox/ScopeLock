@@ -394,6 +394,36 @@ describe("isolated Git worktree lifecycle", () => {
     }
   });
 
+  it("excludes materialized ScopeLock control state from an isolated patch", async () => {
+    const fixture = await makeRepo();
+    try {
+      const tempRoot = await createIsolationTempRoot(fixture.root);
+      const task = await createIsolatedWorktree({
+        repoRoot: fixture.repo,
+        tempRoot,
+        id: "control-state",
+        kind: "task",
+        baseSha: fixture.head,
+      });
+      await mkdir(join(task.path, ".scopelock", "contracts"), { recursive: true });
+      await writeFile(join(task.path, ".scopelock", "contracts", "local.json"), "{}\n");
+      await writeFile(join(task.path, "allowed", "new.txt"), "agent output\n");
+
+      const prepared = await prepareScopedPatch({
+        worktree: task,
+        scope: contract(fixture.head).scope,
+        patchDir: join(tempRoot, "patches"),
+        maxPatchBytes: 1024 * 1024,
+      });
+
+      assert.equal(prepared.accepted, true);
+      assert.deepEqual(prepared.patch?.changedFiles.map((file) => file.path), ["allowed/new.txt"]);
+      await removeIsolatedWorktree({ repoRoot: fixture.repo, worktree: task });
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed when a patch exceeds its byte limit", async () => {
     const fixture = await makeRepo();
     try {

@@ -3826,7 +3826,13 @@ describe("run", () => {
         join(dir, ".scopelock", "config.json"),
         JSON.stringify({ schemaVersion: 1, mode: "strict" }),
       );
+      // Keep the approved contract out of Git on purpose. A user can approve
+      // a local contract and prepare a plan before committing the shared
+      // artifact; isolated execution must still materialize it in the task
+      // worktree before minting the hook seal.
+      commitFixture(dir, "isolated hook baseline");
       await writeContract(dir, join(dir, "a.json"), "a", ["a.txt"]);
+      await rm(join(dir, "a.json"));
       const hookProbe = [
         "const { spawnSync } = require('node:child_process');",
         "const fs = require('node:fs');",
@@ -3855,7 +3861,11 @@ describe("run", () => {
           ],
         }),
       );
-      commitFixture(dir, "isolated hook passthrough fixture");
+      assert.equal(spawnSync("git", ["add", "plan.json"], { cwd: dir }).status, 0);
+      assert.equal(
+        spawnSync("git", ["commit", "-qm", "isolated hook passthrough fixture"], { cwd: dir }).status,
+        0,
+      );
 
       const receiptPath = join(dir, "receipt.json");
       const result = runCli(dir, [

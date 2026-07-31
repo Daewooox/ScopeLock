@@ -32,6 +32,7 @@ import {
   prepareAggregatePatch,
   prepareScopedPatch,
   removeIsolatedWorktree,
+  saveContract,
   setActiveContractId,
   verifyApprovalSeal,
   worktreeHead,
@@ -829,13 +830,16 @@ async function runIsolatedTasks(input: {
           // them along. Without them the in-worktree Claude/Cursor/Codex hook
           // sees "no active contract" and denies every edit the agent makes,
           // even though the task's own contract was already approved against
-          // this exact baseline. Mint a fresh pointer + seal scoped to the
+          // this exact baseline. Materialize the contract first, then mint a
+          // fresh pointer + seal scoped to the
           // worktree's own path so the hook resolves the same way it would in
           // the main checkout.
           const contract = input.contracts.get(task.id);
           if (contract === undefined) throw new Error(`missing contract for task ${task.id}`);
           if (contract.baseline !== null) {
-            await setActiveContractId(scopelockPaths(worktree.path), contract.id);
+            const worktreePaths = scopelockPaths(worktree.path);
+            await saveContract(worktreePaths, contract);
+            await setActiveContractId(worktreePaths, contract.id);
             await writeApprovalSeal(worktree.path, contract);
           }
           created.push({ task, worktree });
