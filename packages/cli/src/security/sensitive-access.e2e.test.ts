@@ -178,8 +178,13 @@ it("runs the security profile through plan prepare and fail-closed promotion", a
       assert.equal(check.required, true);
       assert.match(check.stdout, new RegExp(`\\"outcome\\"\\s*:\\s*\\"${mode === "safe" ? "passed" : mode}\\"`));
       assert.match(check.stdout, /"engine"\s*:\s*"semgrep"/u);
-      assert.match(check.stdout, new RegExp(`\\"engineVersion\\"\\s*:\\s*\\"${SENSITIVE_ACCESS_ENGINE_VERSION}\\"`));
-      assert.match(check.stdout, new RegExp(`\\"rulePackSha256\\"\\s*:\\s*\\"${SENSITIVE_ACCESS_RULE_PACK_SHA256}\\"`));
+      if (mode === "blocked") {
+        assert.match(check.stdout, /"engineVersion"\s*:\s*null/u);
+        assert.match(check.stdout, /"rulePackSha256"\s*:\s*null/u);
+      } else {
+        assert.match(check.stdout, new RegExp(`\\"engineVersion\\"\\s*:\\s*\\"${SENSITIVE_ACCESS_ENGINE_VERSION}\\"`));
+        assert.match(check.stdout, new RegExp(`\\"rulePackSha256\\"\\s*:\\s*\\"${SENSITIVE_ACCESS_RULE_PACK_SHA256}\\"`));
+      }
 
       if (mode === "safe") {
         assert.equal(result.status, 0, result.stderr || result.stdout);
