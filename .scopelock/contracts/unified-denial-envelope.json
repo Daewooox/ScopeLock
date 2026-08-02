@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "unified-denial-envelope",
+  "task": "Unify policy denial serialization without changing enforcement",
+  "createdAt": "2026-08-02T18:40:46.461Z",
+  "baseline": {
+    "headSha": "79460164a899af71ad6258c5c0a1886cd500d4bc",
+    "branch": "feature/unified-denial-envelope",
+    "capturedAt": "2026-08-02T18:40:46.573Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/core/src/schemas/decision.ts",
+      "packages/core/src/index.ts",
+      "packages/core/src/schema.test.ts",
+      "packages/cli/src/decision-envelope.ts",
+      "packages/cli/src/run.ts",
+      "packages/cli/src/commands/check-drift.ts",
+      "packages/cli/src/commands/hook.ts",
+      "packages/cli/src/commands/security-scan.ts",
+      "packages/cli/src/commands/agents-preflight.ts",
+      "packages/cli/src/commands/run-plan.ts",
+      "packages/cli/src/cli.test.ts",
+      "packages/cli/src/run.test.ts",
+      "packages/cli/src/commands/*.test.ts",
+      "docs/reference.md",
+      "THREAT-MODEL.md"
+    ],
+    "forbiddenPathPatterns": [
+      ".github/**",
+      "benchmarks/**",
+      "packages/mcp/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

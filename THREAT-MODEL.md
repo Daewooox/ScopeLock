@@ -24,6 +24,10 @@
 - Any future automatic response to a finding must be gated by
   `resolveFindingAction`: unclassified, unknown, absent, or malformed actions
   resolve to `ask-user`, never `auto-fix`.
+- Policy decision `fix` values are informational recommendations only. They
+  never execute a command, installer, or remediation; `denied` records an
+  evaluated policy rejection, `blocked` records fail-closed prevention, and
+  operational errors retain their separate error shape.
 - The opt-in `sensitive-local-files` validation profile requires the pinned
   Semgrep `1.171.0` release and the bundled rule-pack SHA-256 at both plan
   preparation and execution. It fails closed when the scanner is missing,

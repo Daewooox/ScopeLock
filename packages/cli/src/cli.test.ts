@@ -22,11 +22,16 @@ const CLI = fileURLToPath(new URL("./index.js", import.meta.url));
 
 type RunResult = { status: number; stdout: string; stderr: string };
 
-function runCli(cwd: string, args: string[], env: NodeJS.ProcessEnv = process.env): RunResult {
+function runCli(
+  cwd: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+  input = "",
+): RunResult {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     cwd,
     encoding: "utf8",
-    input: "",
+    input,
     env,
   });
   return {
@@ -35,6 +40,62 @@ function runCli(cwd: string, args: string[], env: NodeJS.ProcessEnv = process.en
     stderr: result.stderr ?? "",
   };
 }
+
+describe("hook protocol", () => {
+  it("keeps Codex denial output exactly on the hook protocol", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    try {
+      assert.equal(runCli(dir, ["init"]).status, 0);
+      await writeFile(join(dir, ".scopelock", "config.json"), JSON.stringify({ schemaVersion: 1, mode: "strict" }));
+      assert.equal(runCli(dir, [
+        "contract", "new", "--task", "hook test", "--id", "hook-test",
+        "--planned", "allowed.txt", "--out", "contract.json",
+      ]).status, 0);
+      assert.equal(runCli(dir, ["contract", "approve", "contract.json"]).status, 0);
+
+      const input = JSON.stringify({ tool_input: { file_path: "outside.txt" } });
+      const plain = runCli(dir, ["hook", "gate"], process.env, input);
+      assert.equal(plain.status, 2);
+      assert.equal(plain.stdout, "");
+      assert.equal(
+        plain.stderr,
+        "ScopeLock: changed outside approved scope: outside.txt\n"
+          + "DENIED [HOOK_OUTSIDE_SCOPE]: ScopeLock: changed outside approved scope: outside.txt\n"
+          + "Fix: Revert the out-of-scope change or obtain an approved contract.\n",
+      );
+
+      const codex = runCli(dir, ["hook", "gate", "--format", "codex"], process.env, input);
+      assert.equal(codex.status, 0);
+      assert.equal(
+        codex.stdout,
+        `${JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "deny",
+            permissionDecisionReason: "ScopeLock: changed outside approved scope: outside.txt",
+          },
+        })}\n`,
+      );
+      assert.equal(
+        codex.stderr,
+        `${JSON.stringify({
+          decision: {
+            status: "denied",
+            code: "HOOK_OUTSIDE_SCOPE",
+            reason: "ScopeLock: changed outside approved scope: outside.txt",
+            fix: "Revert the out-of-scope change or obtain an approved contract.",
+          },
+        })}\n`,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 async function makeRepo(): Promise<string | null> {
   const dir = await mkdtemp(join(tmpdir(), "scopelock-cli-"));
@@ -257,6 +318,41 @@ describe("security scan", () => {
     ]);
     assert.equal(result.status, 2);
     assert.match(result.stderr, /UNSUPPORTED_SECURITY_PROFILE/u);
+  });
+
+  it("keeps --format json as one parseable document when scanning is blocked", async (t) => {
+    const dir = await makeRepo();
+    if (dir === null) {
+      t.skip("git init failed");
+      return;
+    }
+    const fakeBin = await mkdtemp(join(tmpdir(), "scopelock-semgrep-"));
+    try {
+      await mkdir(join(dir, "src"), { recursive: true });
+      await writeFile(join(dir, "src", "main.js"), "export const value = 1;\n");
+      const fakeSemgrep = join(fakeBin, process.platform === "win32" ? "semgrep.cmd" : "semgrep");
+      await writeFile(fakeSemgrep, process.platform === "win32" ? "@echo off\r\nexit /b 1\r\n" : "#!/bin/sh\nexit 1\n");
+      if (process.platform !== "win32") await chmod(fakeSemgrep, 0o755);
+      const base = spawnSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).stdout.trim();
+      const result = runCli(
+        dir,
+        ["security", "scan", "--profile", "sensitive-local-files", "--base", base, "--format", "json"],
+        { ...process.env, PATH: [fakeBin, process.env.PATH].filter(Boolean).join(delimiter) },
+      );
+      assert.equal(result.status, 2, result.stdout || result.stderr);
+      assert.equal(result.stderr, "");
+      const body = JSON.parse(result.stdout);
+      assert.equal(body.outcome, "blocked");
+      assert.deepEqual(body.decision, {
+        status: "blocked",
+        code: "SENSITIVE_ACCESS_SCAN_BLOCKED",
+        reason: "Semgrep is not available or could not be attested; install it and retry",
+        fix: "Resolve the scanner or coverage issue, then rerun the check.",
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(fakeBin, { recursive: true, force: true });
+    }
   });
 });
 
@@ -949,7 +1045,14 @@ describe("cli end-to-end", () => {
       await writeFile(join(dir, "secrets", "key.txt"), "x");
       const dirty = runCli(dir, ["--json", "check-drift"]);
       assert.equal(dirty.status, 1);
-      const report = JSON.parse(dirty.stdout).data.report;
+      const dirtyBody = JSON.parse(dirty.stdout);
+      assert.deepEqual(dirtyBody.decision, {
+        status: "denied",
+        code: "SCOPE_DRIFT_VIOLATIONS",
+        reason: "1 drift violation found",
+        fix: "Review the drift report and revert or approve the unexpected changes.",
+      });
+      const report = dirtyBody.data.report;
       assert.ok(report.violations.some((v: { type: string }) => v.type === "forbidden_path"));
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -3221,7 +3324,6 @@ describe("run", () => {
         receipt: "receipt.json",
         reporter: recording.reporter,
       });
-
       assert.deepEqual(recording.events[0], {
         type: "wave-start",
         wave: 1,
@@ -3515,13 +3617,19 @@ describe("run", () => {
       const recording = recordingReporter();
       process.chdir(dir);
 
-      await runPlanCommand({
+      const result = await runPlanCommand({
         plan: "plan.json",
         yes: true,
         isolate: true,
         checkDrift: false,
         receipt: "receipt.json",
         reporter: recording.reporter,
+      });
+      assert.deepEqual(result.decision, {
+        status: "blocked",
+        code: "ISOLATED_PROMOTION_BLOCKED",
+        reason: "an isolated task or promotion gate prevented changes from being promoted",
+        fix: "Review the receipt and resolve the blocking validation or isolation finding.",
       });
 
       const taskDone = recording.events.find(
@@ -5415,6 +5523,12 @@ describe("run", () => {
         "--no-check-drift",
       ]);
       assert.equal(res.status, 1, res.stdout || res.stderr);
+      assert.deepEqual(JSON.parse(res.stdout).decision, {
+        status: "blocked",
+        code: "AGENT_PREFLIGHT_BLOCKED",
+        reason: "strict agent environment preflight reported required violations",
+        fix: "Materialize the required agent artifacts before dispatching again.",
+      });
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
       assert.equal(receipt.blockedByEnvironment, true);
       assert.equal(receipt.environment.status, "fail");

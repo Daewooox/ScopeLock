@@ -8,6 +8,7 @@ import {
   approvedContractSchema,
   contractFilePath,
   contractIdSchema,
+  decisionSchema,
   driftReportSchema,
   formatZodError,
   normalizePlanValidation,
@@ -51,6 +52,34 @@ describe("review follow-ups A4/A5", () => {
 });
 
 describe("ScopeLock schemas", () => {
+  it("accepts normalized policy decisions and rejects malformed fields", () => {
+    assert.deepEqual(
+      decisionSchema.parse({
+        status: "denied",
+        code: "SENSITIVE_ACCESS_DENIED",
+        reason: "a sensitive local-file read was detected",
+        fix: "Remove or redesign the sensitive local-file read.",
+      }),
+      {
+        status: "denied",
+        code: "SENSITIVE_ACCESS_DENIED",
+        reason: "a sensitive local-file read was detected",
+        fix: "Remove or redesign the sensitive local-file read.",
+      },
+    );
+    for (const code of ["", "lowercase", "HAS-DASH", "_LEADING"]) {
+      assert.equal(
+        decisionSchema.safeParse({ status: "blocked", code, reason: "reason", fix: "fix" }).success,
+        false,
+        code,
+      );
+    }
+    assert.equal(
+      decisionSchema.safeParse({ status: "blocked", code: "VALID_CODE", reason: "", fix: "fix" }).success,
+      false,
+    );
+  });
+
   it("accepts filesystem-safe contract ids and rejects traversal", () => {
     for (const id of ["a", "contract-1", "phase3.5_test", "a".repeat(64)]) {
       assert.equal(contractIdSchema.parse(id), id);

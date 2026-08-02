@@ -16,6 +16,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CliError, type CommandResult } from "../run.js";
+import { decisionFor } from "../decision-envelope.js";
 import { renderSections } from "../ui.js";
 
 async function loadConfig(paths: ReturnType<typeof scopelockPaths>) {
@@ -132,6 +133,9 @@ async function checkDriftMultiContract(
     data: { reportPath, report },
     human: humanReport(report.contractIds ?? [report.contractId], reportPath, report),
     exitCode: report.violations.length > 0 ? 1 : 0,
+    ...(report.violations.length > 0
+      ? { decision: decisionFor("denied", "SCOPE_DRIFT_VIOLATIONS", `${report.violations.length} drift violation${report.violations.length === 1 ? "" : "s"} found`) }
+      : {}),
   };
 }
 
@@ -204,5 +208,8 @@ export async function checkDriftCommand(options: {
     data: { reportPath, report },
     human: humanReport([activeId], reportPath, report),
     exitCode: report.violations.length > 0 ? 1 : 0,
+    ...(report.violations.length > 0
+      ? { decision: decisionFor("denied", "SCOPE_DRIFT_VIOLATIONS", `${report.violations.length} drift violation${report.violations.length === 1 ? "" : "s"} found`) }
+      : {}),
   };
 }

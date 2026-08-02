@@ -27,6 +27,8 @@
     "dist/prompts.js",
     "dist/run.d.ts",
     "dist/run.js",
+    "dist/decision-envelope.d.ts",
+    "dist/decision-envelope.js",
     "dist/ui.d.ts",
     "dist/ui.js",
     "dist/progress/create-reporter.d.ts",
