@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "unified-denial-envelope-release-fix",
+  "task": "Include the unified denial helper in the published CLI package",
+  "createdAt": "2026-08-02T19:15:54.508Z",
+  "baseline": {
+    "headSha": "fb93bcab79f99a3448c96881e3a6212b20b8d783",
+    "branch": "feature/unified-denial-envelope",
+    "capturedAt": "2026-08-02T19:15:54.612Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/package.json"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
