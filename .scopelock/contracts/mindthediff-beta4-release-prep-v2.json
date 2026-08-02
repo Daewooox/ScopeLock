@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "mindthediff-beta4-release-prep-v2",
+  "task": "Prepare MindTheDiff 0.1.0-beta.4 release metadata",
+  "createdAt": "2026-08-02T22:33:36.530Z",
+  "baseline": {
+    "headSha": "3a3cc1dbb30795964cdb4c1a20dfcb72e000d00b",
+    "branch": "release/0.1.0-beta.4",
+    "capturedAt": "2026-08-02T22:33:36.621Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/*/package.json",
+      "CHANGELOG.md",
+      "README.md",
+      "docs/release.md",
+      "docs/reference.md",
+      "docs/beta-quickstart.md",
+      "scripts/release/release-metadata.test.mjs"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/*/src/**",
+      ".github/workflows/**",
+      "packages/*/dist/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

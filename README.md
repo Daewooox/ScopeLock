@@ -184,7 +184,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Published: `@scopelock/core`, `@scopelock/cli`, `@scopelock/mcp` @ 0.1.0-beta.3 on the `beta` dist-tag |
+| npm distribution | Published: `@scopelock/core`, `@scopelock/cli`, `@scopelock/mcp` @ 0.1.0-beta.4 on the `beta` dist-tag |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for

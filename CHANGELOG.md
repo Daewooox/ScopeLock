@@ -2,6 +2,14 @@
 
 All notable changes to MindTheDiff will be documented here.
 
+## 0.1.0-beta.4 - 2026-08-03
+
+- Renamed the public repository and refreshed package and documentation links
+  for MindTheDiff.
+- Preserved the existing `@scopelock/*` package scope, `.scopelock` state
+  directory, `SCOPELOCK_*` environment names, and legacy CLI aliases.
+- No runtime behavior changes are included in this release candidate.
+
 ## 0.1.0-beta.3 - 2026-08-02
 
 - Added the opt-in Sensitive Access Gate for high-confidence local credential
