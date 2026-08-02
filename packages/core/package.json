@@ -1,6 +1,6 @@
 {
   "name": "@scopelock/core",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "Deterministic core for MindTheDiff: contract/drift schemas, git-driven drift engine, and rule-based hook gate.",
   "license": "MIT",
   "type": "module",
