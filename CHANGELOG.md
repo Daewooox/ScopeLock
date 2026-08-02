@@ -2,6 +2,17 @@
 
 All notable changes to ScopeLock will be documented here.
 
+## 0.1.0-beta.3 - 2026-08-02
+
+- Added the opt-in Sensitive Access Gate for high-confidence local credential
+  reads, using a pinned Semgrep engine and attested bundled rule pack.
+- Sensitive access, unsupported source languages, scanner failures, and
+  incomplete coverage fail closed as `denied` or `blocked` before promotion.
+- Isolated runs now materialize the approved contract before task execution and
+  keep `.scopelock` control-plane files out of candidate patches.
+- Added real Semgrep end-to-end coverage for passed, denied, and blocked
+  outcomes in the release verification path.
+
 ## 0.1.0-beta.2 - Published 2026-07-22
 
 - Scope contracts, deterministic drift checks, and agent hook enforcement.
