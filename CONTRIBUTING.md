@@ -17,8 +17,8 @@ documentation improvements, and focused product changes are welcome.
 MindTheDiff requires Node.js 22 or newer and pnpm 10.
 
 ```bash
-git clone https://github.com/YOUR-USER/ScopeLock.git
-cd ScopeLock
+git clone https://github.com/YOUR-USER/MindTheDiff.git
+cd MindTheDiff
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build

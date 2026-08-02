@@ -2,7 +2,7 @@
 
 Please spend five minutes answering these questions after one protected task.
 You can paste the answers into a
-[pilot report](https://github.com/Daewooox/ScopeLock/issues/new?template=pilot.yml).
+[pilot report](https://github.com/Daewooox/MindTheDiff/issues/new?template=pilot.yml).
 
 1. Which OS, Node.js version, repository stack, and agent did you use?
 2. Did installation and `mindthediff setup` finish without help?
@@ -19,4 +19,3 @@ You can paste the answers into a
 Do not include credentials, proprietary source, prompts, raw receipts, or
 unredacted command output. Use the private security-reporting instructions in
 [SECURITY.md](../SECURITY.md) for a vulnerability or possible data exposure.
-

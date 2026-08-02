@@ -109,7 +109,7 @@ Only after all three packages exist, configure one trusted publisher per npm
 package with these exact values:
 
 - GitHub owner: `Daewooox`;
-- repository: `ScopeLock` (until the repository-rename phase is complete);
+- repository: `MindTheDiff`;
 - workflow: `publish-npm.yml`;
 - environment: `npm-production`.
 

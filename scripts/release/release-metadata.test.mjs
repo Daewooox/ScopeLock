@@ -21,9 +21,9 @@ test("npm beta metadata stays public, reviewable, and points at the real install
     assert.equal(manifest.license, "MIT");
     assert.equal(manifest.engines.node, ">=22");
     assert.deepEqual(manifest.publishConfig, { access: "public", tag: "beta" });
-    assert.equal(manifest.repository.url, "git+https://github.com/Daewooox/ScopeLock.git");
-    assert.equal(manifest.homepage, "https://github.com/Daewooox/ScopeLock#readme");
-    assert.equal(manifest.bugs.url, "https://github.com/Daewooox/ScopeLock/issues");
+    assert.equal(manifest.repository.url, "git+https://github.com/Daewooox/MindTheDiff.git");
+    assert.equal(manifest.homepage, "https://github.com/Daewooox/MindTheDiff#readme");
+    assert.equal(manifest.bugs.url, "https://github.com/Daewooox/MindTheDiff/issues");
     assert.ok(manifest.keywords.length > 0);
   }
   assert.equal(versions.size, 1, `package versions diverged: ${[...versions]}`);

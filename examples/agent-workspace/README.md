@@ -20,8 +20,8 @@ mkdir -p .agents/skills/review
 echo "RULE" > AGENTS.md
 echo "RULE" > CLAUDE.md
 echo "SKILL.md" > .agents/skills/review/SKILL.md
-cp /path/to/ScopeLock/examples/agent-workspace/manifest.json .
-node /path/to/ScopeLock/packages/cli/dist/index.js agents preflight --manifest manifest.json
+cp /path/to/MindTheDiff/examples/agent-workspace/manifest.json .
+node /path/to/MindTheDiff/packages/cli/dist/index.js agents preflight --manifest manifest.json
 ```
 
 Expected output:

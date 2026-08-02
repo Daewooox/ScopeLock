@@ -44,8 +44,8 @@ npm uninstall --global @scopelock/core @scopelock/cli @scopelock/mcp
 ### Source fallback
 
 ```bash
-git clone https://github.com/Daewooox/ScopeLock.git
-cd ScopeLock
+git clone https://github.com/Daewooox/MindTheDiff.git
+cd MindTheDiff
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build
@@ -145,6 +145,6 @@ abort. MindTheDiff will not commit, stash, clean, or delete anything for you.
 ## Send useful feedback
 
 Use the [short beta feedback form](beta-feedback.md) or open a structured
-[pilot report](https://github.com/Daewooox/ScopeLock/issues/new?template=pilot.yml).
+[pilot report](https://github.com/Daewooox/MindTheDiff/issues/new?template=pilot.yml).
 Never attach credentials, proprietary source, prompts, raw receipts, or
 unredacted command output.

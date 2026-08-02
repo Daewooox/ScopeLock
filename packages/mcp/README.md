@@ -1,9 +1,9 @@
 # @scopelock/mcp
 
 The narrow stdio MCP server for
-[ScopeLock](https://github.com/Daewooox/ScopeLock), local flight control for AI
+[MindTheDiff](https://github.com/Daewooox/MindTheDiff), local flight control for AI
 coding agents. It exposes deterministic scope-conflict, scheduling, and
-drift-verification tools so an agent can call ScopeLock directly instead of
+drift-verification tools so an agent can call MindTheDiff directly instead of
 shelling out to the CLI.
 
 ```bash
@@ -44,7 +44,7 @@ args = ["--yes", "@scopelock/mcp@beta"]
 The server is pinned to the repository where it starts and does not provide
 a generic agent runtime — tool inputs cannot override `repoRoot`, and
 absolute/escaping contract paths are rejected. See the
-[MCP server reference](https://github.com/Daewooox/ScopeLock/blob/main/docs/reference.md#mcp-server)
+[MCP server reference](https://github.com/Daewooox/MindTheDiff/blob/main/docs/reference.md#mcp-server)
 for the full tool schemas.
 
 MIT licensed. Requires Node.js 22 or newer.

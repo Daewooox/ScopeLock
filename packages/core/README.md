@@ -2,10 +2,10 @@
 
 Deterministic contracts, drift checks, scheduling, hook policy, worktree
 isolation, and release-evidence schemas for
-[ScopeLock](https://github.com/Daewooox/ScopeLock), a local flight-control
+[MindTheDiff](https://github.com/Daewooox/MindTheDiff), a local flight-control
 tool for AI coding agents. This package is the reusable library surface;
 most users should install [`@scopelock/cli`](https://www.npmjs.com/package/@scopelock/cli)
-instead and use `core` only when embedding ScopeLock's rules in another tool.
+instead and use `core` only when embedding MindTheDiff's rules in another tool.
 
 ## What's in here
 
@@ -35,8 +35,8 @@ const report = buildDriftReport({ contract, changedPaths, repoRoot });
 
 Full API surface, the CLI built on top of it, and the complete conceptual
 model are documented in the
-[main repository](https://github.com/Daewooox/ScopeLock) — see
-[`docs/reference.md`](https://github.com/Daewooox/ScopeLock/blob/main/docs/reference.md)
+[main repository](https://github.com/Daewooox/MindTheDiff) — see
+[`docs/reference.md`](https://github.com/Daewooox/MindTheDiff/blob/main/docs/reference.md)
 for the CLI/config reference this package's schemas back.
 
 MIT licensed. Requires Node.js 22 or newer.

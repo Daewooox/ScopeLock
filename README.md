@@ -12,8 +12,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Daewooox/ScopeLock/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/Daewooox/ScopeLock/actions/workflows/test.yml/badge.svg"></a>
-  <a href="https://github.com/Daewooox/ScopeLock/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/Daewooox/ScopeLock/actions/workflows/codeql.yml/badge.svg"></a>
+  <a href="https://github.com/Daewooox/MindTheDiff/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/Daewooox/MindTheDiff/actions/workflows/test.yml/badge.svg"></a>
+  <a href="https://github.com/Daewooox/MindTheDiff/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/Daewooox/MindTheDiff/actions/workflows/codeql.yml/badge.svg"></a>
   <img alt="Node 22+" src="https://img.shields.io/badge/Node.js-22%2B-339933?logo=nodedotjs&logoColor=white">
   <a href="./LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-2f81f7"></a>
 </p>
@@ -70,8 +70,8 @@ saves the task report, source plan, and ready plan for inspection. It does not
 need an API key and does not start an agent.
 
 ```bash
-git clone https://github.com/Daewooox/ScopeLock.git
-cd ScopeLock
+git clone https://github.com/Daewooox/MindTheDiff.git
+cd MindTheDiff
 corepack enable
 pnpm install
 pnpm demo:progressive
@@ -112,8 +112,8 @@ verified-tarball instructions.
 To run MindTheDiff from source:
 
 ```bash
-git clone https://github.com/Daewooox/ScopeLock.git
-cd ScopeLock
+git clone https://github.com/Daewooox/MindTheDiff.git
+cd MindTheDiff
 corepack enable
 pnpm install
 pnpm build
@@ -121,7 +121,7 @@ pnpm --filter @scopelock/cli link --global
 ```
 
 You can now run `mindthediff --help`. To avoid a global link, replace
-`mindthediff` with `node /absolute/path/to/ScopeLock/packages/cli/dist/index.js`.
+`mindthediff` with `node /absolute/path/to/MindTheDiff/packages/cli/dist/index.js`.
 
 ## Coordinate several agents
 
