@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "mindthediff-brand-compat-v4",
+  "task": "Phase 1 MindTheDiff brand compatibility",
+  "createdAt": "2026-08-02T21:29:02.606Z",
+  "baseline": {
+    "headSha": "0d20e2da4f5d13b291a48c40472475c8ab541c67",
+    "branch": "feature/mindthediff-brand-compat",
+    "capturedAt": "2026-08-02T21:29:02.704Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "packages/cli/package.json",
+      "packages/cli/src/**",
+      "packages/mcp/package.json",
+      "packages/mcp/src/**",
+      "packages/core/src/agents/**",
+      "packages/core/src/harness/**",
+      "packages/core/src/hook/**",
+      "packages/core/src/hook.test.ts",
+      "packages/core/src/render/**",
+      "packages/core/src/prompt.test.ts",
+      "README.md",
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      "THREAT-MODEL.md",
+      "docs/**",
+      "examples/**",
+      ".github/ISSUE_TEMPLATE/**",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      "assets/**",
+      "scripts/**"
+    ],
+    "forbiddenPathPatterns": [],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

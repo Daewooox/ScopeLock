@@ -9,7 +9,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: ScopeLock version or commit
+      label: MindTheDiff version or commit
     validations:
       required: true
   - type: input
@@ -43,7 +43,7 @@ body:
     id: evidence
     attributes:
       label: Sanitized evidence
-      description: What command ran, what ScopeLock reported, and any manual intervention.
+      description: What command ran, what MindTheDiff reported, and any manual intervention.
     validations:
       required: true
   - type: checkboxes

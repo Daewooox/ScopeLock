@@ -5,11 +5,11 @@ labels: [pilot]
 body:
   - type: markdown
     attributes:
-      value: Thank you for testing ScopeLock. Report outcomes, not repository contents.
+      value: Thank you for testing MindTheDiff. Report outcomes, not repository contents.
   - type: input
     id: version
     attributes:
-      label: ScopeLock version or commit
+      label: MindTheDiff version or commit
     validations:
       required: true
   - type: input
@@ -51,7 +51,7 @@ body:
   - type: textarea
     id: improvement
     attributes:
-      label: One improvement before you use ScopeLock again
+      label: One improvement before you use MindTheDiff again
     validations:
       required: true
   - type: checkboxes

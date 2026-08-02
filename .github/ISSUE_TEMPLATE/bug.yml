@@ -1,5 +1,5 @@
 name: Bug report
-description: Report reproducible incorrect ScopeLock behavior.
+description: Report reproducible incorrect MindTheDiff behavior.
 title: "bug: "
 labels: [bug]
 body:
@@ -9,7 +9,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: ScopeLock version or commit
+      label: MindTheDiff version or commit
       placeholder: 0.1.0-beta.1 or full commit SHA
     validations:
       required: true

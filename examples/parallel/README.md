@@ -4,7 +4,7 @@ A reproducible, 4-task example for the guide at
 [`docs/parallel-workflow.md`](../../docs/parallel-workflow.md). The
 contracts here are drafts (`baseline: null`, never approved) scoped to real
 paths in this repo, so `plan schedule` can run against them directly -
-no `scopelock init`, no git baseline, no approval step needed.
+no `mindthediff init`, no git baseline, no approval step needed.
 
 This is intentionally a scheduler-only fixture. `plan prepare` correctly
 rejects these drafts because dispatchable plans require approved, sealed
@@ -18,7 +18,7 @@ are written as `examples/parallel/*.json` here, so this only resolves from
 the root, not from inside this directory):
 
 ```bash
-scopelock plan schedule examples/parallel/plan.json --include-read-hazards
+mindthediff plan schedule examples/parallel/plan.json --include-read-hazards
 ```
 
 Not installed globally? From the repo root:
@@ -46,7 +46,7 @@ Result
   Plan can be composed
 
 Next
-  Compose agent commands: scopelock plan compose "examples/parallel/plan.json" --target <agent> --out ready-plan.json
+  Compose agent commands: mindthediff plan compose "examples/parallel/plan.json" --target <agent> --out ready-plan.json
 ```
 
 Drop `--include-read-hazards` to see the F1 (write-write only) result

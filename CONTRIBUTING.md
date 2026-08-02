@@ -1,6 +1,6 @@
-# Contributing to ScopeLock
+# Contributing to MindTheDiff
 
-Thanks for helping improve ScopeLock. Bug fixes, compatibility reports,
+Thanks for helping improve MindTheDiff. Bug fixes, compatibility reports,
 documentation improvements, and focused product changes are welcome.
 
 ## Before changing code
@@ -14,7 +14,7 @@ documentation improvements, and focused product changes are welcome.
 
 ## Local setup
 
-ScopeLock requires Node.js 22 or newer and pnpm 10.
+MindTheDiff requires Node.js 22 or newer and pnpm 10.
 
 ```bash
 git clone https://github.com/YOUR-USER/ScopeLock.git
@@ -36,7 +36,7 @@ If `corepack` is unavailable, install `pnpm@10` with npm.
 4. Add focused tests when behavior changes.
 5. Push to your fork and open a pull request against `main`.
 
-Use a clear PR title such as `fix: reject an unsafe path`. ScopeLock uses
+Use a clear PR title such as `fix: reject an unsafe path`. MindTheDiff uses
 squash merge, so the PR title becomes the commit message on `main`.
 
 ## Required checks
@@ -63,7 +63,7 @@ commands, links, and examples instead.
   raw receipts, or unredacted command output.
 - Do not add shell-string execution where an argv array works.
 - Preserve fail-closed behavior at security and promotion boundaries.
-- Do not claim OS containment: ScopeLock is not an OS sandbox.
+- Do not claim OS containment: MindTheDiff is not an OS sandbox.
 - Do not silently install hooks, approve contracts, start agents, or publish
   packages.
 
@@ -75,4 +75,3 @@ the agent-assisted scope in the PR. Do not submit unreviewed bulk output.
 
 By submitting a contribution, you agree that it may be distributed under the
 repository's [MIT License](LICENSE).
-

@@ -22,8 +22,8 @@ pnpm demo:progressive -- --keep-fixture
 
 | Time | Show | On-screen caption |
 |---:|---|---|
-| 0:00-0:20 | ScopeLock title and the clean fixture | `Flight control for AI coding agents` |
-| 0:20-1:10 | `scopelock setup` readiness table | `Check the repository and available agent hooks` |
+| 0:00-0:20 | MindTheDiff title and the clean fixture | `Flight control for AI coding agents` |
+| 0:20-1:10 | `mindthediff setup` readiness table | `Check the repository and available agent hooks` |
 | 1:10-2:00 | `task start` with allowed and blocked paths | `Review the task boundary before the agent edits` |
 | 2:00-2:35 | One allowed edit and one harmless blocked-write probe | `Allowed work proceeds. Out-of-scope writes are denied where the harness supports it.` |
 | 2:35-3:15 | `task finish --open` and the HTML Flight Report | `Verify drift and keep local evidence` |

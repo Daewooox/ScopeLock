@@ -1,7 +1,7 @@
 # Agent environment preflight example
 
 A minimal, reproducible manifest for
-[`scopelock agents preflight`](../../docs/reference.md#agent-environment-preflight).
+[`mindthediff agents preflight`](../../docs/reference.md#agent-environment-preflight).
 
 Unlike the [parallel-workflow example](../parallel/), this one can't just
 point at paths inside this repo: `agents preflight` checks *fixed* installed
@@ -62,7 +62,7 @@ Result
   Dispatch     blocked
 
 Next
-  Apply the fixes above, then run: scopelock agents preflight --manifest <path>
+  Apply the fixes above, then run: mindthediff agents preflight --manifest <path>
 ```
 
 Exit code `1`. Each violation carries a `fix` hint; `agents preflight` never
