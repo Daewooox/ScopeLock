@@ -24,7 +24,7 @@
     "release:rehearse": "pnpm release:pack && pnpm release:audit && node scripts/release/smoke-packed.mjs --out .release-artifacts/smoke-local.json && pnpm --filter @scopelock/core build && node scripts/release/generate-evidence.mjs --smoke-dir .release-artifacts --dependency-audit passed"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "typescript": "^5.8.0"
   },
   "pnpm": {
