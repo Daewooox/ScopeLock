@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "honest-safety-benchmark",
+  "task": "Measure safety outcomes and protection cost without changing runtime behavior",
+  "createdAt": "2026-08-02T18:41:58.974Z",
+  "baseline": {
+    "headSha": "79460164a899af71ad6258c5c0a1886cd500d4bc",
+    "branch": "feature/honest-safety-benchmark",
+    "capturedAt": "2026-08-02T18:41:59.081Z"
+  },
+  "targetAgents": [],
+  "scope": {
+    "plannedPathPatterns": [
+      "benchmarks/coordination/benchmark-metrics.mjs",
+      "benchmarks/coordination/benchmark-metrics.test.mjs",
+      "benchmarks/coordination/run-benchmark.mjs",
+      "benchmarks/coordination/run-codex-real-agent-benchmark.mjs",
+      "benchmarks/coordination/BENCHMARK.md",
+      "docs/benchmarks.md"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**",
+      "memory-bank/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}
