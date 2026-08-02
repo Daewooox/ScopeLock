@@ -1,9 +1,9 @@
 # npm beta release runbook
 
 `@scopelock/core`, `@scopelock/cli`, and `@scopelock/mcp` are published to npm
-under the `beta` dist-tag. The current beta is `0.1.0-beta.2`; the first
+under the `beta` dist-tag. The current beta is `0.1.0-beta.3`; the first
 bootstrap publication was `0.1.0-beta.1` on 2026-07-22 under npm account
-`daewooox`. This runbook now governs the *next* publication (`beta.3` or
+`daewooox`. This runbook now governs the *next* publication (`beta.4` or
 later); the "First-publication checklist" below is kept as a historical record
 of the completed bootstrap, not a pending task.
 

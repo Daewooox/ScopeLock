@@ -25,9 +25,9 @@ installing from the registry, install them directly:
 
 ```bash
 npm install --global --ignore-scripts --no-audit --no-fund \
-  ./scopelock-core-0.1.0-beta.2.tgz \
-  ./scopelock-cli-0.1.0-beta.2.tgz \
-  ./scopelock-mcp-0.1.0-beta.2.tgz
+  ./scopelock-core-0.1.0-beta.3.tgz \
+  ./scopelock-cli-0.1.0-beta.3.tgz \
+  ./scopelock-mcp-0.1.0-beta.3.tgz
 
 scopelock --help
 ```
