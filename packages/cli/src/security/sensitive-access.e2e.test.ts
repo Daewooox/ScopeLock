@@ -65,9 +65,11 @@ async function writeHarness(dir: string): Promise<string> {
   await writeFile(codex, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(codexScript)}\n`);
   await chmod(codex, 0o755);
 
-  const scopelock = join(bin, "scopelock");
-  await writeFile(scopelock, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(CLI)} "$@"\n`);
-  await chmod(scopelock, 0o755);
+  for (const name of ["mindthediff", "scopelock"]) {
+    const command = join(bin, name);
+    await writeFile(command, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(CLI)} "$@"\n`);
+    await chmod(command, 0o755);
+  }
   return bin;
 }
 
