@@ -46,8 +46,8 @@ and reports that Standard or Automation commands can consume directly.
 ### Beta naming compatibility
 
 The canonical public command is `mindthediff`. `scopelock` remains an alias for
-existing scripts and is tested as a compatibility path. The repository is still
-hosted as `Daewooox/ScopeLock`, while `.scopelock`, `SCOPELOCK_*`, and the
+existing scripts and is tested as a compatibility path. The repository is
+hosted as `Daewooox/MindTheDiff`, while `.scopelock`, `SCOPELOCK_*`, and the
 `@scopelock/*` npm package scope remain unchanged during the beta migration.
 
 ## Guided setup
@@ -558,7 +558,7 @@ Claude Code and Cursor-style configuration:
   "mcpServers": {
     "mindthediff": {
       "command": "node",
-      "args": ["/absolute/path/to/ScopeLock/packages/mcp/dist/index.js"]
+      "args": ["/absolute/path/to/MindTheDiff/packages/mcp/dist/index.js"]
     }
   }
 }
@@ -569,7 +569,7 @@ Codex configuration:
 ```toml
 [mcp_servers.mindthediff]
 command = "node"
-args = ["/absolute/path/to/ScopeLock/packages/mcp/dist/index.js"]
+args = ["/absolute/path/to/MindTheDiff/packages/mcp/dist/index.js"]
 ```
 
 Existing configurations using `[mcp_servers.scopelock]` continue to work. For a

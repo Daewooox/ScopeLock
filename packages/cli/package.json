@@ -50,12 +50,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Daewooox/ScopeLock.git",
+    "url": "git+https://github.com/Daewooox/MindTheDiff.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/Daewooox/ScopeLock#readme",
+  "homepage": "https://github.com/Daewooox/MindTheDiff#readme",
   "bugs": {
-    "url": "https://github.com/Daewooox/ScopeLock/issues"
+    "url": "https://github.com/Daewooox/MindTheDiff/issues"
   },
   "keywords": [
     "ai-coding-agents",

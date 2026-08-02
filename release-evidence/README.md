@@ -1,6 +1,6 @@
 # Release evidence
 
-ScopeLock release evidence binds a candidate version to its commit, package
+MindTheDiff release evidence binds a candidate version to its commit, package
 tarball digests, clean-install results, security checks, and human approval.
 The schema is exported as `releaseEvidenceSchema` from `@scopelock/core`.
 
@@ -22,5 +22,5 @@ The package names are currently unregistered; ownership and creation rights for
 the `@scopelock` npm scope still require a maintainer check. The bootstrap must
 be performed manually,
 then each package must be configured to trust `publish-npm.yml` in
-`Daewooox/ScopeLock`, environment
+`Daewooox/MindTheDiff`, environment
 `npm-production`, with only `npm stage publish` allowed.

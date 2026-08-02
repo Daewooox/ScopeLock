@@ -1,11 +1,11 @@
 # Privacy
 
-ScopeLock is local-first. Core drift checks, scheduling, hooks, manifests, and
+MindTheDiff is local-first. Core drift checks, scheduling, hooks, manifests, and
 receipts do not call an LLM or cloud service.
 
 ## Local Data
 
-ScopeLock may write:
+MindTheDiff may write:
 
 - `.scopelock/contracts/*.json` - approved shared contracts;
 - `.scopelock/reports/*.json` and `audit.ndjson` - local reports, gitignored;
