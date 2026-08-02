@@ -5,10 +5,21 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
+import { aggregateBenchmarkMetrics } from "./benchmark-metrics.mjs";
 
 const benchmarkDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(benchmarkDir, "../..");
 const scopelockCli = join(repoRoot, "packages/cli/dist/index.js");
+
+function option(name, fallback) {
+  const inline = process.argv.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
+  const index = process.argv.indexOf(name);
+  return index === -1 ? fallback : process.argv[index + 1];
+}
+
+const outputOption = option("--output-dir", "");
+const outputDir = outputOption ? resolve(repoRoot, outputOption) : null;
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 
@@ -282,7 +293,7 @@ async function runWithoutScopeLock() {
     const tests = runTests(root);
     return {
       mode: "without_scopelock",
-      fixtureRoot: root,
+      fixture: "synthetic-six-task",
       scopeViolationsApplied: 2,
       blockedScopeAttempts: 0,
       unresolvedConflicts: 2,
@@ -291,6 +302,15 @@ async function runWithoutScopeLock() {
       failedTests: tests.failedTests,
       acceptedTasks: acceptedCount(root, tasks),
       totalTasks: tasks.length,
+      unsafeAttempts: 2,
+      unsafePromotions: 2,
+      scopeViolationAttempts: 2,
+      acceptedOutOfScopeMutations: 2,
+      safeTaskAttempts: 4,
+      safeTaskBlocks: 0,
+      harnessStatus: "available",
+      timedOut: false,
+      cancelled: false,
       wallClockMs: run.wallClockMs,
     };
   } finally {
@@ -307,7 +327,7 @@ async function runContractsHooks() {
     const tests = runTests(root);
     return {
       mode: "contracts_hooks",
-      fixtureRoot: root,
+      fixture: "synthetic-six-task",
       scopeViolationsApplied: 0,
       blockedScopeAttempts: hookMetrics.blockedScopeAttempts,
       unresolvedConflicts: 2,
@@ -316,6 +336,15 @@ async function runContractsHooks() {
       failedTests: tests.failedTests,
       acceptedTasks: acceptedCount(root, tasks),
       totalTasks: tasks.length,
+      unsafeAttempts: 2,
+      unsafePromotions: 0,
+      scopeViolationAttempts: 2,
+      acceptedOutOfScopeMutations: 0,
+      safeTaskAttempts: 4,
+      safeTaskBlocks: 0,
+      harnessStatus: "available",
+      timedOut: false,
+      cancelled: false,
       wallClockMs: run.wallClockMs,
     };
   } finally {
@@ -355,7 +384,7 @@ async function runContractsHooksPlan() {
     const tests = runTests(root);
     return {
       mode: "contracts_hooks_plan_parallel",
-      fixtureRoot: root,
+      fixture: "synthetic-six-task",
       scopeViolationsApplied: 0,
       blockedScopeAttempts: hookMetrics.blockedScopeAttempts,
       unresolvedConflicts: 0,
@@ -365,6 +394,15 @@ async function runContractsHooksPlan() {
       failedTests: tests.failedTests,
       acceptedTasks: acceptedCount(root, tasks.filter((task) => !deferred.has(task.id))),
       totalTasks: tasks.length,
+      unsafeAttempts: 2,
+      unsafePromotions: 0,
+      scopeViolationAttempts: 2,
+      acceptedOutOfScopeMutations: 0,
+      safeTaskAttempts: 4,
+      safeTaskBlocks: 0,
+      harnessStatus: "available",
+      timedOut: false,
+      cancelled: false,
       wallClockMs: Math.round(performance.now() - start),
       schedule: {
         waves: schedule.waves,
@@ -378,13 +416,25 @@ async function runContractsHooksPlan() {
   }
 }
 
-function markdown(results) {
+function markdown(results, metrics) {
   const rows = [
     "| Mode | Scope violations applied | Blocked attempts | Unresolved conflicts | Detected/prevented conflicts | Manual interventions | Failed tests | Accepted tasks | Wall-clock ms |",
     "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ...results.map((result) => `| ${result.mode} | ${result.scopeViolationsApplied} | ${result.blockedScopeAttempts} | ${result.unresolvedConflicts} | ${result.detectedPreventedConflicts} | ${result.manualInterventions} | ${result.failedTests} | ${result.acceptedTasks}/${result.totalTasks} | ${result.wallClockMs} |`),
   ];
-  return rows.join("\n");
+  return [
+    "# ScopeLock coordination benchmark",
+    "",
+    "Synthetic, deterministic fixture with scripted tasks. This measures coordination mechanics, not LLM quality.",
+    "",
+    ...rows,
+    "",
+    "Rates use explicit attempted/accepted counters. A zero denominator is reported as `null`, not zero.",
+    "",
+    "| Mode | Unsafe promotion rate | Scope violation rate | Benign block rate | Accepted task rate | Runtime overhead |",
+    "|---|---:|---:|---:|---:|---:|",
+    ...Object.entries(metrics.byMode).map(([mode, value]) => `| ${mode} | ${value.rates.unsafePromotionRate ?? "n/a"} | ${value.rates.scopeViolationRate ?? "n/a"} | ${value.rates.benignBlockRate ?? "n/a"} | ${value.rates.acceptedTaskRate ?? "n/a"} | ${value.rates.runtimeOverhead ?? "n/a"} |`),
+  ].join("\n");
 }
 
 const results = [
@@ -393,11 +443,41 @@ const results = [
   await runContractsHooksPlan(),
 ];
 
+const baselineWallClockMs = results.find((result) => result.mode === "without_scopelock")?.wallClockMs ?? null;
+for (const result of results) {
+  if (result.mode !== "without_scopelock") result.baselineWallClockMs = baselineWallClockMs;
+}
+
+const metrics = aggregateBenchmarkMetrics(results);
 const output = {
+  schemaVersion: 1,
+  track: "synthetic",
   generatedAt: new Date().toISOString(),
+  runs: results.length,
+  fixture: "synthetic-six-task",
+  fixtureRevision: "synthetic-six-task-v1",
+  environment: {
+    gitSha: git(repoRoot, ["rev-parse", "HEAD"]),
+    platform: process.platform,
+    arch: process.arch,
+    node: process.version,
+    agent: "scripted",
+    agentVersion: "fixture-v1",
+    scopelockVersion: "workspace-source",
+  },
   note: "Deterministic harness with scripted agents; validates coordination mechanics, not LLM quality.",
+  definitions: metrics.definitions,
+  metrics,
+  rawRuns: results,
   results,
-  markdown: markdown(results),
+  markdown: markdown(results, metrics),
 };
+
+if (outputDir) {
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(join(outputDir, "raw-runs.json"), `${JSON.stringify(results, null, 2)}\n`, "utf8");
+  writeFileSync(join(outputDir, "summary.json"), `${JSON.stringify(output, null, 2)}\n`, "utf8");
+  writeFileSync(join(outputDir, "summary.md"), `${output.markdown}\n`, "utf8");
+}
 
 process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { analyzeReceipt } from "./analyze-receipt.mjs";
+import { aggregateBenchmarkMetrics } from "./benchmark-metrics.mjs";
 
 const benchmarkDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(benchmarkDir, "../..");
@@ -20,7 +21,7 @@ function option(name, fallback) {
   return index === -1 ? fallback : process.argv[index + 1];
 }
 
-const runs = Number(option("--runs", "3"));
+const runs = Number(option("--runs", "5"));
 const modes = option("--modes", "without_scopelock,contracts_hooks,contracts_hooks_plan_parallel")
   .split(",")
   .map((mode) => mode.trim())
@@ -37,6 +38,9 @@ function sh(cwd, command, args, input = "") {
     stderr: result.stderr ?? "",
   };
 }
+
+const codexVersionProbe = sh(repoRoot, codexBin, ["--version"]);
+const codexAvailable = codexVersionProbe.status === 0;
 
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -263,12 +267,19 @@ function runCodexAgent(root, task, mode) {
     });
     let stdout = "";
     let stderr = "";
-    const timer = setTimeout(() => child.kill("SIGTERM"), timeoutMs);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeoutMs);
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      stderr += `${error.message}\n`;
     });
     child.on("close", (code, signal) => {
       clearTimeout(timer);
@@ -277,6 +288,7 @@ function runCodexAgent(root, task, mode) {
         code,
         signal,
         durationMs: Math.round(performance.now() - startedAt),
+        timedOut,
         usage: parseUsage(stdout),
         stderrTail: stderr.trim().split("\n").slice(-5),
       });
@@ -369,6 +381,36 @@ async function runWave(root, taskIds, mode, deferred) {
 }
 
 async function runMode(mode, runIndex) {
+  if (!codexAvailable) {
+    return {
+      schemaVersion: 1,
+      track: "real-agent",
+      run: runIndex,
+      mode,
+      fixture: "codex-six-task",
+      agent: "codex",
+      harnessStatus: "blocked",
+      blockedReason: `Codex CLI is unavailable: ${codexVersionProbe.stderr.trim() || "version probe failed"}`,
+      availableAgents: { codex: false, claude: false, cursor: false },
+      unsafeAttempts: 0,
+      unsafePromotions: 0,
+      scopeViolationAttempts: 0,
+      acceptedOutOfScopeMutations: 0,
+      scopeViolationsApplied: 0,
+      scopeViolationPaths: [],
+      safeTaskAttempts: 0,
+      safeTaskBlocks: 0,
+      unresolvedConflicts: 0,
+      detectedPreventedConflicts: 0,
+      manualInterventions: 0,
+      failedTests: 0,
+      acceptedTasks: 0,
+      totalTasks: taskSpecs.length,
+      wallClockMs: 0,
+      timedOut: false,
+      cancelled: false,
+    };
+  }
   const root = createFixture();
   let schedule = null;
   let deferred = new Set();
@@ -434,16 +476,28 @@ async function runMode(mode, runIndex) {
         writeFileSync(receiptPath, `${JSON.stringify(dispatcher.receipt, null, 2)}\n`, "utf8");
       }
     }
+    const unsafeAttempts = 2;
+    const unsafePromotions = violations.length;
     return {
+      schemaVersion: 1,
+      track: "real-agent",
       run: runIndex,
       mode,
-      fixtureRoot: keepFixtures ? root : undefined,
+      fixture: "codex-six-task",
+      ...(keepFixtures ? { fixtureRoot: root } : {}),
       agent: "codex",
       availableAgents: { codex: true, claude: false, cursor: false },
+      harnessStatus: "available",
       codexLimitation: mode === "without_scopelock" ? null : "Codex CLI has no ScopeLock pre-write hook adapter here; this mode uses contract prompt plus post-run metrics.",
       scopeViolationsApplied: violations.length,
       scopeViolationPaths: violations,
       blockedScopeAttempts: 0,
+      unsafeAttempts,
+      unsafePromotions,
+      scopeViolationAttempts: unsafeAttempts,
+      acceptedOutOfScopeMutations: unsafePromotions,
+      safeTaskAttempts: taskSpecs.length - unsafeAttempts,
+      safeTaskBlocks: 0,
       unresolvedConflicts: countUnresolvedConflicts(root),
       detectedPreventedConflicts,
       manualInterventions: deferred.size,
@@ -452,6 +506,8 @@ async function runMode(mode, runIndex) {
       acceptedTasks: acceptedCount(root, runnableTasks),
       totalTasks: taskSpecs.length,
       wallClockMs: Math.round(performance.now() - startedAt),
+      timedOut: agentRuns.some((agentRun) => agentRun.timedOut === true),
+      cancelled: agentRuns.some((agentRun) => agentRun.signal === "SIGINT"),
       dispatcherExitCode: dispatcher?.exitCode ?? null,
       driftStatus: dispatcher?.receipt.drift?.status ?? null,
       receiptSizeBytes: dispatcher ? Buffer.byteLength(JSON.stringify(dispatcher.receipt)) : null,
@@ -503,6 +559,20 @@ function summarize(results) {
   });
 }
 
+function metricsMarkdown(metrics) {
+  const rows = Object.entries(metrics.byMode).map(([mode, value]) => {
+    const rates = value.rates;
+    return `| ${mode} | ${rates.unsafePromotionRate ?? "n/a"} | ${rates.scopeViolationRate ?? "n/a"} | ${rates.benignBlockRate ?? "n/a"} | ${rates.acceptedTaskRate ?? "n/a"} | ${value.counts.manualInterventions} | ${value.distributions.wallClockMs.median ?? "n/a"} |`;
+  });
+  return [
+    "Real Codex-agent runs only; unavailable harnesses are recorded as blocked.",
+    "",
+    "| Mode | Unsafe promotion rate | Scope violation rate | Benign block rate | Accepted task rate | Manual interventions | Median wall-clock ms |",
+    "|---|---:|---:|---:|---:|---:|---:|",
+    ...rows,
+  ].join("\n");
+}
+
 const results = [];
 for (let runIndex = 1; runIndex <= runs; runIndex += 1) {
   for (const mode of modes) {
@@ -510,26 +580,45 @@ for (let runIndex = 1; runIndex <= runs; runIndex += 1) {
   }
 }
 
+for (let runIndex = 1; runIndex <= runs; runIndex += 1) {
+  const baseline = results.find((result) => result.run === runIndex && result.mode === "without_scopelock");
+  if (!baseline) continue;
+  for (const result of results) {
+    if (result.run === runIndex && result.mode !== "without_scopelock") {
+      result.baselineWallClockMs = baseline.wallClockMs;
+    }
+  }
+}
+
+const metrics = aggregateBenchmarkMetrics(results);
+
 const payload = {
+  schemaVersion: 1,
+  track: "real-agent",
   generatedAt: new Date().toISOString(),
-  note: "Real Codex CLI pilot. Claude/Cursor were not available in PATH on this machine.",
+  note: "Real-agent pilot. Unavailable harnesses are blocked evidence, not failures; this is not an LLM-quality or universal security claim.",
   environment: {
     gitSha: git(repoRoot, ["rev-parse", "HEAD"]),
     platform: process.platform,
     arch: process.arch,
     node: process.version,
-    codex: sh(repoRoot, codexBin, ["--version"]).stdout.trim() || null,
+    codex: codexVersionProbe.stdout.trim() || null,
   },
   runs,
   modes,
+  definitions: metrics.definitions,
+  metrics,
   summary: summarize(results),
+  rawRuns: results,
   results,
 };
 
 if (outputDir) {
   mkdirSync(outputDir, { recursive: true });
+  writeFileSync(join(outputDir, "raw-runs.json"), `${JSON.stringify(results, null, 2)}\n`, "utf8");
   writeFileSync(join(outputDir, "summary.json"), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   writeFileSync(join(outputDir, "environment.json"), `${JSON.stringify(payload.environment, null, 2)}\n`, "utf8");
+  writeFileSync(join(outputDir, "summary.md"), `# ScopeLock real-agent benchmark\n\n${metricsMarkdown(metrics)}\n`, "utf8");
 }
 
 process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
