@@ -157,6 +157,19 @@ hidden from root help so new users see one coherent command model:
 | `1` | The command completed and found policy violations. |
 | `2` | Input, environment, or execution error. |
 
+## Policy decisions
+
+When a command reaches an existing policy rejection, its normal `--json`
+envelope may add a top-level `decision` object with `status`, stable `code`,
+`reason`, and `fix`. `denied` means a policy was evaluated and rejected the
+input or result; `blocked` means ScopeLock failed closed before it could safely
+continue. `error` remains an operational failure with the existing
+`error.code` and `error.message` shape and exit `2`.
+
+`fix` is a recommendation only. ScopeLock never executes a suggested fix,
+shell command, installer, or remediation automatically. Codex hook protocol
+stdout is unchanged; its decision envelope is emitted separately on stderr.
+
 ## Enforcement modes
 
 - `warn` is the default. Violations are written to

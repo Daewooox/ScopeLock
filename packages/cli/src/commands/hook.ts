@@ -1,4 +1,5 @@
 import { evaluateHookGate } from "@scopelock/core";
+import { hookDecisionFor, renderDecision } from "../decision-envelope.js";
 
 export async function readStdin(): Promise<string> {
   // Hooks always receive a piped, closed stdin. When invoked manually in a
@@ -23,20 +24,23 @@ export async function hookGateCommand(options: {
   });
 
   if (result.decision === "deny") {
+    const message = result.message ?? "ScopeLock: denied";
+    const decision = hookDecisionFor(result.reason, message);
     if (options.format === "codex") {
       process.stdout.write(
         `${JSON.stringify({
           hookSpecificOutput: {
             hookEventName: "PreToolUse",
             permissionDecision: "deny",
-            permissionDecisionReason: result.message ?? "ScopeLock: denied",
+            permissionDecisionReason: message,
           },
         })}\n`,
       );
+      process.stderr.write(`${JSON.stringify({ decision })}\n`);
       process.exitCode = 0;
       return;
     }
-    process.stderr.write(`${result.message ?? "ScopeLock: denied"}\n`);
+    process.stderr.write(`${message}\n${renderDecision(decision)}\n`);
     process.exitCode = 2;
     return;
   }

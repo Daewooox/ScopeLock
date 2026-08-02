@@ -1,5 +1,6 @@
 import { findRepoRoot } from "@scopelock/core";
 import { CliError, type CommandResult } from "../run.js";
+import { decisionFor } from "../decision-envelope.js";
 import { renderSections } from "../ui.js";
 import {
   SENSITIVE_ACCESS_ENGINE_VERSION,
@@ -78,9 +79,18 @@ export async function securityScanCommand(
     expectedEngineVersion: options.engineVersion ?? SENSITIVE_ACCESS_ENGINE_VERSION,
     expectedRulePackSha256: options.rulesSha256 ?? SENSITIVE_ACCESS_RULE_PACK_SHA256,
   });
+  const decision = result.outcome === "denied"
+    ? decisionFor("denied", "SENSITIVE_ACCESS_DENIED", result.reason ?? "sensitive access finding detected")
+    : result.outcome === "blocked"
+      ? decisionFor("blocked", "SENSITIVE_ACCESS_SCAN_BLOCKED", result.reason ?? "sensitive access scanner could not complete safely")
+      : undefined;
   return {
     data: result,
-    human: options.format === "json" ? JSON.stringify(result, null, 2) : humanResult(result),
+    human: options.format === "json"
+      ? JSON.stringify({ ...result, ...(decision === undefined ? {} : { decision }) }, null, 2)
+      : humanResult(result),
+    ...(options.format === "json" ? { humanIsJson: true } : {}),
     exitCode: result.outcome === "blocked" ? 2 : result.outcome === "denied" ? 1 : 0,
+    ...(decision === undefined ? {} : { decision }),
   };
 }

@@ -2,6 +2,7 @@ export * from "./schemas/contract.js";
 export * from "./schemas/drift.js";
 export * from "./schemas/repo-manifest.js";
 export * from "./schemas/config.js";
+export * from "./schemas/decision.js";
 export * from "./storage/paths.js";
 export * from "./storage/atomic.js";
 export * from "./storage/contracts.js";

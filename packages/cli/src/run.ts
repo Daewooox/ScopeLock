@@ -16,14 +16,17 @@ export type SuggestedNext = {
 export type CommandResult = {
   data: unknown;
   human: string | null;
+  humanIsJson?: boolean;
   exitCode: ExitCode;
+  decision?: Decision;
   suggestedNext?: SuggestedNext;
 };
 
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatZodError } from "@scopelock/core";
+import { formatZodError, type Decision } from "@scopelock/core";
+import { renderDecision } from "./decision-envelope.js";
 import { confirmPrompt, type PromptOptions } from "./prompts.js";
 
 export class CliError extends Error {
@@ -69,10 +72,17 @@ export async function run(
     const result = await action();
     if (opts.json) {
       process.stdout.write(
-        `${JSON.stringify({ status: statusFor(result.exitCode), data: result.data })}\n`,
+        `${JSON.stringify({
+          status: statusFor(result.exitCode),
+          data: result.data,
+          ...(result.decision === undefined ? {} : { decision: result.decision }),
+        })}\n`,
       );
-    } else if (result.human !== null) {
-      process.stdout.write(`${result.human}\n`);
+    } else {
+      const human = [result.human, result.humanIsJson ? null : result.decision === undefined ? null : renderDecision(result.decision)]
+        .filter((part): part is string => part !== null)
+        .join("\n\n");
+      if (human.length > 0) process.stdout.write(`${human}\n`);
     }
 
     if (

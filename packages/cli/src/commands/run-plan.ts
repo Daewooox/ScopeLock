@@ -44,6 +44,7 @@ import {
   WorktreeError,
 } from "@scopelock/core";
 import { checkDriftCommand } from "./check-drift.js";
+import { decisionFor } from "../decision-envelope.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";
 import { color, normalizeTerminalDetail, renderTable, statusLabel } from "../ui.js";
 import { deriveEvidenceSummary, type EvidenceSummary } from "../receipt-evidence.js";
@@ -1693,6 +1694,20 @@ async function runPlanWithReporter(
     cycles.length > 0 || hasFailedTask || hasSkippedTask || hasBlockedTask || hasDriftProblems || hasEnvironmentProblems || hasCleanupProblems
       ? 1
       : 0;
+  const blockedTask = taskRuns.find((task) => task.status === "blocked");
+  const decision = blockedByEnvironment
+    ? decisionFor(
+        "blocked",
+        "AGENT_PREFLIGHT_BLOCKED",
+        "strict agent environment preflight reported required violations",
+      )
+    : options.isolate === true && (isolation?.finalPromotion === "blocked" || blockedTask !== undefined)
+      ? decisionFor(
+          "blocked",
+          "ISOLATED_PROMOTION_BLOCKED",
+          "an isolated task or promotion gate prevented changes from being promoted",
+        )
+      : undefined;
 
   return {
     data: { receiptPath, receipt },
@@ -1713,6 +1728,7 @@ async function runPlanWithReporter(
       evidenceSummary,
     ),
     exitCode,
+    ...(decision === undefined ? {} : { decision }),
     suggestedNext: { label: "Open the Flight Report", argv: ["report", "--open", receiptPath] },
   };
 }
