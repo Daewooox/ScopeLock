@@ -141,7 +141,7 @@ async function runScenario(
   );
   assert.ok(securityCheck);
   assert.deepEqual(securityCheck.command.slice(0, 5), [
-    "scopelock", "security", "scan", "--profile", "sensitive-local-files",
+    "mindthediff", "security", "scan", "--profile", "sensitive-local-files",
   ]);
   assert.equal(securityCheck.command.at(-1), "json");
   assert.equal(securityCheck.command.includes(securityBase), true);
