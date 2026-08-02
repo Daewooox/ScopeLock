@@ -1,10 +1,10 @@
-# ScopeLock reference
+# MindTheDiff reference
 
 This page contains the detailed command and configuration notes kept out of the
-main README. Run `scopelock <command> --help` for the exact options supported by
+main README. Run `mindthediff <command> --help` for the exact options supported by
 your installed version.
 
-ScopeLock exposes the same artifacts through three levels:
+MindTheDiff exposes the same artifacts through three levels:
 
 - **Guided:** `setup` -> `task start` -> `task finish` for one protected task.
 - **Standard:** explicit contract, hook, `plan prepare`, run, and report commands.
@@ -18,40 +18,47 @@ and reports that Standard or Automation commands can consume directly.
 
 | Command | What it does |
 |---|---|
-| `scopelock setup` | Initialize the repository, diagnose installed agents, and report hook confidence. |
-| `scopelock init` | Create `.scopelock/` config, contracts, and reports. |
-| `scopelock doctor` | Check git, Node, config, the active contract, and hooks. |
-| `scopelock task start [description]` | Guide one task from friendly paths to a reviewed, approved contract and agent preflight. |
-| `scopelock task finish` | Check the active task boundary and create JSON and HTML drift reports. |
-| `scopelock contract new` | Create a schema-valid draft contract without an LLM. |
-| `scopelock contract approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it active. |
-| `scopelock contract rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
-| `scopelock contract export --target <id>` | Print the active contract as agent instructions. |
-| `scopelock contract inject --target <id>` | Put the contract in `AGENTS.md` or `CLAUDE.md`. |
-| `scopelock hooks install --target <id>` | Add ScopeLock entries to an agent's hook config. |
-| `scopelock hooks uninstall --target <id>` | Remove only ScopeLock-owned hook entries. |
-| `scopelock hooks verify --target codex` | Run a harmless live hook probe without disabling sandbox protections. |
-| `scopelock check-drift` | Compare repository changes with the approved contract. |
-| `scopelock manifest` | Build a metadata-only manifest from tracked git files. |
-| `scopelock plan schedule <plan.json>` | Detect conflicts and build safe execution stages. |
-| `scopelock plan compose <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans require isolation. |
-| `scopelock plan prepare <plan.json> --target <id> --out <path>` | Validate, schedule, preflight, and compose a separate ready plan without running it. |
-| `scopelock security scan --profile <id> --base <sha>` | Run an opt-in, fail-closed semantic check over source files changed since a full Git baseline. |
-| `scopelock agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
-| `scopelock run <plan.json>` | Dispatch a reviewed plan and write a bounded receipt. |
-| `scopelock report <result.json> --open` | Render a run receipt or drift result as a standalone local HTML Flight Report. |
+| `mindthediff setup` | Initialize the repository, diagnose installed agents, and report hook confidence. |
+| `mindthediff init` | Create `.scopelock/` config, contracts, and reports. |
+| `mindthediff doctor` | Check git, Node, config, the active contract, and hooks. |
+| `mindthediff task start [description]` | Guide one task from friendly paths to a reviewed, approved contract and agent preflight. |
+| `mindthediff task finish` | Check the active task boundary and create JSON and HTML drift reports. |
+| `mindthediff contract new` | Create a schema-valid draft contract without an LLM. |
+| `mindthediff contract approve <file>` | Save a contract and capture the current git baseline. `--no-activate` saves it without making it active. |
+| `mindthediff contract rebaseline [<id>]` | Move a contract baseline after a rebase, squash, or history rewrite. |
+| `mindthediff contract export --target <id>` | Print the active contract as agent instructions. |
+| `mindthediff contract inject --target <id>` | Put the contract in `AGENTS.md` or `CLAUDE.md`. |
+| `mindthediff hooks install --target <id>` | Add MindTheDiff entries to an agent's hook config. |
+| `mindthediff hooks uninstall --target <id>` | Remove only MindTheDiff-owned hook entries. |
+| `mindthediff hooks verify --target codex` | Run a harmless live hook probe without disabling sandbox protections. |
+| `mindthediff check-drift` | Compare repository changes with the approved contract. |
+| `mindthediff manifest` | Build a metadata-only manifest from tracked git files. |
+| `mindthediff plan schedule <plan.json>` | Detect conflicts and build safe execution stages. |
+| `mindthediff plan compose <plan.json> --target <codex\|claude\|cursor>` | Render task contracts into explicit, reviewable agent argv commands. Cursor plans require isolation. |
+| `mindthediff plan prepare <plan.json> --target <id> --out <path>` | Validate, schedule, preflight, and compose a separate ready plan without running it. |
+| `mindthediff security scan --profile <id> --base <sha>` | Run an opt-in, fail-closed semantic check over source files changed since a full Git baseline. |
+| `mindthediff agents preflight --manifest <path>` | Verify rules, skills, copies, parity, and hook capability. |
+| `mindthediff run <plan.json>` | Dispatch a reviewed plan and write a bounded receipt. |
+| `mindthediff report <result.json> --open` | Render a run receipt or drift result as a standalone local HTML Flight Report. |
 
 `--json` is available on every command for machine-readable output.
 
+### Beta naming compatibility
+
+The canonical public command is `mindthediff`. `scopelock` remains an alias for
+existing scripts and is tested as a compatibility path. The repository is still
+hosted as `Daewooox/ScopeLock`, while `.scopelock`, `SCOPELOCK_*`, and the
+`@scopelock/*` npm package scope remain unchanged during the beta migration.
+
 ## Guided setup
 
-`scopelock setup` is the idempotent starting point. It composes the existing
+`mindthediff setup` is the idempotent starting point. It composes the existing
 `init`, doctor, and hook-probe behavior; it does not authenticate or run an
 agent. In a terminal it offers missing hooks only for detected agents and shows
 the exact config file before each confirmation. All confirmations are collected
 before the first hook file is changed.
 
-On first initialization, ScopeLock derives the project profile from tracked
+On first initialization, MindTheDiff derives the project profile from tracked
 repository markers such as `Package.swift` (`swift`, not an assumed iOS app);
 an existing config is never silently rewritten. On macOS, Codex discovery
 checks `PATH` first and then the bundled executable in installed ChatGPT/Codex
@@ -61,12 +68,12 @@ In a pipe or CI job, setup is diagnosis-only and never waits for input. An
 explicit non-interactive install requires both intent and confirmation:
 
 ```bash
-scopelock setup --target claude --install-hooks --yes --mode strict
+mindthediff setup --target claude --install-hooks --yes --mode strict
 ```
 
-Use `--local` only when running ScopeLock from a source checkout before the
-`scopelock` binary is on `PATH`. Repeating setup with an already-correct config
-does not rewrite it. Existing non-ScopeLock hook entries are preserved.
+Use `--local` only when running MindTheDiff from a source checkout before the
+`mindthediff` binary is on `PATH`. Repeating setup with an already-correct config
+does not rewrite it. Existing non-MindTheDiff hook entries are preserved.
 
 The readiness table distinguishes capability from evidence: Claude supports a
 documented pre-write deny, Cursor remains post-write audit-only, and Codex is
@@ -74,7 +81,7 @@ reported as degraded unless a matching live-verification record exists.
 
 ## Guided task start
 
-`scopelock task start` is the guided layer over the existing contract commands.
+`mindthediff task start` is the guided layer over the existing contract commands.
 It asks for a task, agent, paths that may change, blocked paths, advisory task
 context, and required test types. Friendly directory inputs such as `src` are
 compiled to the canonical `src/**` contract pattern. The review shows tracked
@@ -83,7 +90,7 @@ known sensitive files.
 
 Approval and instruction injection are separate decisions. Declining approval
 leaves a local draft under `.scopelock/drafts/` and creates no approved contract.
-After approval, ScopeLock captures the Git baseline and checks the selected
+After approval, MindTheDiff captures the Git baseline and checks the selected
 agent environment. It only offers to update `AGENTS.md` or `CLAUDE.md` after
 showing the target path. The command does not start an agent, execute tests, or
 claim OS-level read containment.
@@ -91,13 +98,13 @@ claim OS-level read containment.
 Interactive use:
 
 ```bash
-scopelock task start
+mindthediff task start
 ```
 
 Explicit non-interactive use:
 
 ```bash
-scopelock task start "Add retry handling" \
+mindthediff task start "Add retry handling" \
   --agent codex \
   --allow src/network \
   --allow tests/network \
@@ -108,14 +115,14 @@ scopelock task start "Add retry handling" \
 ```
 
 Without `--yes`, a non-interactive invocation saves the draft and exits `2`
-with the exact `scopelock contract approve` command to run after review.
+with the exact `mindthediff contract approve` command to run after review.
 `--inject` explicitly opts into updating the selected agent instruction file.
 Advanced users can continue to use `contract new`, `contract approve`, and
 `contract inject` independently.
 
 ## Guided task finish
 
-`scopelock task finish` compares the current repository with the active task
+`mindthediff task finish` compares the current repository with the active task
 boundary, saves the drift evidence as JSON, and renders a standalone HTML
 Flight Report. It groups changed paths into allowed, blocked, and outside-scope
 changes and returns `0` only when the task is cleared. The command is
@@ -123,15 +130,15 @@ non-interactive by default; add `--open` to open the generated report in a
 browser.
 
 ```bash
-scopelock task finish
-scopelock task finish --open
+mindthediff task finish
+mindthediff task finish --open
 ```
 
 This command verifies repository evidence only. It does not execute the tests
 listed in the contract and says so explicitly in both terminal output and
 machine-readable results. Use `check-drift` directly when only the underlying
 JSON drift primitive is needed. Existing foreign text in `AGENTS.md` or
-`CLAUDE.md` is still checked normally; only an exact change to ScopeLock's own
+`CLAUDE.md` is still checked normally; only an exact change to MindTheDiff's own
 injected marker block is excluded from drift.
 
 ### Legacy aliases
@@ -162,11 +169,11 @@ hidden from root help so new users see one coherent command model:
 When a command reaches an existing policy rejection, its normal `--json`
 envelope may add a top-level `decision` object with `status`, stable `code`,
 `reason`, and `fix`. `denied` means a policy was evaluated and rejected the
-input or result; `blocked` means ScopeLock failed closed before it could safely
+input or result; `blocked` means MindTheDiff failed closed before it could safely
 continue. `error` remains an operational failure with the existing
 `error.code` and `error.message` shape and exit `2`.
 
-`fix` is a recommendation only. ScopeLock never executes a suggested fix,
+`fix` is a recommendation only. MindTheDiff never executes a suggested fix,
 shell command, installer, or remediation automatically. Codex hook protocol
 stdout is unchanged; its decision envelope is emitted separately on stderr.
 
@@ -181,10 +188,10 @@ stdout is unchanged; its decision envelope is emitted separately on stderr.
 ## Interactive next-command prompts
 
 After `contract rebaseline` and `run` complete successfully in an interactive
-terminal, ScopeLock may ask:
+terminal, MindTheDiff may ask:
 
 ```text
-Run it now? scopelock check-drift [Y/n]
+Run it now? mindthediff check-drift [Y/n]
 ```
 
 Pressing Enter (or `y`) runs the suggested command as a normal child process
@@ -212,7 +219,7 @@ For each selected target it can verify:
 
 Missing optional artifacts produce a warning. Missing required artifacts,
 unwanted symlinks, and parity mismatches produce a violation and exit `1`.
-Each violation includes a suggested `ruler` or `skills --copy` command; ScopeLock
+Each violation includes a suggested `ruler` or `skills --copy` command; MindTheDiff
 does not run that command automatically.
 
 Codex hook confidence can be upgraded to `live-verified` only when an explicit
@@ -227,7 +234,7 @@ By default `plan schedule` detects write-write conflicts between task scopes.
 Use `--include-read-hazards` to also order a writer before tasks that declare
 the same path as a read dependency.
 
-If the resulting read-write dependencies form a cycle, ScopeLock exits `1` and
+If the resulting read-write dependencies form a cycle, MindTheDiff exits `1` and
 reports the involved tasks instead of inventing an unsafe order. See
 [parallel-workflow.md](parallel-workflow.md) for a complete walkthrough.
 
@@ -237,10 +244,10 @@ agent executable path, so execution does not depend on a later shell having the
 same `PATH`:
 
 ```bash
-scopelock plan prepare plan.json \
+mindthediff plan prepare plan.json \
   --target claude \
   --out ready-plan.json
-scopelock run ready-plan.json --yes --isolate
+mindthediff run ready-plan.json --yes --isolate
 ```
 
 It requires approved contracts and the selected agent CLI, enables read hazards
@@ -257,7 +264,7 @@ fails without writing the output file. Supply one or more explicit named argv
 checks instead:
 
 ```bash
-scopelock plan prepare plan.json \
+mindthediff plan prepare plan.json \
   --target claude \
   --out ready-plan.json \
   --validation-check typecheck npm run check \
@@ -289,7 +296,7 @@ sandbox and not a guarantee that arbitrary runtime secret access is impossible.
 Install Semgrep separately, then opt in during preparation:
 
 ```bash
-scopelock plan prepare plan.json \
+mindthediff plan prepare plan.json \
   --target claude \
   --security-profile sensitive-local-files \
   --out ready-plan.json
@@ -300,7 +307,7 @@ approved baseline, not a newly-created candidate commit; the command also
 includes staged, unstaged, and untracked worktree changes:
 
 ```bash
-scopelock security scan \
+mindthediff security scan \
   --profile sensitive-local-files \
   --base "$(git rev-parse HEAD)" \
   --format plain
@@ -309,7 +316,7 @@ scopelock security scan \
 Exit `0` means the check passed or no supported changed source exists, `1`
 means a sensitive access finding was denied, and `2` means the scanner could
 not be trusted (missing Semgrep, timeout, malformed output, unsafe path, or
-incomplete coverage). ScopeLock stores only normalized finding metadata and
+incomplete coverage). MindTheDiff stores only normalized finding metadata and
 never persists Semgrep output or source snippets.
 
 Every task command is regenerated through the selected shell-free harness
@@ -321,16 +328,16 @@ agent, or bypass `run --yes --isolate`.
 ### Agent prompt capability context
 
 `renderAgentPrompt` describes only the capabilities available to the caller
-that composed the command; ScopeLock does not detect capabilities at runtime.
+that composed the command; MindTheDiff does not detect capabilities at runtime.
 Two contexts exist:
 
 - **Interactive** (`export-prompt`, `inject-contract`, and any other public
   caller that omits a context) — the default, kept for compatibility. The
-  prompt asks the agent to run required tests and call the ScopeLock MCP
+  prompt asks the agent to run required tests and call the MindTheDiff MCP
   `check_drift` tool only `if available`, with an explicit CLI handoff
-  (`scopelock check-drift`) when it is not.
+  (`mindthediff check-drift`) when it is not.
 - **Restricted runner** (`plan fill-commands`, used by `plan prepare`) — the
-  composed command is dispatched non-interactively by `scopelock run`, which
+  composed command is dispatched non-interactively by `mindthediff run`, which
   already owns authoritative repository validation and the final scope/drift
   check once the command finishes. This prompt never asks the agent to search
   for MCP or `check_drift`, and never claims the agent executed tests itself;
@@ -343,7 +350,7 @@ that an agent completed the natural-language task.
 
 ## Plan execution and receipts
 
-`scopelock run <plan.json>` is a thin dispatcher, not a generic agent
+`mindthediff run <plan.json>` is a thin dispatcher, not a generic agent
 runtime. Plans containing commands require `--yes`; string shell commands also
 require `--allow-shell`.
 
@@ -368,9 +375,9 @@ with an inline reason underneath.
 Compose agent commands into a separate reviewable plan before dispatch:
 
 ```bash
-scopelock hooks install --target claude --mode strict
-scopelock plan compose plan.json --target claude --out enriched-plan.json
-scopelock run enriched-plan.json --yes --isolate --receipt receipt.json
+mindthediff hooks install --target claude --mode strict
+mindthediff plan compose plan.json --target claude --out enriched-plan.json
+mindthediff run enriched-plan.json --yes --isolate --receipt receipt.json
 ```
 
 Generated agent tasks are marked `expectsChanges: true`, and their plan is
@@ -378,12 +385,12 @@ bound to isolated execution. Exit 0 without a Git diff is recorded as
 `rejected-no-changes`, not PASS. Manual plans without that expectation may
 still contain legitimate non-mutating tasks and may run directly.
 
-Each task runs in its own detached Git worktree. ScopeLock accepts only a
+Each task runs in its own detached Git worktree. MindTheDiff accepts only a
 whole task patch whose paths match that task's contract, carries accepted
 changes into later execution steps, and applies one aggregate patch to the
 user working tree at the end. Every safe scheduler step runs, including both
 sides of a write-write conflict in their computed order. Before promotion,
-ScopeLock runs the ready plan's repository validation command against the
+MindTheDiff runs the ready plan's repository validation command against the
 combined candidate. A failure or timeout blocks the whole promotion. The user
 repository must be clean and remain at the same `HEAD`; otherwise dispatch or
 final promotion fails closed.
@@ -416,7 +423,7 @@ the relative value, not the temporary candidate-worktree path.
 For Node repositories with an existing checkout-local `node_modules`, final
 validation temporarily exposes that same toolchain inside the candidate
 worktree and prepends its `.bin` directory to `PATH`. Agents never see this
-link, ScopeLock does not install dependencies, and the link is removed in
+link, MindTheDiff does not install dependencies, and the link is removed in
 `finally` before promotion. The borrowed paths are recorded in receipt v6.
 When `package.json` declares a `prepare` script, `plan prepare` also binds the
 reviewable `npm run prepare` argv as `execution.validation.setup`; its result
@@ -432,7 +439,7 @@ receipt v4/v5 files.
 The first release limits a run to 32 tasks and each task/aggregate patch to 50
 MiB.
 Gitlinks and symlinks are rejected. A signal interrupts children, blocks final
-promotion, and runs worktree cleanup. ScopeLock supervises the complete child
+promotion, and runs worktree cleanup. MindTheDiff supervises the complete child
 process tree: timeout, `SIGINT`, and `SIGTERM` share one termination path, and
 the receipt records termination reason, requested signal, escalation, and
 platform when a task is interrupted. Windows uses PID-only `taskkill /T /F`;
@@ -454,15 +461,15 @@ All generated agent commands require isolated execution; Cursor also keeps its
 native sandbox enabled:
 
 ```bash
-scopelock plan compose plan.json --target cursor --out cursor-plan.json
-scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
+mindthediff plan compose plan.json --target cursor --out cursor-plan.json
+mindthediff run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
 `plan compose` writes
 `execution.isolation = "required"`. Running that file without `--isolate`
 fails with `PLAN_REQUIRES_ISOLATION`; `--yes` and `--allow-shell` cannot bypass
 the requirement. For Cursor, the generated argv keeps its sandbox enabled.
-ScopeLock still treats Cursor hooks as audit-only: the worktree patch gate,
+MindTheDiff still treats Cursor hooks as audit-only: the worktree patch gate,
 rather than a claimed pre-write deny, is the final enforcement boundary.
 
 Other `run` options:
@@ -484,7 +491,7 @@ worktree is created or any agent starts. If the working tree has changes,
 `run` fails with `ISOLATION_REQUIRES_CLEAN_REPO` and lists up to 10 changed
 repo-relative paths (with a `+N more` count when truncated), then offers
 exactly three safe choices: review and commit the intended files, run from a
-disposable clean clone, or abort. ScopeLock never commits, stashes, cleans, or
+disposable clean clone, or abort. MindTheDiff never commits, stashes, cleans, or
 deletes files on your behalf, before or after this failure.
 
 Receipts contain bounded, best-effort redacted previews by default. Raw
@@ -523,13 +530,13 @@ carries prose descriptions, since those now live inline with each row.
 
 ## Repository manifest
 
-`scopelock manifest` uses `git ls-files` and emits paths and metadata only:
+`mindthediff manifest` uses `git ls-files` and emits paths and metadata only:
 tracked files, detected project types, package managers, test paths, and risky
 paths. It does not read or send source contents.
 
 ## MCP server
 
-ScopeLock includes a narrow stdio MCP server with three tools:
+MindTheDiff includes a narrow stdio MCP server with three tools:
 
 | Tool | What it does |
 |---|---|
@@ -549,7 +556,7 @@ Claude Code and Cursor-style configuration:
 ```json
 {
   "mcpServers": {
-    "scopelock": {
+    "mindthediff": {
       "command": "node",
       "args": ["/absolute/path/to/ScopeLock/packages/mcp/dist/index.js"]
     }
@@ -560,17 +567,21 @@ Claude Code and Cursor-style configuration:
 Codex configuration:
 
 ```toml
-[mcp_servers.scopelock]
+[mcp_servers.mindthediff]
 command = "node"
 args = ["/absolute/path/to/ScopeLock/packages/mcp/dist/index.js"]
 ```
+
+Existing configurations using `[mcp_servers.scopelock]` continue to work. For a
+registry install, use the canonical `mindthediff-mcp` bin; `scopelock-mcp` is
+kept as its compatibility alias.
 
 The server is pinned to the repository where it starts. Tool inputs cannot
 override `repoRoot`; absolute and escaping contract paths are rejected.
 
 ## Local hook commands
 
-Hooks call `scopelock` from `PATH` by default. During source development,
+Hooks call `mindthediff` from `PATH` by default. During source development,
 `hooks install --local` writes an absolute Node invocation instead. That path is
 machine-specific, so do not commit the local form to a shared repository.
 
@@ -598,7 +609,7 @@ pnpm release:evidence -- --smoke-dir .release-artifacts
 requires a package README, license, manifest, and runtime entrypoint. It writes
 SHA-256 digests and file counts to `.release-artifacts/pack-manifest.json`.
 `release:smoke` installs all three locally packed tarballs into a clean
-temporary project, imports core, starts the CLI, runs `scopelock init`, and
+temporary project, imports core, starts the CLI, runs `mindthediff init`, and
 completes an MCP initialize handshake.
 
 The `release-readiness` workflow repeats that install on Linux, macOS, and

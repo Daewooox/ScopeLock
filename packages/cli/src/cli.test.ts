@@ -63,8 +63,8 @@ describe("hook protocol", () => {
       assert.equal(plain.stdout, "");
       assert.equal(
         plain.stderr,
-        "ScopeLock: changed outside approved scope: outside.txt\n"
-          + "DENIED [HOOK_OUTSIDE_SCOPE]: ScopeLock: changed outside approved scope: outside.txt\n"
+        "MindTheDiff: changed outside approved scope: outside.txt\n"
+          + "DENIED [HOOK_OUTSIDE_SCOPE]: MindTheDiff: changed outside approved scope: outside.txt\n"
           + "Fix: Revert the out-of-scope change or obtain an approved contract.\n",
       );
 
@@ -76,7 +76,7 @@ describe("hook protocol", () => {
           hookSpecificOutput: {
             hookEventName: "PreToolUse",
             permissionDecision: "deny",
-            permissionDecisionReason: "ScopeLock: changed outside approved scope: outside.txt",
+            permissionDecisionReason: "MindTheDiff: changed outside approved scope: outside.txt",
           },
         })}\n`,
       );
@@ -86,7 +86,7 @@ describe("hook protocol", () => {
           decision: {
             status: "denied",
             code: "HOOK_OUTSIDE_SCOPE",
-            reason: "ScopeLock: changed outside approved scope: outside.txt",
+            reason: "MindTheDiff: changed outside approved scope: outside.txt",
             fix: "Revert the out-of-scope change or obtain an approved contract.",
           },
         })}\n`,
@@ -171,7 +171,7 @@ describe("public command language", () => {
     );
     assert.match(
       help.stdout,
-      /Quick start:\n  scopelock setup\n  scopelock task start --help\n  scopelock task finish --help/,
+      /Quick start:\n  mindthediff setup\n  mindthediff task start --help\n  mindthediff task finish --help/,
     );
     assert.ok(
       help.stdout.trimEnd().split("\n").every((line) => line.length <= 80),
@@ -263,7 +263,7 @@ describe("public command language", () => {
       assert.equal(result.status, 2);
       const error = JSON.parse(result.stdout).error;
       assert.equal(error.code, "TASK_APPROVAL_REQUIRED");
-      assert.match(error.message, /scopelock contract approve/);
+      assert.match(error.message, /mindthediff contract approve/);
       assert.equal(await readFile(join(scopelockPaths(dir).draftsDir, "review-first.json"), "utf8").then(Boolean), true);
       await assert.rejects(readFile(scopelockPaths(dir).activePath, "utf8"));
     } finally {
@@ -550,7 +550,7 @@ describe("guided task start", () => {
       assert.equal(result.exitCode, 0);
       assert.match(result.human ?? "", /Agent started  no/);
       assert.match(result.human ?? "", /Tests executed no/);
-      assert.match(result.human ?? "", /scopelock task finish/);
+      assert.match(result.human ?? "", /mindthediff task finish/);
       const approved = approvedContractSchema.parse(JSON.parse(
         await readFile(join(scopelockPaths(dir).contractsDir, "bounded-task.json"), "utf8"),
       ));
@@ -796,7 +796,7 @@ describe("guided task start", () => {
       });
       await writeFile(contractPath, `${JSON.stringify(stale, null, 2)}\n`);
       await writeApprovalSeal(dir, stale);
-      await assert.rejects(taskFinishCommand({ cwd: dir }), /run `scopelock contract rebaseline`/);
+      await assert.rejects(taskFinishCommand({ cwd: dir }), /run `mindthediff contract rebaseline`/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -1882,7 +1882,7 @@ describe("plan fill-commands", () => {
       const enriched = JSON.parse(await readFile(join(dir, "enriched.json"), "utf8"));
       assert.deepEqual(enriched.tasks[0].command.slice(0, 2), ["codex", "exec"]);
       assert.deepEqual(enriched.tasks[0].command.slice(2, 4), ["--sandbox", "workspace-write"]);
-      assert.match(enriched.tasks[0].command.at(-1), /# ScopeLock Contract: a/);
+      assert.match(enriched.tasks[0].command.at(-1), /# MindTheDiff Contract: a/);
       assert.equal(enriched.tasks[0].expectsChanges, true);
       assert.deepEqual(enriched.tasks[1].command, ["manual", "b"]);
       assert.equal(enriched.tasks[1].expectsChanges, undefined);
@@ -1962,7 +1962,7 @@ describe("plan fill-commands", () => {
       assert.doesNotMatch(prompt, /check_drift/);
       assert.doesNotMatch(prompt, /MCP/);
       assert.doesNotMatch(prompt, /run the required tests/i);
-      assert.match(prompt, /ScopeLock runner/);
+      assert.match(prompt, /MindTheDiff runner/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -3238,7 +3238,7 @@ describe("run", () => {
       assert.match(human.stdout, /\[wave 1\] a: running\n/);
       assert.match(human.stdout, /\[wave 1\] b: running\n/);
       assert.match(human.stdout, /\[wave 1\] [ab]: passed \([0-9.]+s\)\n/);
-      assert.match(human.stdout, /\nScopeLock flight run: run-demo Configured gates cleared\n/);
+      assert.match(human.stdout, /\nMindTheDiff flight run: run-demo Configured gates cleared\n/);
       assert.doesNotMatch(human.stdout, /\u001b/);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -5730,7 +5730,7 @@ describe("run", () => {
       assert.equal(body.status, "ok");
       assert.equal(body.data.reportPath, reportPath);
       const html = await readFile(reportPath, "utf8");
-      assert.match(html, /ScopeLock Flight Report/);
+      assert.match(html, /MindTheDiff Flight Report/);
       assert.match(html, /x&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
       assert.doesNotMatch(html, /<script>alert/);
     } finally {

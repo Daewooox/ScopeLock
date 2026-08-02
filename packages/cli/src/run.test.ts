@@ -69,7 +69,7 @@ describe("decision envelopes", () => {
       ["config-error", "blocked", "HOOK_CONFIG_ERROR"],
       ["gate-error", "blocked", "HOOK_GATE_ERROR"],
     ]) {
-      const decision = hookDecisionFor(reason, "ScopeLock: denied");
+      const decision = hookDecisionFor(reason, "MindTheDiff: denied");
       assert.equal(decision.status, status);
       assert.equal(decision.code, code);
     }

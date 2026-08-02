@@ -85,7 +85,7 @@ describe("prompt rendering", () => {
     assert.doesNotMatch(prompt, /run the required tests/i);
     // Must state the runner owns authoritative validation/drift after the
     // command finishes.
-    assert.match(prompt, /ScopeLock runner/);
+    assert.match(prompt, /MindTheDiff runner/);
     assert.match(prompt, /(after|once) this command finishes/i);
     assert.match(prompt, /(validation|scope|drift)/i);
     // Still requires approved scope discipline and writing/updating tests.

@@ -20,7 +20,7 @@ import { renderSections } from "../ui.js";
 
 /**
  * Absolute `node "<abs>/index.js"` invocation of this very CLI. Used by
- * `--local` so hooks run before the `scopelock` binary is on PATH. The path
+ * `--local` so hooks run before the `mindthediff` binary is on PATH. The path
  * is quoted because the repo path may contain spaces.
  */
 function localCommandPrefix(): string {
@@ -41,7 +41,7 @@ async function updateMode(root: string, mode: EnforcementMode): Promise<void> {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       throw new CliError(
         "NOT_INITIALIZED",
-        "no .scopelock/config.json found; run `scopelock init` first",
+        "no .scopelock/config.json found; run `mindthediff init` first",
       );
     }
     throw error;
@@ -84,8 +84,8 @@ export async function hooksInstallCommand(options: {
       {
         title: "Next",
         lines: target === "codex"
-          ? "Verify the hook: scopelock hooks verify --target codex"
-          : "Check the environment: scopelock agents preflight --manifest <path>",
+          ? "Verify the hook: mindthediff hooks verify --target codex"
+          : "Check the environment: mindthediff agents preflight --manifest <path>",
       },
     ]),
     exitCode: 0,
@@ -108,8 +108,8 @@ export async function hooksUninstallCommand(options: {
     data: { target, path },
     human: renderSections([
       { title: "Context", lines: `Agent  ${target}` },
-      { title: "Result", lines: `ScopeLock hooks removed  ${path}` },
-      { title: "Next", lines: "Check the environment: scopelock agents preflight --manifest <path>" },
+      { title: "Result", lines: `MindTheDiff hooks removed  ${path}` },
+      { title: "Next", lines: "Check the environment: mindthediff agents preflight --manifest <path>" },
     ]),
     exitCode: 0,
   };
@@ -134,6 +134,6 @@ export async function hooksVerifyCommand(options: {
   void options.timeoutMs;
   throw new CliError(
     "HOOK_VERIFY_UNAVAILABLE",
-    "safe Codex live verification is unavailable: ScopeLock will not disable sandbox/approvals; use config preflight and treat confidence as degraded",
+    "safe Codex live verification is unavailable: MindTheDiff will not disable sandbox/approvals; use config preflight and treat confidence as degraded",
   );
 }

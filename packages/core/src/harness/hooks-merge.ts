@@ -14,8 +14,8 @@ export class HooksFileInvalidError extends Error {
 }
 
 function isOwnEntry(value: unknown): boolean {
-  // Detect entries by the ScopeLock subcommand rather than the "scopelock"
-  // binary name, so `--local` absolute-path invocations
+  // Detect entries by the hook subcommand rather than the binary name, so
+  // `--local` absolute-path invocations
   // (`node "<abs>/index.js" hook gate`) are still recognised on uninstall.
   const serialized = JSON.stringify(value);
   return serialized.includes("hook gate") || serialized.includes("hook audit");

@@ -43,7 +43,7 @@ export async function rebaselineCommand(
   if (id === null) {
     throw new CliError(
       "NO_ACTIVE_CONTRACT",
-      "no contract id given and no active contract; pass `scopelock contract rebaseline <id>`",
+      "no contract id given and no active contract; pass `mindthediff contract rebaseline <id>`",
     );
   }
 
@@ -86,7 +86,7 @@ export async function rebaselineCommand(
     human: renderSections([
       { title: "Context", lines: `Task boundary  ${id}` },
       { title: "Result", lines: [`Baseline updated  ${sha}`, `Contract          ${savedPath}`] },
-      { title: "Next", lines: "Verify current changes: scopelock check-drift" },
+      { title: "Next", lines: "Verify current changes: mindthediff check-drift" },
     ]),
     exitCode: 0,
     suggestedNext: { label: "Verify current changes", argv: ["check-drift"] },

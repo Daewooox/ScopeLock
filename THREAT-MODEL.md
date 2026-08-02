@@ -1,11 +1,11 @@
-# ScopeLock Threat Model
+# MindTheDiff Threat Model
 
-## What ScopeLock Protects
+## What MindTheDiff Protects
 
 - Accidental edits outside an approved contract.
 - Agent edits to forbidden files when a supported pre-write hook is active.
 - Multi-agent write/write and read/write hazards before dispatch.
-- Silent mutation of approved contracts, config, and ScopeLock-owned hook
+- Silent mutation of approved contracts, config, and MindTheDiff-owned hook
   entries through a local approval integrity seal. A seal mismatch always
   denies, regardless of the enforcement mode the (possibly tampered) config
   claims - otherwise an attacker could downgrade `mode` to `warn` as part of
@@ -36,7 +36,7 @@
   finding metadata only; it is a source-level gate, not runtime or OS-level
   secret containment.
 
-## What ScopeLock Does Not Protect
+## What MindTheDiff Does Not Protect
 
 - A malicious same-user shell process with full filesystem access.
 - Absolute-path writes outside a task worktree. Worktree isolation is a
@@ -56,12 +56,12 @@
 
 ## Trust Boundaries
 
-- `plan.json` is executable code when it contains commands. `scopelock run`
+- `plan.json` is executable code when it contains commands. `mindthediff run`
   requires `--yes`; shell strings additionally require `--allow-shell`.
   `--yes` means the operator trusts the plan's author: every task and
   validation command runs with the invoking user's full privileges and, by
   default, the full inherited process environment (every variable visible to
-  the ScopeLock CLI itself, including any credentials in it) - not a reduced
+  the MindTheDiff CLI itself, including any credentials in it) - not a reduced
   or sandboxed environment. Run untrusted plans only from an already-clean
   shell environment.
 - `run --isolate` claims `workspace-gated`, never OS-sandboxed. It requires a
@@ -103,18 +103,18 @@
   numeric PID-only `taskkill /T /F` invocation and does not claim equivalent
   process-group observability.
 - Generated Claude Code commands use `dontAsk`, expose only file read/edit
-  tools, deny Bash, and rely on the installed ScopeLock pre-write hook for
+  tools, deny Bash, and rely on the installed MindTheDiff pre-write hook for
   scope enforcement. Without that hook, enforcement is post-run drift only.
   Tests and other shell commands remain separate plan tasks.
 - Approved contracts are trusted only while their local integrity seal
   matches. The seal protects against accidental drift - an unnoticed edit to
-  a contract, config, or ScopeLock-owned hook entry between approval and use.
+  a contract, config, or MindTheDiff-owned hook entry between approval and use.
   It does not protect against a local attacker who can write to the
   filesystem in the window between a seal check and the run/hook-gate call
   that follows it: that attacker already has the same filesystem access the
   seal itself relies on to detect tampering, and is out of scope (see "A
   malicious same-user shell process with full filesystem access" above).
-- ScopeLock does not push today. Any future path that constructs a `git push`
+- MindTheDiff does not push today. Any future path that constructs a `git push`
   must call `checkPushSafety` against the live remote first and refuse to
   discard unincorporated remote commits without an explicit user override.
   The push must bind atomically to the returned lease snapshot with an explicit
@@ -132,14 +132,13 @@
   also requires `main`, an exact version confirmation, an explicit repository
   enable flag, and `npm-production` environment approval. It stages packages
   for a separate npm 2FA review instead of making them public immediately.
-  The first publication cannot use npm trusted/staged publishing because the
-  packages and `@scopelock` scope do not exist yet and therefore remains a
-  separate manual bootstrap risk, never an automated fallback to a long-lived
-  token.
+  The first publication used a separate manual bootstrap; subsequent beta
+  publication can use the protected OIDC workflow. The `@scopelock` package
+  scope is intentionally retained during the MindTheDiff beta migration.
 
 ## Current Release Decision
 
 Security M0 and the adversarial hardening pass are complete for the current
-local pilot surface. ScopeLock remains pre-1.0 and suitable for informed local
+local pilot surface. MindTheDiff remains pre-1.0 and suitable for informed local
 pilots whose users understand that it is a guardrail, not a sandbox. Public
 npm distribution has separate packaging and release gates.

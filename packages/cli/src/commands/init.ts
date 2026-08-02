@@ -51,9 +51,9 @@ export async function initCommand(cwd: string = process.cwd()): Promise<CommandR
         { title: "Context", lines: `Repository  ${root}` },
         {
           title: "Result",
-          lines: `ScopeLock already initialized\nFiles  ${paths.dir}${gitignoreUpdated ? "\nLocal draft ignore  updated" : ""}`,
+          lines: `MindTheDiff already initialized\nFiles  ${paths.dir}${gitignoreUpdated ? "\nLocal draft ignore  updated" : ""}`,
         },
-        { title: "Next", lines: "Check the setup: scopelock doctor" },
+        { title: "Next", lines: "Check the setup: mindthediff doctor" },
       ]),
       exitCode: 0,
     };
@@ -80,8 +80,8 @@ export async function initCommand(cwd: string = process.cwd()): Promise<CommandR
         title: "Checks",
         lines: inRepo ? "Git repository  ready" : "Git repository  not found; drift checks need Git",
       },
-      { title: "Result", lines: `ScopeLock initialized\nFiles  ${paths.dir}` },
-      { title: "Next", lines: "Check the setup: scopelock doctor" },
+      { title: "Result", lines: `MindTheDiff initialized\nFiles  ${paths.dir}` },
+        { title: "Next", lines: "Check the setup: mindthediff doctor" },
     ]),
     exitCode: 0,
   };

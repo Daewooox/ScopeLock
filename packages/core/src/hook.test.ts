@@ -264,6 +264,7 @@ describe("hook config merge", () => {
     const removed = removeClaudeHooks(reinstalled);
 
     assert.equal(hasScopeLockHooks(installed, "claude"), true);
+    assert.match(JSON.stringify(installed), /mindthediff hook gate/);
     assert.deepEqual(installed, reinstalled);
     assert.deepEqual((removed.hooks as { PreToolUse: unknown[] }).PreToolUse, [foreign]);
   });
@@ -277,6 +278,7 @@ describe("hook config merge", () => {
     const removed = removeCursorHooks(reinstalled);
 
     assert.equal(hasScopeLockHooks(installed, "cursor"), true);
+    assert.match(JSON.stringify(installed), /mindthediff hook audit/);
     assert.deepEqual(installed, reinstalled);
     assert.deepEqual(removed.afterFileEdit, [foreign]);
   });
@@ -290,6 +292,7 @@ describe("hook config merge", () => {
     const removed = removeCodexHooks(reinstalled);
 
     assert.equal(hasScopeLockHooks(installed, "codex"), true);
+    assert.match(JSON.stringify(installed), /mindthediff hook gate/);
     assert.deepEqual(installed, reinstalled);
     assert.deepEqual((removed.hooks as { PreToolUse: unknown[] }).PreToolUse, [foreign]);
   });

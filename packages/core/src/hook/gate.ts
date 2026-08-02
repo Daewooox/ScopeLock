@@ -188,14 +188,14 @@ export async function evaluateHookGate(input: {
       decision: "deny",
       reason: "config-error",
       path: null,
-      message: "ScopeLock: configuration is invalid; refusing mutation",
+      message: "MindTheDiff: configuration is invalid; refusing mutation",
     };
   }
 
   const rawPaths = pathsFromInput(input.rawInput);
   if (rawPaths.length === 0) {
     return mode === "strict"
-      ? { decision: "deny", reason: "invalid-input", path: null, message: "ScopeLock: invalid hook input; refusing mutation" }
+      ? { decision: "deny", reason: "invalid-input", path: null, message: "MindTheDiff: invalid hook input; refusing mutation" }
       : { decision: "noop", reason: "invalid-input", path: null, message: null };
   }
 
@@ -207,7 +207,7 @@ export async function evaluateHookGate(input: {
             decision: "deny",
             reason: "no-active-contract",
             path: rawPaths[0] ?? null,
-            message: "ScopeLock: strict mode has no active approved contract",
+            message: "MindTheDiff: strict mode has no active approved contract",
           }
         : { decision: "noop", reason: "no-active-contract", path: rawPaths[0] ?? null, message: null };
     }
@@ -233,19 +233,19 @@ export async function evaluateHookGate(input: {
         decision: "deny",
         reason: "approval-integrity",
         path: rawPaths[0] ?? null,
-        message: `ScopeLock: ${seal.detail}; refusing mutation`,
+        message: `MindTheDiff: ${seal.detail}; refusing mutation`,
       };
     }
     for (const rawPath of rawPaths) {
       const path = relativeHookPath(root, rawPath);
       if (isSelfProtected(path)) {
-        const message = `ScopeLock: protected guardrail path changed: ${path}`;
+        const message = `MindTheDiff: protected guardrail path changed: ${path}`;
         if (mode === "strict") return { decision: "deny", reason: "self-protected", path, message };
         await appendAudit(paths, { ts: input.now ?? new Date().toISOString(), path, verdict: "warn", reason: "self-protected" });
         return { decision: "warn", reason: "self-protected", path, message };
       }
       if (await escapesThroughSymlink(root, path)) {
-        const message = `ScopeLock: path escapes repository through a symlink: ${path}`;
+        const message = `MindTheDiff: path escapes repository through a symlink: ${path}`;
         if (mode === "strict") return { decision: "deny", reason: "symlink-escape", path, message };
         await appendAudit(paths, { ts: input.now ?? new Date().toISOString(), path, verdict: "warn", reason: "symlink-escape" });
         return { decision: "warn", reason: "symlink-escape", path, message };
@@ -255,8 +255,8 @@ export async function evaluateHookGate(input: {
 
       const message =
         verdict === "forbidden"
-          ? `ScopeLock: forbidden path changed: ${path}`
-          : `ScopeLock: changed outside approved scope: ${path}`;
+          ? `MindTheDiff: forbidden path changed: ${path}`
+          : `MindTheDiff: changed outside approved scope: ${path}`;
 
       if (mode === "strict") {
         return { decision: "deny", reason: verdict, path, message };
@@ -282,7 +282,7 @@ export async function evaluateHookGate(input: {
           decision: "deny",
           reason: "gate-error",
           path: rawPaths[0] ?? null,
-          message: "ScopeLock: guardrail integrity check failed; refusing mutation",
+          message: "MindTheDiff: guardrail integrity check failed; refusing mutation",
         }
       : { decision: "noop", reason: "gate-error", path: rawPaths[0] ?? null, message: null };
   }

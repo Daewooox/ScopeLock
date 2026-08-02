@@ -1,6 +1,6 @@
 # Beta quick start
 
-ScopeLock is an engineering beta for developers who use AI coding agents. It
+MindTheDiff is an engineering beta for developers who use AI coding agents. It
 adds reviewable task boundaries, conflict-aware multi-agent plans, isolated
 execution, drift checks, and local evidence. It is not an OS sandbox.
 
@@ -15,7 +15,7 @@ execution, drift checks, and local evidence. It is not an OS sandbox.
 
 ```bash
 npm install --global @scopelock/cli@beta
-scopelock --help
+mindthediff --help
 ```
 
 ### Install a verified tarball bundle (offline, or a pinned CI artifact)
@@ -29,7 +29,7 @@ npm install --global --ignore-scripts --no-audit --no-fund \
   ./scopelock-cli-0.1.0-beta.3.tgz \
   ./scopelock-mcp-0.1.0-beta.3.tgz
 
-scopelock --help
+mindthediff --help
 ```
 
 Do not mix tarballs from different runs. Their filenames and SHA-256 values
@@ -59,7 +59,7 @@ If `corepack` is unavailable, install `pnpm@10` globally with npm.
 Run these commands from the repository where the agent will work:
 
 ```bash
-scopelock setup
+mindthediff setup
 ```
 
 `setup`'s own "Next" hint points at `contract new`, the lower-level Standard
@@ -67,7 +67,7 @@ command - for one protected task, skip it and continue with `task start`
 below instead.
 
 ```bash
-scopelock task start "Add retry handling" \
+mindthediff task start "Add retry handling" \
   --agent claude \
   --allow src/network \
   --allow tests/network \
@@ -80,14 +80,14 @@ Run non-interactively - piped, scripted, or without a TTY, as above - it
 instead saves the draft and exits with the exact command to approve it:
 
 ```bash
-scopelock contract approve .scopelock/drafts/add-retry-handling-<date>.json
+mindthediff contract approve .scopelock/drafts/add-retry-handling-<date>.json
 ```
 
-Review the draft before approving it. ScopeLock does not start the agent. Let
+Review the draft before approving it. MindTheDiff does not start the agent. Let
 your agent do the task, run the relevant project tests, then verify the result:
 
 ```bash
-scopelock task finish --open
+mindthediff task finish --open
 ```
 
 The Flight Report separates allowed changes, blocked changes, and changes
@@ -115,16 +115,16 @@ See [Coordinating parallel agents](parallel-workflow.md) for scheduling, read
 hazards, and a full multi-task walkthrough. Once `plan.json` is ready:
 
 ```bash
-scopelock plan prepare plan.json --target claude --out ready-plan.json
+mindthediff plan prepare plan.json --target claude --out ready-plan.json
 ```
 
-Inspect `ready-plan.json` before execution. ScopeLock detects overlapping writes
+Inspect `ready-plan.json` before execution. MindTheDiff detects overlapping writes
 and read dependencies, then puts conflicting tasks into a safe order. To run
 the reviewed plan in temporary Git worktrees:
 
 ```bash
-scopelock run ready-plan.json --yes --isolate --receipt receipt.json
-scopelock report receipt.json --open
+mindthediff run ready-plan.json --yes --isolate --receipt receipt.json
+mindthediff report receipt.json --open
 ```
 
 Promotion is fail-closed: a task is rejected if its patch leaves its contract,
@@ -140,7 +140,7 @@ does not contain arbitrary absolute-path writes by a malicious process.
 `ISOLATION_REQUIRES_CLEAN_REPO`, the message lists your changed paths (up to
 10, with a count for the rest) and you have three safe options: review and
 commit the files you meant to keep, run from a disposable clean clone, or
-abort. ScopeLock will not commit, stash, clean, or delete anything for you.
+abort. MindTheDiff will not commit, stash, clean, or delete anything for you.
 
 ## Send useful feedback
 

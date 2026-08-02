@@ -6,7 +6,7 @@ concurrent agents step on each other: two of them touch the same file, one's
 half-finished edit corrupts the other's context, and you end up debugging a
 merge conflict instead of reviewing two clean diffs.
 
-ScopeLock's scheduler (`scopelock plan schedule`) removes the guesswork: it
+MindTheDiff's scheduler (`mindthediff plan schedule`) removes the guesswork: it
 takes each subtask's approved **scope contract** (the same contract you'd
 use for a single agent) and computes, deterministically and without an LLM,
 which subtasks can safely run at the same time and which must wait. "Safely"
@@ -36,19 +36,19 @@ hazard this example is designed to demonstrate.
 ## Step 1 - scaffold and approve one contract per subtask
 
 ```bash
-scopelock contract new --task "core scheduler tweaks" \
+mindthediff contract new --task "core scheduler tweaks" \
   --id t1-core --planned "packages/core/src/schedule/**" \
   --out t1-core.json
 
-scopelock contract new --task "CLI command tweaks" \
+mindthediff contract new --task "CLI command tweaks" \
   --id t2-cli --planned "packages/cli/src/commands/**" \
   --out t2-cli.json
 
-scopelock contract new --task "docs updates" \
+mindthediff contract new --task "docs updates" \
   --id t3-docs --planned "docs/**" --planned "README.md" \
   --out t3-docs.json
 
-scopelock contract new --task "scheduler tests (reads what t1-core writes)" \
+mindthediff contract new --task "scheduler tests (reads what t1-core writes)" \
   --id t4-tests --planned "packages/core/src/schedule.test.ts" \
   --read "packages/core/src/schedule/**" \
   --out t4-tests.json
@@ -60,10 +60,10 @@ the current git baseline into the contract, so `check-drift` in Step 5 has
 something to diff against):
 
 ```bash
-scopelock contract approve t1-core.json --json
-scopelock contract approve t2-cli.json --json
-scopelock contract approve t3-docs.json --json
-scopelock contract approve t4-tests.json --json
+mindthediff contract approve t1-core.json --json
+mindthediff contract approve t2-cli.json --json
+mindthediff contract approve t3-docs.json --json
+mindthediff contract approve t4-tests.json --json
 ```
 
 Real output for the first approve:
@@ -102,7 +102,7 @@ F1). It ignores read scopes entirely unless you pass
 `--include-read-hazards` (mode F2):
 
 ```bash
-scopelock plan schedule plan.json
+mindthediff plan schedule plan.json
 ```
 
 Real output:
@@ -121,7 +121,7 @@ Result
   Plan can be composed
 
 Next
-  Compose agent commands: scopelock plan compose "plan.json" --target <agent> --out ready-plan.json
+  Compose agent commands: mindthediff plan compose "plan.json" --target <agent> --out ready-plan.json
 ```
 
 All four subtasks have disjoint *write* scopes, so F1 puts all of them in
@@ -130,7 +130,7 @@ one execution stage - it has no notion of `t4-tests` reading from
 Now the same plan with read hazards turned on:
 
 ```bash
-scopelock plan schedule plan.json --include-read-hazards
+mindthediff plan schedule plan.json --include-read-hazards
 ```
 
 Real output:
@@ -152,7 +152,7 @@ Result
   Plan can be composed
 
 Next
-  Compose agent commands: scopelock plan compose "plan.json" --target <agent> --out ready-plan.json
+  Compose agent commands: mindthediff plan compose "plan.json" --target <agent> --out ready-plan.json
 ```
 
 And the `--json` form (this is what you'd script against):
@@ -192,7 +192,7 @@ read-write cycle. Built the same way as above (`t5-cycle-a` writes
 `src/a.ts` and reads `src/b.ts`; `t5-cycle-b` is the mirror image):
 
 ```bash
-scopelock plan schedule cycle-plan.json --include-read-hazards
+mindthediff plan schedule cycle-plan.json --include-read-hazards
 ```
 
 Real output:
@@ -259,9 +259,9 @@ environment checks, and shell-free command generation into one explicit compile
 step. It writes a separate plan for review and leaves the original unchanged:
 
 ```bash
-scopelock plan prepare plan.json --target codex --out ready-plan.json
-scopelock run ready-plan.json --yes --isolate --receipt receipt.json
-scopelock report receipt.json --open
+mindthediff plan prepare plan.json --target codex --out ready-plan.json
+mindthediff run ready-plan.json --yes --isolate --receipt receipt.json
+mindthediff report receipt.json --open
 ```
 
 `plan prepare` includes read hazards by default, so the writer/reader dependency
@@ -291,7 +291,7 @@ Checks
       ↳ overlapping scope was reordered into separate stages
   Codex CLI                               PASS    found
   Hook confidence                         WARN    degraded
-      ↳ project trust is not statically verifiable; run `scopelock hooks verify --target codex`
+      ↳ project trust is not statically verifiable; run `mindthediff hooks verify --target codex`
   Rules and skills                        WARN    not configured
       ↳ no manifest supplied
   Agent commands                          PASS    2 composed
@@ -302,16 +302,16 @@ Result
   No agent was started
 
 Next
-  Review the file, then run: scopelock run "./ready-plan.json" --yes --isolate
+  Review the file, then run: mindthediff run "./ready-plan.json" --yes --isolate
 ```
 
-The prepared plan also contains the exact repository validation argv. ScopeLock
+The prepared plan also contains the exact repository validation argv. MindTheDiff
 auto-detects common JavaScript `check`/`test` scripts, `swift test`, `cargo
 test`, and `go test ./...`. If the repository has a different canonical gate,
 declare it explicitly and review it in the generated JSON:
 
 ```bash
-scopelock plan prepare plan.json \
+mindthediff plan prepare plan.json \
   --target codex \
   --out ready-plan.json \
   --validation-check typecheck npm run check \
@@ -333,7 +333,7 @@ profile during preparation. Semgrep must already be installed; preparation
 fails before writing the ready plan when it is unavailable:
 
 ```bash
-scopelock plan prepare plan.json \
+mindthediff plan prepare plan.json \
   --target codex \
   --security-profile sensitive-local-files \
   --out ready-plan.json
@@ -350,22 +350,22 @@ does not provide runtime or operating-system containment.
 The lower-level primitives remain useful for diagnosis or custom automation:
 
 ```bash
-scopelock plan schedule plan.json --include-read-hazards
-scopelock plan compose plan.json --target codex --out ready-plan.json
+mindthediff plan schedule plan.json --include-read-hazards
+mindthediff plan compose plan.json --target codex --out ready-plan.json
 ```
 
-ScopeLock creates one temporary task worktree per runnable task. Accepted
+MindTheDiff creates one temporary task worktree per runnable task. Accepted
 patches are staged in an integration worktree at the end of each execution
 step, so later tasks see earlier accepted output. Forbidden, outside-scope,
 symlink, gitlink, oversized, conflicting, or failed task results are not
 staged. All acyclic scheduler steps run; write-write conflicts are serialized,
-not silently skipped. ScopeLock then runs the declared repository validation
+not silently skipped. MindTheDiff then runs the declared repository validation
 against the combined candidate while its own `.scopelock/` control directory
 is temporarily hidden. Only a passing candidate may become one aggregate patch
 in the user tree. The control directory is restored in `finally`, and the
 validation results and their structured skip reasons are recorded in receipt v6.
 
-If the source checkout already has `node_modules`, ScopeLock reuses it only for
+If the source checkout already has `node_modules`, MindTheDiff reuses it only for
 this final validation: an ephemeral candidate link plus the checkout's
 `node_modules/.bin` on `PATH`. No install command runs, agents do not receive
 the link, cleanup is fail-closed, and receipt v6 records the borrowed paths.
@@ -382,13 +382,13 @@ argv explicitly selects `workspace-write` without any sandbox bypass flag.
 Cursor uses the same required worktree gate and also retains its native sandbox:
 
 ```bash
-scopelock plan prepare plan.json --target cursor --out cursor-plan.json
-scopelock run cursor-plan.json --yes --isolate --receipt receipt.json
+mindthediff plan prepare plan.json --target cursor --out cursor-plan.json
+mindthediff run cursor-plan.json --yes --isolate --receipt receipt.json
 ```
 
 Every generated file contains `execution.isolation = "required"`, so a later
 direct run is rejected before any agent starts. Cursor keeps its native
-sandbox enabled, while ScopeLock validates the complete worktree patch before
+sandbox enabled, while MindTheDiff validates the complete worktree patch before
 promotion. An isolated mutating plan without `execution.validation.checks` (or
 the compatible legacy `execution.validation.command`) is rejected before
 dispatch. Existing explicit commands are preserved, but the
@@ -404,7 +404,7 @@ When the project under test is in a repository subdirectory, keep the commands
 shell-free and bind their working directory explicitly:
 
 ```bash
-scopelock plan prepare plan.json \
+mindthediff plan prepare plan.json \
   --target claude \
   --out ready-plan.json \
   --validation-cwd app \
@@ -412,11 +412,11 @@ scopelock plan prepare plan.json \
   --validation-check flutter-test flutter test \
   --acceptance-check flutter-test
 
-scopelock run ready-plan.json --yes --isolate --receipt receipt.json
+mindthediff run ready-plan.json --yes --isolate --receipt receipt.json
 ```
 
 The reviewed `execution.validation.cwd` applies to setup and validation only;
-agent task commands still start at their isolated repository root. ScopeLock
+agent task commands still start at their isolated repository root. MindTheDiff
 checks the source path before dispatch and runs the two validation phases from
 the corresponding directory in the aggregate candidate worktree.
 
@@ -433,7 +433,7 @@ stayed in scope. In a scratch repo, approving `t1-core` and then simulating
 an agent's work:
 
 ```bash
-scopelock check-drift --json
+mindthediff check-drift --json
 ```
 
 Clean run, no changes yet:
@@ -473,7 +473,7 @@ checks that no two agents write the same file in one stage.
 
 Just as important: every witness path `plan schedule` reports is verified
 against **`picomatch`** - the exact same glob matcher the runtime hook gate
-(`scopelock hook gate`, wired into Claude Code's `PreToolUse` / Cursor's
+(`mindthediff hook gate`, wired into Claude Code's `PreToolUse` / Cursor's
 `afterFileEdit`) uses to allow or deny a live edit. There's no separate
 "scheduler dialect" of globs that could disagree with what actually gets
 enforced at runtime - if the scheduler says two globs intersect at path X,

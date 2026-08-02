@@ -96,21 +96,21 @@ async function checkDriftMultiContract(
       .join(", ");
     throw new CliError(
       "CONTRACT_BASELINE_MISMATCH",
-      `contracts do not share a baseline (${pairs}); run \`scopelock contract rebaseline\` to re-anchor them to the same commit`,
+      `contracts do not share a baseline (${pairs}); run \`mindthediff contract rebaseline\` to re-anchor them to the same commit`,
     );
   }
   const baselineSha = base ?? contracts[0].baseline?.headSha ?? null;
   if (baselineSha === null) {
     throw new CliError(
       "NO_BASELINE",
-      "active contracts have no baseline; approve them with `scopelock contract approve <file>`",
+      "active contracts have no baseline; approve them with `mindthediff contract approve <file>`",
     );
   }
 
   if (!commitExists(root, baselineSha)) {
     throw new CliError(
       "BASELINE_NOT_FOUND",
-      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock contract rebaseline\` to re-anchor it to the current commit`,
+      `baseline commit ${baselineSha} not found (history rewritten?); run \`mindthediff contract rebaseline\` to re-anchor it to the current commit`,
     );
   }
 
@@ -162,7 +162,7 @@ export async function checkDriftCommand(options: {
   if (activeId === null) {
     throw new CliError(
       "NO_ACTIVE_CONTRACT",
-      "no active approved contract; approve one with `scopelock contract approve <file>`",
+      "no active approved contract; approve one with `mindthediff contract approve <file>`",
     );
   }
 
@@ -175,7 +175,7 @@ export async function checkDriftCommand(options: {
   if (baselineSha === null) {
     throw new CliError(
       "NO_BASELINE",
-      "active contract has no baseline; approve it with `scopelock contract approve <file>`",
+      "active contract has no baseline; approve it with `mindthediff contract approve <file>`",
     );
   }
 
@@ -185,7 +185,7 @@ export async function checkDriftCommand(options: {
   if (!commitExists(root, baselineSha)) {
     throw new CliError(
       "BASELINE_NOT_FOUND",
-      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock contract rebaseline\` to re-anchor it to the current commit`,
+      `baseline commit ${baselineSha} not found (history rewritten?); run \`mindthediff contract rebaseline\` to re-anchor it to the current commit`,
     );
   }
 

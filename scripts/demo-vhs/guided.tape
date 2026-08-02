@@ -14,7 +14,7 @@ Sleep 2s
 Ctrl+L
 Show
 
-Type `scopelock task start "Add a dark mode toggle" --agent codex --allow src --block .env --context src --test unit --yes`
+Type `mindthediff task start "Add a dark mode toggle" --agent codex --allow src --block .env --context src --test unit --yes`
 Enter
 Sleep 1.5s
 Enter
@@ -27,6 +27,6 @@ Sleep 1s
 Ctrl+L
 Show
 
-Type `scopelock task finish`
+Type `mindthediff task finish`
 Enter
 Sleep 2s

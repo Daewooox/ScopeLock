@@ -37,7 +37,7 @@ function collect(value: string, previous: string[]): string[] {
 const program = new Command();
 
 program
-  .name("scopelock")
+  .name("mindthediff")
   .description("Local flight control for AI coding agents")
   .option("--json", "print machine-readable JSON");
 
@@ -70,9 +70,9 @@ program.addHelpText(
   [
     "",
     "Quick start:",
-    "  scopelock setup",
-    "  scopelock task start --help",
-    "  scopelock task finish --help",
+    "  mindthediff setup",
+    "  mindthediff task start --help",
+    "  mindthediff task finish --help",
   ].join("\n"),
 );
 
@@ -109,7 +109,7 @@ program
   .helpGroup("Start here:")
   .description("prepare this repository and check agent protection")
   .option("--target <id>", "agent target: claude, codex, cursor (repeatable)", collect, [])
-  .option("--install-hooks", "install missing ScopeLock hooks after confirmation")
+  .option("--install-hooks", "install missing MindTheDiff hooks after confirmation")
   .option("--yes", "confirm the reviewed hook installation without prompting")
   .option("--mode <mode>", "hook mode: warn or strict", "warn")
   .option("--local", "use this local CLI path in installed hooks")
@@ -146,14 +146,14 @@ program
 program
   .command("init")
   .helpGroup("Start here:")
-  .description("initialize ScopeLock in this repository")
+  .description("initialize MindTheDiff in this repository")
   .option("--json", "print machine-readable JSON")
   .action((_options, command: Command) => run(initCommand, jsonOf(command)));
 
 program
   .command("doctor")
   .helpGroup("Start here:")
-  .description("diagnose the local ScopeLock setup")
+  .description("diagnose the local MindTheDiff setup")
   .option("--json", "print machine-readable JSON")
   .action((_options, command: Command) => run(doctorCommand, jsonOf(command)));
 
@@ -478,7 +478,7 @@ program
         }
         const selectedPlan = planPath ?? options.plan;
         if (selectedPlan === undefined) {
-          throw new CliError("PLAN_REQUIRED", "pass a plan path: scopelock run <plan.json>");
+          throw new CliError("PLAN_REQUIRED", "pass a plan path: mindthediff run <plan.json>");
         }
         const reporter = createReporter(process.stdout, json);
         return runPlanCommand({ ...options, plan: selectedPlan, reporter });
@@ -490,7 +490,7 @@ program
   .command("report")
   .helpGroup("Inspect:")
   .description("render standalone HTML from a run receipt or drift report")
-  .argument("<report>", "path to a ScopeLock receipt or drift JSON")
+  .argument("<report>", "path to a MindTheDiff receipt or drift JSON")
   .option("--out <path>", "write HTML report to this path")
   .option("--open", "open the generated report in the default browser")
   .option("--json", "print machine-readable JSON")
@@ -538,7 +538,7 @@ hooks
   .option("--mode <mode>", "warn or strict", "warn")
   .option(
     "--local",
-    "write an absolute node invocation instead of the scopelock PATH binary",
+    "write an absolute node invocation instead of the mindthediff PATH binary",
   )
   .option("--json", "print machine-readable JSON")
   .action(

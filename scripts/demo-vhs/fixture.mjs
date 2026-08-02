@@ -12,7 +12,7 @@ export function initFixtureRepo() {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scopelock-demo-vhs-")));
   spawnSync("git", ["init", "-q"], { cwd: dir });
   spawnSync("git", ["config", "user.email", "demo@example.com"], { cwd: dir });
-  spawnSync("git", ["config", "user.name", "ScopeLock Demo"], { cwd: dir });
+  spawnSync("git", ["config", "user.name", "MindTheDiff Demo"], { cwd: dir });
   spawnSync("git", ["commit", "--allow-empty", "-qm", "init"], { cwd: dir });
   return dir;
 }
@@ -35,7 +35,7 @@ export function fakeCodexOnPath(dir) {
 export function writeScopelockShim(dir) {
   const bin = join(dir, ".demo-fake-bin");
   mkdirSync(bin, { recursive: true });
-  const executable = join(bin, "scopelock");
+  const executable = join(bin, "mindthediff");
   writeFileSync(executable, `#!/bin/sh\nexec "${process.execPath}" "${cliBinPath}" "$@"\n`);
   chmodSync(executable, 0o755);
 }

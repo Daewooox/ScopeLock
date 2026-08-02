@@ -1,6 +1,6 @@
 # Beta validation and pilot protocol
 
-ScopeLock's progressive CLI is implemented and exercised in cross-platform CI.
+MindTheDiff's progressive CLI is implemented and exercised in cross-platform CI.
 That is engineering evidence, not proof that the interface is beta-stable. This
 protocol records the remaining product evidence without replacing real users or
 repositories with synthetic walkthroughs.
@@ -59,7 +59,7 @@ when those harnesses are available.
 
 For every pilot retain:
 
-1. ScopeLock version and commit SHA.
+1. MindTheDiff version and commit SHA.
 2. OS, Node version, harness, and hook confidence.
 3. Redacted contract shapes and plan task count.
 4. `plan prepare` stages and conflict witnesses.

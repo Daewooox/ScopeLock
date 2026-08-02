@@ -299,7 +299,7 @@ async function planPrepareWithReporter(
       { ...base, preflight: null, outputPath: null },
       checkRows,
       "Plan needs changes; no ready plan was written",
-      `Adjust task boundaries, then run: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)}`,
+      `Adjust task boundaries, then run: mindthediff plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)}`,
       1,
     );
   }
@@ -328,7 +328,7 @@ async function planPrepareWithReporter(
     // under renderStatusTable's 100-char reason truncation limit.
     reason: hook.capabilities.confidence === "degraded"
       ? target === "codex"
-        ? "project trust is not statically verifiable; run `scopelock hooks verify --target codex`"
+        ? "project trust is not statically verifiable; run `mindthediff hooks verify --target codex`"
         : "project trust could not be verified statically"
       : undefined,
   });
@@ -364,8 +364,8 @@ async function planPrepareWithReporter(
       checkRows,
       "Environment needs attention; no ready plan was written",
       !executable.found
-        ? `Install ${HARNESSES[target].label}, then run: scopelock setup --target ${target}`
-        : `Review fixes: scopelock agents preflight --manifest ${JSON.stringify(options.manifest)} --target ${target}`,
+        ? `Install ${HARNESSES[target].label}, then run: mindthediff setup --target ${target}`
+        : `Review fixes: mindthediff agents preflight --manifest ${JSON.stringify(options.manifest)} --target ${target}`,
       1,
     );
   }
@@ -382,7 +382,7 @@ async function planPrepareWithReporter(
       { ...base, preflight, composition, outputPath: null },
       checkRows,
       "Agent commands could not be composed; no ready plan was written",
-      "Review the unsupported tasks, then run: scopelock plan prepare",
+      "Review the unsupported tasks, then run: mindthediff plan prepare",
       1,
     );
   }
@@ -441,7 +441,7 @@ async function planPrepareWithReporter(
       return {
         id: "security-sensitive-local-files",
         command: [
-          "scopelock",
+          "mindthediff",
           "security",
           "scan",
           "--profile",
@@ -471,7 +471,7 @@ async function planPrepareWithReporter(
       { ...base, preflight, composition, outputPath: null },
       checkRows,
       "Validation check is required; no ready plan was written",
-      `Run again with: scopelock plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)} --validation-check <id> <executable> [args...]`,
+      `Run again with: mindthediff plan prepare ${JSON.stringify(planPath)} --target ${target} --out ${JSON.stringify(options.out)} --validation-check <id> <executable> [args...]`,
       1,
     );
   }
@@ -539,7 +539,7 @@ async function planPrepareWithReporter(
     { ...base, preflight, plan: readyPlan, outputPath },
     checkRows,
     `Ready plan written  ${outputPath}\nNo agent was started`,
-    `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes --isolate`,
+    `Review the file, then run: mindthediff run ${JSON.stringify(outputPath)} --yes --isolate`,
     0,
   );
 }

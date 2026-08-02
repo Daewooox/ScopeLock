@@ -1,7 +1,7 @@
 # External mutating tools
 
-ScopeLock can gate an existing CLI that edits repository files in place. The
-tool does not need a ScopeLock plugin: run it as a shell-free argv command in a
+MindTheDiff can gate an existing CLI that edits repository files in place. The
+tool does not need a MindTheDiff plugin: run it as a shell-free argv command in a
 temporary worktree, validate the combined candidate, and promote only a patch
 that stays inside its approved contract.
 
@@ -13,7 +13,7 @@ scanner autofixes, and local AI workers. The example below uses Semgrep.
 First create a narrow contract draft:
 
 ```bash
-scopelock contract new \
+mindthediff contract new \
   --id semgrep-autofix \
   --task "Apply reviewed Semgrep autofixes" \
   --planned "src/**" \
@@ -69,7 +69,7 @@ clean baseline. Approve the contract only after that commit so it captures the
 reviewed baseline:
 
 ```bash
-scopelock contract approve semgrep-contract.json
+mindthediff contract approve semgrep-contract.json
 git add .scopelock/contracts/semgrep-autofix.json
 git commit -m "chore: approve Semgrep autofix scope"
 ```
@@ -77,15 +77,15 @@ git commit -m "chore: approve Semgrep autofix scope"
 Then run:
 
 ```bash
-scopelock run semgrep-plan.json \
+mindthediff run semgrep-plan.json \
   --yes \
   --isolate \
   --receipt semgrep-receipt.json
 
-scopelock report semgrep-receipt.json --open
+mindthediff report semgrep-receipt.json --open
 ```
 
-ScopeLock runs Semgrep in a detached Git worktree. A candidate edit is promoted
+MindTheDiff runs Semgrep in a detached Git worktree. A candidate edit is promoted
 only when:
 
 - every changed path is allowed by the approved contract;
@@ -103,10 +103,10 @@ digest.
 This is Git-workspace containment, not an OS sandbox. A command retains the
 current user's permissions and can still write through an absolute path outside
 the repository. Writes to ignored files and Git metadata are also outside
-ScopeLock's patch evidence. Run only trusted executables, keep their native
+MindTheDiff's patch evidence. Run only trusted executables, keep their native
 sandboxing enabled, avoid shell-string commands, and keep credentials outside
 the target repository.
 
-ScopeLock does not install the external tool, generate its rules, judge whether
+MindTheDiff does not install the external tool, generate its rules, judge whether
 its transformation is semantically correct, or replace code review. It makes
 the tool's repository mutation bounded, testable, and auditable.

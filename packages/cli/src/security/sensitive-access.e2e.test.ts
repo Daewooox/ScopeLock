@@ -65,9 +65,11 @@ async function writeHarness(dir: string): Promise<string> {
   await writeFile(codex, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(codexScript)}\n`);
   await chmod(codex, 0o755);
 
-  const scopelock = join(bin, "scopelock");
-  await writeFile(scopelock, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(CLI)} "$@"\n`);
-  await chmod(scopelock, 0o755);
+  for (const name of ["mindthediff", "scopelock"]) {
+    const command = join(bin, name);
+    await writeFile(command, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(CLI)} "$@"\n`);
+    await chmod(command, 0o755);
+  }
   return bin;
 }
 
@@ -141,7 +143,7 @@ async function runScenario(
   );
   assert.ok(securityCheck);
   assert.deepEqual(securityCheck.command.slice(0, 5), [
-    "scopelock", "security", "scan", "--profile", "sensitive-local-files",
+    "mindthediff", "security", "scan", "--profile", "sensitive-local-files",
   ]);
   assert.equal(securityCheck.command.at(-1), "json");
   assert.equal(securityCheck.command.includes(securityBase), true);

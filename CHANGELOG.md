@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to ScopeLock will be documented here.
+All notable changes to MindTheDiff will be documented here.
 
 ## 0.1.0-beta.3 - 2026-08-02
 
@@ -27,15 +27,15 @@ All notable changes to ScopeLock will be documented here.
   acceptance, promotion, and cleanup.
 - Capability-aware agent prompts: the non-interactive `plan fill-commands`
   command no longer asks the agent to search for MCP or call `check_drift`
-  itself, since `scopelock run` already owns authoritative validation and the
+  itself, since `mindthediff run` already owns authoritative validation and the
   final scope/drift check. Interactive prompts (`export-prompt`,
   `inject-contract`) are unchanged and still ask for these `if available`.
 - Cross-platform process-tree supervision and fail-closed security hardening.
 - Actionable dirty-repository guidance for `run --isolate`: the failure lists
   up to 10 changed paths and offers three safe choices (commit, run from a
-  disposable clean clone, or abort) without ScopeLock ever committing,
+  disposable clean clone, or abort) without MindTheDiff ever committing,
   stashing, cleaning, or deleting files itself.
-- Live `scopelock run` progress for direct and isolated execution: TTYs receive
+- Live `mindthediff run` progress for direct and isolated execution: TTYs receive
   a settled failure-first panel, pipes and CI receive flat lifecycle lines, and
   `--json` remains a single progress-free JSON document.
 - Live `plan prepare` and `task finish` progress with phase-based reporting: same
@@ -65,4 +65,4 @@ All notable changes to ScopeLock will be documented here.
   Standard multi-agent plan preparation.
 
 Known beta limits: Node.js 22 or 24 is required, APIs may change before 1.0,
-and ScopeLock is a workflow guardrail rather than an OS sandbox.
+and MindTheDiff is a workflow guardrail rather than an OS sandbox.

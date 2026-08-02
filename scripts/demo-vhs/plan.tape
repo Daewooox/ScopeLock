@@ -14,6 +14,6 @@ Sleep 2s
 Ctrl+L
 Show
 
-Type `scopelock plan prepare plan.json --target codex --out ready.json --validation-command node -e "process.exit(0)"`
+Type `mindthediff plan prepare plan.json --target codex --out ready.json --validation-command node -e "process.exit(0)"`
 Enter
 Sleep 2s

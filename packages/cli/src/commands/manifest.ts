@@ -16,7 +16,7 @@ export async function manifestCommand(): Promise<CommandResult> {
         `Risky paths       ${manifest.riskyPaths.length}`,
       ],
     },
-    { title: "Next", lines: "Create a task boundary: scopelock contract new --help" },
+    { title: "Next", lines: "Create a task boundary: mindthediff contract new --help" },
   ]);
 
   return {

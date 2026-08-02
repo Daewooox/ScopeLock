@@ -31,7 +31,7 @@ async function taskFinishWithReporter(
   const paths = scopelockPaths(root);
   const activeId = await getActiveContractId(paths);
   if (activeId === null) {
-    throw new CliError("NO_ACTIVE_CONTRACT", "no active task; start one with `scopelock task start`");
+    throw new CliError("NO_ACTIVE_CONTRACT", "no active task; start one with `mindthediff task start`");
   }
   const contract = await loadContract(paths, activeId);
   reporter.emit({ type: "phase", name: "checking-drift" });
@@ -88,7 +88,7 @@ async function taskFinishWithReporter(
     },
     human: renderSections([
       { title: "Context", lines: `Task boundary  ${activeId}` },
-      { title: "Checks", lines: [table, "Tests executed  no (ScopeLock checked contract evidence only)"] },
+      { title: "Checks", lines: [table, "Tests executed  no (MindTheDiff checked contract evidence only)"] },
       {
         title: "Result",
         lines: [
@@ -102,7 +102,7 @@ async function taskFinishWithReporter(
         title: "Next",
         lines: clean
           ? "Review and commit the accepted changes"
-          : "Fix unexpected changes, then run: scopelock task finish",
+          : "Fix unexpected changes, then run: mindthediff task finish",
       },
     ]),
     exitCode: clean ? 0 : 1,

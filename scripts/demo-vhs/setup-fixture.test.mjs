@@ -19,7 +19,7 @@ describe("setup-fixture", posixOnly, () => {
     assert.equal(result.status, 0, result.stderr);
     const dir = result.stdout;
     try {
-      assert.equal(existsSync(join(dir, ".demo-fake-bin", "scopelock")), true);
+      assert.equal(existsSync(join(dir, ".demo-fake-bin", "mindthediff")), true);
       assert.equal(existsSync(join(dir, ".demo-fake-bin", "codex")), true);
     } finally {
       rmSync(dir, { recursive: true, force: true });

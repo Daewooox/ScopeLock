@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./docs/assets/scopelock-mark.png" width="96" alt="ScopeLock logo">
+  <img src="./docs/assets/scopelock-mark.png" width="96" alt="MindTheDiff logo">
 </p>
 
-<h1 align="center">ScopeLock</h1>
+<h1 align="center">MindTheDiff</h1>
 
 <p align="center"><strong>Flight control for AI coding agents.</strong></p>
 
@@ -19,14 +19,14 @@
 </p>
 
 <p align="center">
-  <img src="./docs/assets/scopelock-demo.gif" width="900" alt="Animated ScopeLock Guided terminal replay: task start and task finish">
+  <img src="./docs/assets/scopelock-demo.gif" width="900" alt="Animated MindTheDiff Guided terminal replay: task start and task finish">
 </p>
 
 AI coding agents are fast, but they do not share a reliable understanding of
 who may change what. Two agents can edit the same file, a small task can drift
 into CI or auth, and the final result is difficult to audit.
 
-ScopeLock adds deterministic guardrails around that workflow:
+MindTheDiff adds deterministic guardrails around that workflow:
 
 1. **Define the scope.** Approve allowed changes, blocked changes, and task
    context.
@@ -34,20 +34,24 @@ ScopeLock adds deterministic guardrails around that workflow:
 3. **Verify the result.** Block supported out-of-scope writes, check git drift,
    and produce a local Flight Report.
 
-ScopeLock is local-first and rule-based. Its drift engine and hooks do not need
+MindTheDiff is local-first and rule-based. Its drift engine and hooks do not need
 an LLM or cloud service.
 
 ## Start here
+
+The public command is now `mindthediff`. The legacy `scopelock` command remains
+as a compatibility alias during the beta migration. The `.scopelock` state
+directory and `@scopelock/*` npm package scope are intentionally unchanged.
 
 The Guided interface creates the same contracts and reports as the advanced
 commands, but keeps the normal path to three top-level commands:
 
 ```bash
-scopelock setup
-scopelock task start "Add a dark mode toggle" --agent claude
+mindthediff setup
+mindthediff task start "Add a dark mode toggle" --agent claude
 
 # Let the agent work, then verify the repository evidence
-scopelock task finish --open
+mindthediff task finish --open
 ```
 
 `task start` reviews and approves the boundary but never starts an agent.
@@ -83,7 +87,7 @@ the default install. If `corepack enable` reports "command not found", run
 `npm install -g corepack` first, or skip it entirely and `npm install -g
 pnpm@10` directly.
 
-## What ScopeLock does
+## What MindTheDiff does
 
 - **Scope contracts** define allowed changes, blocked changes, and advisory
   read dependencies per task.
@@ -105,7 +109,7 @@ npm install --global @scopelock/cli@beta
 See the [beta quick start](docs/beta-quickstart.md) for uninstall and
 verified-tarball instructions.
 
-To run ScopeLock from source:
+To run MindTheDiff from source:
 
 ```bash
 git clone https://github.com/Daewooox/ScopeLock.git
@@ -116,32 +120,32 @@ pnpm build
 pnpm --filter @scopelock/cli link --global
 ```
 
-You can now run `scopelock --help`. To avoid a global link, replace
-`scopelock` with `node /absolute/path/to/ScopeLock/packages/cli/dist/index.js`.
+You can now run `mindthediff --help`. To avoid a global link, replace
+`mindthediff` with `node /absolute/path/to/ScopeLock/packages/cli/dist/index.js`.
 
 ## Coordinate several agents
 
 <p align="center">
-  <img src="./docs/assets/scopelock-plan-demo.gif" width="900" alt="Animated ScopeLock Standard terminal replay: prepare a conflict-aware two-stage plan">
+  <img src="./docs/assets/scopelock-plan-demo.gif" width="900" alt="Animated MindTheDiff Standard terminal replay: prepare a conflict-aware two-stage plan">
 </p>
 
 ```bash
 # Validate contracts, order hazards, check the harness, and compile a ready plan.
-# ScopeLock auto-detects common project checks such as npm run check or swift test.
-scopelock plan prepare plan.json --target claude --out ready-plan.json
+# MindTheDiff auto-detects common project checks such as npm run check or swift test.
+mindthediff plan prepare plan.json --target claude --out ready-plan.json
 
 # Run each task in a temporary worktree. The full repository check must pass
 # before the combined patch can reach your working tree.
-scopelock run ready-plan.json --yes --isolate --receipt receipt.json
+mindthediff run ready-plan.json --yes --isolate --receipt receipt.json
 
 # Inspect the evidence in a standalone local report
-scopelock report receipt.json --open
+mindthediff report receipt.json --open
 ```
 
 Review `ready-plan.json` before running it. Nothing is silently approved or
 executed: `plan prepare` never starts an agent, and `run` still requires
 `--yes`. Read hazards are included by default; use `--no-read-hazards` only
-when stale reads are intentionally safe. If ScopeLock cannot detect a project
+when stale reads are intentionally safe. If MindTheDiff cannot detect a project
 check, preparation stops and asks for an explicit named shell-free check such
 as `--validation-check tests npm test`. Repeat the flag to create an ordered
 pipeline and use `--acceptance-check tests` to declare which required checks
@@ -166,7 +170,7 @@ example.
 | Codex | Yes | Yes | Deny when the project hook is live-verified |
 | Cursor | Yes | Yes | Isolated patch gate; hooks remain audit-only |
 
-ScopeLock reports enforcement confidence honestly. A configured hook is not
+MindTheDiff reports enforcement confidence honestly. A configured hook is not
 called `live-verified` until an explicit harness probe confirms it for the
 current configuration.
 
@@ -204,7 +208,7 @@ the evidence and publication gates.
 
 ## Security boundary
 
-ScopeLock protects against accidental scope drift and records tamper evidence.
+MindTheDiff protects against accidental scope drift and records tamper evidence.
 It is not an OS sandbox and cannot stop a malicious same-user process with
 unrestricted shell access. See [SECURITY.md](SECURITY.md) before using strict
 enforcement in a sensitive repository.

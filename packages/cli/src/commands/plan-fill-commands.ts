@@ -12,7 +12,7 @@ import {
   type AgentPromptContext,
 } from "@scopelock/core";
 
-// `plan fill-commands` composes an argv the ScopeLock runner (`run --plan`)
+// `plan fill-commands` composes an argv the MindTheDiff runner (`run --plan`)
 // will invoke non-interactively. The runner already owns authoritative
 // repository validation and final scope/drift checks after the command
 // finishes, so the composed prompt must not send the agent looking for a
@@ -61,7 +61,7 @@ async function commandFor(
   if (contract.baseline === null) {
     throw new CliError(
       "CONTRACT_NOT_APPROVED",
-      `contract ${contract.id} has no approved git baseline; run scopelock contract approve first`,
+      `contract ${contract.id} has no approved git baseline; run mindthediff contract approve first`,
     );
   }
   return buildAgentCommand(
@@ -156,7 +156,7 @@ export async function planFillCommandsCommand(
           title: "Next",
           lines: unsupported.length > 0
             ? "Resolve unsupported tasks, then compose the plan again"
-            : `Review the file, then run: scopelock run ${JSON.stringify(outputPath)} --yes${requiresIsolation ? " --isolate" : ""}`,
+            : `Review the file, then run: mindthediff run ${JSON.stringify(outputPath)} --yes${requiresIsolation ? " --isolate" : ""}`,
         },
       ]);
 
