@@ -89,7 +89,7 @@ export async function approveCommand(
       {
         title: "Next",
         lines: options.activate
-          ? "Share it with an agent: scopelock contract inject"
+          ? "Share it with an agent: mindthediff contract inject"
           : "Activate or select the contract before starting work",
       },
     ]),

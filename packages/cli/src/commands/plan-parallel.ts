@@ -37,7 +37,7 @@ async function loadTaskScope(
   if (requireApproved && contract.baseline === null) {
     throw new CliError(
       "CONTRACT_NOT_APPROVED",
-      `contract ${contract.id} has no approved git baseline; run scopelock contract approve first`,
+      `contract ${contract.id} has no approved git baseline; run mindthediff contract approve first`,
     );
   }
   return {
@@ -89,7 +89,7 @@ function humanReport(
       title: "Next",
       lines: cycles.length > 0
         ? "Adjust the task boundaries, then run plan schedule again"
-        : `Compose agent commands: scopelock plan compose ${JSON.stringify(planPath)} --target <agent> --out ready-plan.json`,
+        : `Compose agent commands: mindthediff plan compose ${JSON.stringify(planPath)} --target <agent> --out ready-plan.json`,
     },
   ]);
 }

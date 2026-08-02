@@ -136,7 +136,7 @@ export async function setupCommand(
     }
     for (const target of candidates) {
       const message = [
-        `Install ScopeLock hooks for ${HARNESSES[target.id].label}?`,
+        `Install MindTheDiff hooks for ${HARNESSES[target.id].label}?`,
         `File to update  ${hooksConfigPath(root, target.id)}`,
         "Existing data   preserved",
       ].join("\n");
@@ -201,8 +201,8 @@ export async function setupCommand(
       {
         title: "Next",
         lines: doctor.exitCode === 0
-          ? "Define a task boundary: scopelock contract new --help"
-          : "Apply the reported fixes, then run: scopelock setup",
+          ? "Define a task boundary: mindthediff contract new --help"
+          : "Apply the reported fixes, then run: mindthediff setup",
       },
     ]),
     exitCode: doctor.exitCode,

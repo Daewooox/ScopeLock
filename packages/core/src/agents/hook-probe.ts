@@ -82,12 +82,12 @@ export function probeHookConfig(repoRoot: string, target: AgentId): HookConfigPr
       installed,
       capabilities,
       detail: liveVerified
-        ? `ScopeLock codex hook entry was live-verified for the current ${hooksJsonPath} digest`
+        ? `MindTheDiff codex hook entry was live-verified for the current ${hooksJsonPath} digest`
         : installed
-        ? `ScopeLock codex hook entry found at ${hooksJsonPath}; confidence remains degraded because project trust cannot be verified statically`
+        ? `MindTheDiff codex hook entry found at ${hooksJsonPath}; confidence remains degraded because project trust cannot be verified statically`
         : anyConfigPresent
-          ? "a Codex hook config exists, but ScopeLock cannot confirm an installed trusted ScopeLock entry"
-          : "no Codex hook config found; run `scopelock hooks install --target codex` to configure apply_patch PreToolUse",
+          ? "a Codex hook config exists, but MindTheDiff cannot confirm an installed trusted entry"
+          : "no Codex hook config found; run `mindthediff hooks install --target codex` to configure apply_patch PreToolUse",
     };
   }
 
@@ -100,7 +100,7 @@ export function probeHookConfig(repoRoot: string, target: AgentId): HookConfigPr
     installed,
     capabilities: nominal,
     detail: installed
-      ? `ScopeLock ${target} hook entry found at ${configPath}`
-      : `no ScopeLock ${target} hook entry found at ${configPath}; run \`scopelock hooks install --target ${target}\` to enable enforcement`,
+      ? `MindTheDiff ${target} hook entry found at ${configPath}`
+      : `no MindTheDiff ${target} hook entry found at ${configPath}; run \`mindthediff hooks install --target ${target}\` to enable enforcement`,
   };
 }

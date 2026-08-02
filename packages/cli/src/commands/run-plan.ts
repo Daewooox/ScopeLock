@@ -1212,7 +1212,7 @@ function isolationErrorCode(error: WorktreeError): string {
 function isolationErrorMessage(error: WorktreeError): string {
   if (error.code !== "DIRTY_REPO") return error.message;
   return `${error.message}. Choose one: review and commit the intended files, `
-    + "run from a disposable clean clone, or abort. ScopeLock will not commit, "
+    + "run from a disposable clean clone, or abort. MindTheDiff will not commit, "
     + "stash, clean, or delete any files.";
 }
 
@@ -1342,7 +1342,7 @@ function humanReport(
     ],
   );
   const lines = [
-    `${color("ScopeLock flight run", "bold")}: ${planId} ${color(headline, headline === "Configured gates cleared" ? "green" : "yellow")}`,
+    `${color("MindTheDiff flight run", "bold")}: ${planId} ${color(headline, headline === "Configured gates cleared" ? "green" : "yellow")}`,
     "",
     color("Execution sequence", "cyan"),
     `  ${sequence}`,
@@ -1368,7 +1368,7 @@ function humanReport(
     ),
     "",
     `Receipt: ${receiptPath}`,
-    `Next: scopelock report --open ${JSON.stringify(receiptPath)}`,
+    `Next: mindthediff report --open ${JSON.stringify(receiptPath)}`,
   ];
   if (failed.length > 0) lines.push(`failed: [${failed.join(", ")}]`);
   if (skipped.length > 0) lines.push(`skipped: [${skipped.join(", ")}]`);
@@ -1406,7 +1406,7 @@ async function runPlanWithReporter(
 ): Promise<CommandResult> {
   const cwd = findRepoRoot(process.cwd());
   if (cwd === null) {
-    throw new CliError("NOT_A_GIT_REPO", "scopelock run must be executed inside a git repository");
+    throw new CliError("NOT_A_GIT_REPO", "mindthediff run must be executed inside a git repository");
   }
   const planRaw = await readJsonFile(options.plan, "PLAN_NOT_FOUND");
   const plan = schedulePlanSchema.parse(planRaw);
@@ -1479,7 +1479,7 @@ async function runPlanWithReporter(
   }
   const activeId = await getActiveContractId(scopelockPaths(cwd));
   if (activeId === null) {
-    throw new CliError("NO_ACTIVE_CONTRACT", "scopelock run requires an active approved contract");
+    throw new CliError("NO_ACTIVE_CONTRACT", "mindthediff run requires an active approved contract");
   }
   const activeContract = await loadContract(scopelockPaths(cwd), activeId);
   const approvalIntegrity = await verifyApprovalSeal(cwd, activeContract);

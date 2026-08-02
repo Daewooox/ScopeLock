@@ -111,7 +111,7 @@ function humanReport(targets: TargetPreflightReport[], summary: { status: string
       title: "Next",
       lines: summary.violationsCount === 0
         ? "Compose or run the reviewed plan"
-        : "Apply the fixes above, then run: scopelock agents preflight --manifest <path>",
+        : "Apply the fixes above, then run: mindthediff agents preflight --manifest <path>",
     },
   ]);
 }

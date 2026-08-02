@@ -1,13 +1,14 @@
 {
   "name": "@scopelock/mcp",
   "version": "0.1.0-beta.3",
-  "description": "MCP stdio server for ScopeLock's narrow planning and drift-verification tools.",
+  "description": "MCP stdio server for MindTheDiff's narrow planning and drift-verification tools.",
   "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "bin": {
+    "mindthediff-mcp": "./dist/index.js",
     "scopelock-mcp": "./dist/index.js"
   },
   "main": "./dist/index.js",

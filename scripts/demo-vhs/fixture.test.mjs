@@ -42,11 +42,11 @@ describe("fixture", posixOnly, () => {
     }
   });
 
-  it("writeScopelockShim puts a resolvable scopelock executable in .demo-fake-bin", () => {
+  it("writeScopelockShim puts a resolvable mindthediff executable in .demo-fake-bin", () => {
     const dir = initFixtureRepo();
     try {
       writeScopelockShim(dir);
-      const executable = join(dir, ".demo-fake-bin", "scopelock");
+      const executable = join(dir, ".demo-fake-bin", "mindthediff");
       assert.equal(existsSync(executable), true);
       assert.match(readFileSync(executable, "utf8"), /exec/);
     } finally {

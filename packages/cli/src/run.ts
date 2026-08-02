@@ -97,7 +97,7 @@ export async function run(
       let accepted = false;
       try {
         accepted = await confirm(
-          `Run it now? scopelock ${result.suggestedNext.argv.join(" ")}`,
+          `Run it now? mindthediff ${result.suggestedNext.argv.join(" ")}`,
           { suffix: "[Y/n] ", defaultYes: true },
         );
       } catch {

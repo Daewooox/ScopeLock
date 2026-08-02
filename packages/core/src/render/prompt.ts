@@ -31,7 +31,7 @@ const INTERACTIVE_CONTEXT: AgentPromptContext = {
 function finalInstruction(context: AgentPromptContext): string {
   if (context.execution === "restricted-runner") {
     return "Stay inside the approved scope and write or update the regression tests this change requires. "
-      + "The ScopeLock runner owns authoritative repository validation and will check final scope and drift "
+      + "The MindTheDiff runner owns authoritative repository validation and will check final scope and drift "
       + "once this command finishes; do not search for a drift-checking tool and do not claim you executed "
       + "tests yourself. Stop and describe the blocker if the change appears to require forbidden or "
       + "unapproved files.";
@@ -50,7 +50,7 @@ export function renderAgentPrompt(
 ): string {
   const harness = getHarness(target);
   return [
-    `# ScopeLock Contract: ${contract.id}`,
+    `# MindTheDiff Contract: ${contract.id}`,
     "",
     `Target: ${harness.label}`,
     "",

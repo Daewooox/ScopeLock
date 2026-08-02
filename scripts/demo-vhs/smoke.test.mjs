@@ -8,25 +8,25 @@ describe("smoke", () => {
     const tape = [
       'Type "REPO=$(pwd); cd fixture; export PATH=\\"x:$PATH\\"; clear"',
       "Enter",
-      'Type `scopelock task start "Add a dark mode toggle" --agent codex --allow src --yes`',
+      'Type `mindthediff task start "Add a dark mode toggle" --agent codex --allow src --yes`',
       "Enter",
       'Type "node $REPO/scripts/demo-vhs/write-guided-source.mjs; clear"',
       "Enter",
-      'Type "scopelock task finish"',
+      'Type "mindthediff task finish"',
       "Enter",
     ].join("\n");
 
     const commands = extractCommands(tape);
     assert.deepEqual(commands, [
-      'scopelock task start "Add a dark mode toggle" --agent codex --allow src --yes',
+      'mindthediff task start "Add a dark mode toggle" --agent codex --allow src --yes',
       "node $REPO/scripts/demo-vhs/write-guided-source.mjs; clear",
-      "scopelock task finish",
+      "mindthediff task finish",
     ]);
   });
 
   it("stripTrailingClear removes a trailing '; clear' or '&& clear'", () => {
     assert.equal(stripTrailingClear("echo hi; clear"), "echo hi");
     assert.equal(stripTrailingClear("echo hi && clear"), "echo hi");
-    assert.equal(stripTrailingClear("scopelock task finish"), "scopelock task finish");
+    assert.equal(stripTrailingClear("mindthediff task finish"), "mindthediff task finish");
   });
 });

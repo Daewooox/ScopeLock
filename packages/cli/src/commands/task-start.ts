@@ -121,7 +121,7 @@ async function taskStartWithReporter(
   if (missing.length > 0) {
     throw new CliError(
       "TASK_INPUT_REQUIRED",
-      `task start needs ${missing.join(", ")}; run \`scopelock task start --help\` for the non-interactive form`,
+      `task start needs ${missing.join(", ")}; run \`mindthediff task start --help\` for the non-interactive form`,
     );
   }
 
@@ -195,7 +195,7 @@ async function taskStartWithReporter(
     if (!options.interactive) {
       throw new CliError(
         "TASK_APPROVAL_REQUIRED",
-        `draft saved at ${draftPath}; review it, then run: scopelock contract approve ${JSON.stringify(draftPath)}`,
+      `draft saved at ${draftPath}; review it, then run: mindthediff contract approve ${JSON.stringify(draftPath)}`,
       );
     }
     return {
@@ -203,7 +203,7 @@ async function taskStartWithReporter(
       human: renderSections([
         { title: "Review", lines: review },
         { title: "Result", lines: "Draft saved; task boundary was not approved\nAgent started  no" },
-        { title: "Next", lines: `Review it, then run: scopelock contract approve ${JSON.stringify(draftPath)}` },
+        { title: "Next", lines: `Review it, then run: mindthediff contract approve ${JSON.stringify(draftPath)}` },
       ]),
       exitCode: 0,
     };
@@ -231,7 +231,7 @@ async function taskStartWithReporter(
       throw new CliError("INTERACTIVE_REQUIRED", "instruction injection confirmation handler is unavailable");
     }
     inject = await dependencies.confirm(
-      `Place the approved task boundary in ${targetFile}?\nExisting content outside the ScopeLock block is preserved.`,
+      `Place the approved task boundary in ${targetFile}?\nExisting content outside the MindTheDiff block is preserved.`,
     );
   }
   let injection: CommandResult | null = null;
@@ -266,7 +266,7 @@ async function taskStartWithReporter(
       { title: "Review", lines: review },
       { title: "Checks", lines: resultLines },
       { title: "Result", lines: environmentReady ? "Task boundary is ready" : "Task boundary approved; environment needs attention" },
-      { title: "Next", lines: environmentReady ? "Let the agent work, then run: scopelock task finish" : `Install ${HARNESSES[agent].label}, then run: scopelock setup --target ${agent}` },
+      { title: "Next", lines: environmentReady ? "Let the agent work, then run: mindthediff task finish" : `Install ${HARNESSES[agent].label}, then run: mindthediff setup --target ${agent}` },
     ]),
     exitCode: environmentReady ? 0 : 1,
   };

@@ -18,8 +18,8 @@ function slugify(input: string): string {
 
 /**
  * Deterministic contract scaffolder: no LLM. Emits a schema-valid draft
- * contract (baseline is stamped later by `scopelock contract approve`). Prints JSON to
- * stdout by default so it is pipeable (`scopelock contract new ... > c.json`),
+ * contract (baseline is stamped later by `mindthediff contract approve`). Prints JSON to
+ * stdout by default so it is pipeable (`mindthediff contract new ... > c.json`),
  * or writes a file with --out.
  */
 export async function contractNewCommand(options: {
@@ -74,7 +74,7 @@ export async function contractNewCommand(options: {
       human: renderSections([
         { title: "Context", lines: `Task  ${options.task}` },
         { title: "Result", lines: [`Draft created  ${outPath}`, "Approved       no"] },
-        { title: "Next", lines: `Review it, then run: scopelock contract approve ${JSON.stringify(options.out)}` },
+        { title: "Next", lines: `Review it, then run: mindthediff contract approve ${JSON.stringify(options.out)}` },
       ]),
       exitCode: 0,
     };

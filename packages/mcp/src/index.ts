@@ -9,6 +9,6 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`ScopeLock MCP server failed: ${message}\n`);
+  process.stderr.write(`MindTheDiff MCP server failed: ${message}\n`);
   process.exitCode = 1;
 });

@@ -41,7 +41,7 @@ export async function injectContractCommand(options: {
   if (activeId === null) {
     throw new CliError(
       "NO_ACTIVE_CONTRACT",
-      "no active approved contract; approve one with `scopelock contract approve <file>`",
+      "no active approved contract; approve one with `mindthediff contract approve <file>`",
     );
   }
 
@@ -62,7 +62,7 @@ export async function injectContractCommand(options: {
     human: renderSections([
       { title: "Context", lines: [`Task boundary  ${contract.id}`, `Agent          ${target}`] },
       { title: "Result", lines: `Instructions updated  ${harness.docFile}` },
-      { title: "Next", lines: "Let the agent work, then verify: scopelock check-drift" },
+      { title: "Next", lines: "Let the agent work, then verify: mindthediff check-drift" },
     ]),
     exitCode: 0,
   };

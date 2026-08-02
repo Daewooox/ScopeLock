@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -74,6 +75,13 @@ try {
   );
   const cli = resolve(tempRoot, "node_modules/@scopelock/cli/dist/index.js");
   assertIncludes(run(process.execPath, [cli, "--help"], tempRoot), "Local flight control");
+  const cliPackage = JSON.parse(await readFile(resolve(tempRoot, "node_modules/@scopelock/cli/package.json"), "utf8"));
+  assert.deepEqual(Object.keys(cliPackage.bin).sort(), ["mindthediff", "scopelock"]);
+  const cliBin = (name) => resolve(tempRoot, "node_modules", ".bin", `${name}${process.platform === "win32" ? ".cmd" : ""}`);
+  if (process.platform !== "win32") {
+    assertIncludes(run(cliBin("mindthediff"), ["--help"], tempRoot), "Local flight control");
+    assertIncludes(run(cliBin("scopelock"), ["--help"], tempRoot), "Local flight control");
+  }
 
   const fixture = resolve(tempRoot, "fixture");
   run("git", ["init", "-q", fixture], tempRoot);
@@ -97,6 +105,8 @@ try {
   await access(report);
   const mcp = resolve(tempRoot, "node_modules/@scopelock/mcp/dist/index.js");
   await probeMcp(mcp, fixture);
+  const mcpPackage = JSON.parse(await readFile(resolve(tempRoot, "node_modules/@scopelock/mcp/package.json"), "utf8"));
+  assert.deepEqual(Object.keys(mcpPackage.bin).sort(), ["mindthediff-mcp", "scopelock-mcp"]);
 
   const globalPrefix = resolve(tempRoot, "global");
   const globalInstall = npmInvocation([

@@ -64,7 +64,7 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
           "inside-git-repo",
           "error",
           "current directory is not inside a git repository",
-          "run scopelock inside a git repository",
+          "run mindthediff inside a git repository",
         ),
   );
 
@@ -84,13 +84,13 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
             "config-valid",
             "warn",
             ".scopelock/config.json not found",
-            "run `scopelock init`",
+            "run `mindthediff init`",
           )
         : fail(
             "config-valid",
             "error",
             `.scopelock/config.json is invalid: ${error instanceof Error ? error.message : String(error)}`,
-            "fix or delete the file and re-run `scopelock init`",
+            "fix or delete the file and re-run `mindthediff init`",
           ),
     );
   }
@@ -103,7 +103,7 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
           "active-contract",
           "warn",
           "no active approved contract",
-          "approve a contract with `scopelock contract approve <file>`",
+          "approve a contract with `mindthediff contract approve <file>`",
         ),
       );
     } else {
@@ -116,7 +116,7 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
               "active-baseline",
               "error",
               "active contract has no baseline",
-              "re-approve the contract with `scopelock contract approve <file>`",
+              "re-approve the contract with `mindthediff contract approve <file>`",
             ),
           );
         } else if (root === null) {
@@ -169,8 +169,8 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
               : fail(
                   `${target}-hooks`,
                   "warn",
-                  `ScopeLock hook entry not found in ${hookPath}`,
-                  `run \`scopelock hooks install --target ${target}\``,
+                  `MindTheDiff hook entry not found in ${hookPath}`,
+                  `run \`mindthediff hooks install --target ${target}\``,
                 ),
           );
         } catch (error) {
@@ -182,7 +182,7 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
                   `${target}-hooks`,
                   "warn",
                   `${hookPath} not found`,
-                  `run \`scopelock hooks install --target ${target}\``,
+                  `run \`mindthediff hooks install --target ${target}\``,
                 )
               : fail(
                   `${target}-hooks`,
@@ -210,13 +210,13 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
       title: "Result",
       lines: failedErrors.length > 0
         ? `${failedErrors.length} blocking check${failedErrors.length === 1 ? "" : "s"}`
-        : "ScopeLock is ready",
+        : "MindTheDiff is ready",
     },
     {
       title: "Next",
       lines: failedErrors.length > 0
-        ? "Apply the fixes above, then run: scopelock doctor"
-        : "Create a task boundary: scopelock contract new --help",
+        ? "Apply the fixes above, then run: mindthediff doctor"
+        : "Create a task boundary: mindthediff contract new --help",
     },
   ]);
 

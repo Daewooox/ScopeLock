@@ -24,7 +24,7 @@ export async function hookGateCommand(options: {
   });
 
   if (result.decision === "deny") {
-    const message = result.message ?? "ScopeLock: denied";
+    const message = result.message ?? "MindTheDiff: denied";
     const decision = hookDecisionFor(result.reason, message);
     if (options.format === "codex") {
       process.stdout.write(

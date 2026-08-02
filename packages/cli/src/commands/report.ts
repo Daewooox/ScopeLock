@@ -320,7 +320,7 @@ function renderHtml(receipt: Receipt, receiptPath: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ScopeLock Flight Report - ${escapeHtml(receipt.planId ?? "receipt")}</title>
+<title>MindTheDiff Flight Report - ${escapeHtml(receipt.planId ?? "receipt")}</title>
 <style>
 :root { color-scheme: light; --ink:#18202a; --muted:#637083; --line:#d9e1ea; --good:#127a52; --warn:#a86200; --bad:#b42318; --panel:#f7f9fb; --accent:#0f62fe; }
 * { box-sizing: border-box; }
@@ -357,7 +357,7 @@ summary { cursor: pointer; font-weight: 700; }
 <body>
 <main>
   <header class="hero">
-    <div class="eyebrow">ScopeLock Flight Report</div>
+    <div class="eyebrow">MindTheDiff Flight Report</div>
     <h1>${escapeHtml(receipt.planId ?? "Unnamed plan")}: <span class="${overallClass}">${overall}</span></h1>
     <div class="meta">
       <span class="pill">receipt v${escapeHtml(receipt.schemaVersion ?? "?")}</span>
@@ -484,7 +484,7 @@ export async function reportCommand(
         title: "Next",
         lines: options.open === true
           ? "Review the Flight Report"
-          : `Open it: scopelock report ${JSON.stringify(path)} --open`,
+          : `Open it: mindthediff report ${JSON.stringify(path)} --open`,
       },
     ]),
     exitCode: 0,

@@ -26,7 +26,7 @@ import {
 import { join } from "node:path";
 import { z } from "zod/v4";
 
-export const SERVER_NAME = "scopelock";
+export const SERVER_NAME = "mindthediff";
 export const SERVER_VERSION = "0.1.0";
 
 const taskScopeInputSchema = z.object({
@@ -37,7 +37,7 @@ const taskScopeInputSchema = z.object({
 });
 
 const planParallelInputSchema = {
-  plan: z.unknown().describe("A ScopeLock schedule plan JSON object."),
+  plan: z.unknown().describe("A MindTheDiff schedule plan JSON object."),
   includeReadHazards: z.boolean().optional().default(false),
 };
 
@@ -108,7 +108,7 @@ async function loadConfig(paths: ReturnType<typeof scopelockPaths>) {
 function requireRepoRoot(candidate?: string): string {
   const root = findRepoRoot(candidate ?? process.cwd());
   if (root === null) {
-    throw new Error("ScopeLock MCP tools must run inside a git repository");
+    throw new Error("MindTheDiff MCP tools must run inside a git repository");
   }
   return realpathSync(root);
 }
@@ -150,7 +150,7 @@ export async function checkDriftTool(input: { base?: string } = {}, serverRepoRo
   const config = await loadConfig(paths);
   const activeId = await getActiveContractId(paths);
   if (activeId === null) {
-    throw new Error("no active approved contract; approve one with `scopelock contract approve <file>`");
+    throw new Error("no active approved contract; approve one with `mindthediff contract approve <file>`");
   }
 
   const contract = await loadContract(paths, activeId);
@@ -160,11 +160,11 @@ export async function checkDriftTool(input: { base?: string } = {}, serverRepoRo
   }
   const baselineSha = input.base ?? contract.baseline?.headSha ?? null;
   if (baselineSha === null) {
-    throw new Error("active contract has no baseline; approve it with `scopelock contract approve <file>`");
+    throw new Error("active contract has no baseline; approve it with `mindthediff contract approve <file>`");
   }
   if (!commitExists(repoRoot, baselineSha)) {
     throw new Error(
-      `baseline commit ${baselineSha} not found (history rewritten?); run \`scopelock contract rebaseline\``,
+      `baseline commit ${baselineSha} not found (history rewritten?); run \`mindthediff contract rebaseline\``,
     );
   }
 
@@ -198,7 +198,7 @@ export function createScopeLockMcpServer(repoRoot = requireRepoRoot()): McpServe
     {
       title: "Plan Parallel",
       description:
-        "Build a deterministic ScopeLock wave schedule from a plan JSON object and draft/approved contract files.",
+        "Build a deterministic MindTheDiff wave schedule from a plan JSON object and draft/approved contract files.",
       inputSchema: planParallelInputSchema,
     },
     async (input) => jsonContent(await planParallelTool(input, repoRoot)),
@@ -208,7 +208,7 @@ export function createScopeLockMcpServer(repoRoot = requireRepoRoot()): McpServe
     "scopes_conflict",
     {
       title: "Scopes Conflict",
-      description: "Check whether two ScopeLock task scopes conflict and return the concrete witness.",
+      description: "Check whether two MindTheDiff task scopes conflict and return the concrete witness.",
       inputSchema: scopesConflictInputSchema,
     },
     async (input) => jsonContent(scopesConflictTool(input)),
@@ -219,7 +219,7 @@ export function createScopeLockMcpServer(repoRoot = requireRepoRoot()): McpServe
     {
       title: "Check Drift",
       description:
-        "Run ScopeLock drift verification for the active approved contract in a git repository.",
+        "Run MindTheDiff drift verification for the active approved contract in a git repository.",
       inputSchema: checkDriftInputSchema,
     },
     async (input) => jsonContent(await checkDriftTool(input, repoRoot)),
