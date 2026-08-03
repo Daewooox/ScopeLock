@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">MindTheDiff</title>
+  <desc id="desc">Flight control for AI-made changes.</desc>
+  <rect width="1280" height="640" fill="#070D1A"/>
+  <g transform="translate(94 128) scale(6)">
+    <path d="M8 24H22" fill="none" stroke="#90A8A6" stroke-width="4" stroke-linecap="round"/>
+    <path d="M22 24H54" fill="none" stroke="#22C55E" stroke-width="4" stroke-linecap="round"/>
+    <path d="M22 24 41.5 43.5M38.5 46.5 44.5 40.5" fill="none" stroke="#5C7876" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="22" cy="24" r="5" fill="#070D1A" stroke="#F59E0B" stroke-width="3"/>
+  </g>
+  <text x="520" y="242" fill="#F4F7FA" font-family="Inter, Arial, sans-serif" font-size="86" font-weight="750" letter-spacing="0">Mind<tspan fill="#F59E0B">The</tspan>Diff</text>
+  <text x="525" y="306" fill="#90A8A6" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="28" letter-spacing="0">Flight control for AI-made changes.</text>
+  <path d="M525 364H1090" stroke="#24333B" stroke-width="2"/>
+  <text x="525" y="416" fill="#F4F7FA" font-family="Inter, Arial, sans-serif" font-size="28" letter-spacing="0">Approve scope. Run isolated. Verify the diff.</text>
+  <text x="525" y="484" fill="#90A8A6" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" letter-spacing="0">local-first   agent-agnostic   verifiable receipts</text>
+</svg>
