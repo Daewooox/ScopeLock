@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "mindthediff-brand-assets-v2",
+  "task": "Export and integrate the final MindTheDiff brand mark",
+  "createdAt": "2026-08-03T15:00:00.000Z",
+  "baseline": {
+    "headSha": "95b087949046c5859293dd9ac7551b5eec7bdd85",
+    "branch": "feature/mindthediff-brand-assets",
+    "capturedAt": "2026-08-03T13:30:44.796Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "docs/assets/mindthediff-mark.svg",
+      "docs/assets/mindthediff-mark-animated.svg",
+      "docs/assets/mindthediff-mark.png",
+      "docs/assets/mindthediff-lockup.svg",
+      "docs/assets/mindthediff-social-preview.svg",
+      "docs/assets/mindthediff-social-preview.png"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/**",
+      ".github/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

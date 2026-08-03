@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/assets/scopelock-mark.png" width="96" alt="MindTheDiff logo">
+  <img src="./docs/assets/mindthediff-mark-animated.svg" width="96" alt="MindTheDiff logo: a reviewed git fork">
 </p>
 
 <h1 align="center">MindTheDiff</h1>
