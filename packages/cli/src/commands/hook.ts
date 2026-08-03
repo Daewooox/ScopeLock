@@ -1,4 +1,4 @@
-import { evaluateHookGate } from "@scopelock/core";
+import { evaluateHookGate } from "@mindthediff/core";
 import { hookDecisionFor, renderDecision } from "../decision-envelope.js";
 
 export async function readStdin(): Promise<string> {

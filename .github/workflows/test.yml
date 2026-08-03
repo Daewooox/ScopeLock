@@ -60,7 +60,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @scopelock/core build && pnpm --filter @scopelock/cli build
+      - run: pnpm --filter @mindthediff/core build && pnpm --filter @mindthediff/cli build
       - name: Install pinned Semgrep
         run: |
           python3 -m venv "$RUNNER_TEMP/semgrep-venv"
@@ -74,7 +74,7 @@ jobs:
       - name: Run real sensitive-access E2E
         run: |
           SCOPELOCK_SEMGREP="$RUNNER_TEMP/semgrep-venv/bin/semgrep" \
-            pnpm --filter @scopelock/cli exec node --test dist/security/sensitive-access.e2e.test.js
+            pnpm --filter @mindthediff/cli exec node --test dist/security/sensitive-access.e2e.test.js
 
   demo-vhs-check:
     runs-on: ubuntu-latest

@@ -7,12 +7,14 @@ import { summarizeAudit } from "./audit-packed.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const packages = ["core", "cli", "mcp"];
+const expectedNames = new Set(["@mindthediff/core", "@mindthediff/cli", "@mindthediff/mcp"]);
 
 test("npm beta metadata stays public, reviewable, and points at the real install command", async () => {
   const versions = new Set();
   for (const name of packages) {
     const root = resolve(repoRoot, "packages", name);
     const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+    assert.ok(expectedNames.delete(manifest.name), `unexpected package name: ${manifest.name}`);
     // Every published package moves in lockstep (enforced separately by
     // scripts/release/pack.mjs) - just require a beta prerelease, not one
     // exact version, so this test doesn't need touching on every bump.
@@ -26,17 +28,17 @@ test("npm beta metadata stays public, reviewable, and points at the real install
     assert.equal(manifest.bugs.url, "https://github.com/Daewooox/MindTheDiff/issues");
     assert.ok(manifest.keywords.length > 0);
   }
+  assert.equal(expectedNames.size, 0, `missing package names: ${[...expectedNames]}`);
   assert.equal(versions.size, 1, `package versions diverged: ${[...versions]}`);
 
-  // First published 2026-07-22 (@scopelock/{core,cli,mcp}@0.1.0-beta.1);
-  // READMEs must not regress to claiming the package isn't published yet.
+  // READMEs must not regress to claiming the canonical packages are unavailable.
   const cliReadme = await readFile(resolve(repoRoot, "packages/cli/README.md"), "utf8");
   assert.doesNotMatch(cliReadme, /has not been published to npm yet/);
-  assert.match(cliReadme, /npm install --global @scopelock\/cli@beta/);
+  assert.match(cliReadme, /npm install --global @mindthediff\/cli@beta/);
 
   const mcpReadme = await readFile(resolve(repoRoot, "packages/mcp/README.md"), "utf8");
   assert.doesNotMatch(mcpReadme, /has not been published to npm yet/);
-  assert.match(mcpReadme, /npx --yes @scopelock\/mcp@beta/);
+  assert.match(mcpReadme, /npx --yes @mindthediff\/mcp@beta/);
 });
 
 test("packed production audit fails closed on unsupported output", () => {

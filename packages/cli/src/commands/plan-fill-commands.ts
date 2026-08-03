@@ -10,7 +10,7 @@ import {
   writeJsonAtomic,
   type AgentId,
   type AgentPromptContext,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 
 // `plan fill-commands` composes an argv the MindTheDiff runner (`run --plan`)
 // will invoke non-interactively. The runner already owns authoritative

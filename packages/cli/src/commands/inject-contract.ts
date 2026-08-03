@@ -9,8 +9,8 @@ import {
   loadContract,
   renderAgentPrompt,
   scopelockPaths,
-} from "@scopelock/core";
-import type { AgentId } from "@scopelock/core";
+} from "@mindthediff/core";
+import type { AgentId } from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 

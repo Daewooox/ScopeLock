@@ -6,7 +6,7 @@ import {
   schedulePlanSchema,
   type ScopeConflict,
   type TaskScope,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 

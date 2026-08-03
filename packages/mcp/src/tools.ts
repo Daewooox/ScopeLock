@@ -22,7 +22,7 @@ import {
   type ApprovedContract,
   type SchedulePlan,
   type TaskScope,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { join } from "node:path";
 import { z } from "zod/v4";
 

@@ -9,7 +9,7 @@ import {
   loadContract,
   scopelockConfigSchema,
   scopelockPaths,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import type { CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 

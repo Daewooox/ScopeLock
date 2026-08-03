@@ -5,7 +5,7 @@ import {
   loadContract,
   renderAgentPrompt,
   scopelockPaths,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 
 export async function exportPromptCommand(options: {

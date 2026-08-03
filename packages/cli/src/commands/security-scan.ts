@@ -1,4 +1,4 @@
-import { findRepoRoot } from "@scopelock/core";
+import { findRepoRoot } from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { decisionFor } from "../decision-envelope.js";
 import { renderSections } from "../ui.js";

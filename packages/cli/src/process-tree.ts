@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { CommandSpec } from "@scopelock/core";
+import type { CommandSpec } from "@mindthediff/core";
 
 export type TerminationReason = "timeout" | "sigint" | "sigterm" | "second-signal";
 

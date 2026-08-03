@@ -1,4 +1,4 @@
-import { decisionSchema, type Decision } from "@scopelock/core";
+import { decisionSchema, type Decision } from "@mindthediff/core";
 import { normalizeTerminalDetail } from "./ui.js";
 
 const FIX_BY_CODE: Readonly<Record<string, string>> = {

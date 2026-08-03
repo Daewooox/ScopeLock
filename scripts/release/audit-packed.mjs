@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const expectedPackages = new Set(["@scopelock/core", "@scopelock/cli", "@scopelock/mcp"]);
+const expectedPackages = new Set(["@mindthediff/core", "@mindthediff/cli", "@mindthediff/mcp"]);
 
 function option(name, fallback) {
   const index = process.argv.indexOf(name);

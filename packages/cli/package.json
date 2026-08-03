@@ -1,6 +1,6 @@
 {
-  "name": "@scopelock/cli",
-  "version": "0.1.0-beta.4",
+  "name": "@mindthediff/cli",
+  "version": "0.1.0-beta.5",
   "description": "MindTheDiff local guardrails for AI coding agents: approve a scope contract, export prompts, and enforce it with drift checks and editor hooks.",
   "license": "MIT",
   "type": "module",
@@ -75,7 +75,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@scopelock/core": "workspace:^",
+    "@mindthediff/core": "workspace:^",
     "commander": "^15.0.0"
   },
   "devDependencies": {

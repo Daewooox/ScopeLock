@@ -5,7 +5,7 @@ import {
   loadContract,
   scopelockPaths,
   type DriftReport,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections, renderStatusTable, type StatusRow } from "../ui.js";
 import { checkDriftCommand } from "./check-drift.js";

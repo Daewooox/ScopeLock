@@ -53,7 +53,7 @@ async function probeMcp(entrypoint, cwd) {
 const artifactsDir = resolve(repoRoot, option("--artifacts", ".release-artifacts"));
 const outputPath = option("--out", null);
 const manifest = JSON.parse(await readFile(resolve(artifactsDir, "pack-manifest.json"), "utf8"));
-const expectedPackages = new Set(["@scopelock/core", "@scopelock/cli", "@scopelock/mcp"]);
+const expectedPackages = new Set(["@mindthediff/core", "@mindthediff/cli", "@mindthediff/mcp"]);
 if (manifest.packages.length !== expectedPackages.size) throw new Error("release manifest package set is incomplete");
 for (const pkg of manifest.packages) {
   if (!expectedPackages.delete(pkg.name) || pkg.filename !== basename(pkg.filename)) {
@@ -70,12 +70,12 @@ try {
 
   run(
     process.execPath,
-    ["--input-type=module", "-e", "const m=await import('@scopelock/core');if(!m.releaseEvidenceSchema)process.exit(1)"],
+    ["--input-type=module", "-e", "const m=await import('@mindthediff/core');if(!m.releaseEvidenceSchema)process.exit(1)"],
     tempRoot,
   );
-  const cli = resolve(tempRoot, "node_modules/@scopelock/cli/dist/index.js");
+  const cli = resolve(tempRoot, "node_modules/@mindthediff/cli/dist/index.js");
   assertIncludes(run(process.execPath, [cli, "--help"], tempRoot), "Local flight control");
-  const cliPackage = JSON.parse(await readFile(resolve(tempRoot, "node_modules/@scopelock/cli/package.json"), "utf8"));
+  const cliPackage = JSON.parse(await readFile(resolve(tempRoot, "node_modules/@mindthediff/cli/package.json"), "utf8"));
   assert.deepEqual(Object.keys(cliPackage.bin).sort(), ["mindthediff", "scopelock"]);
   const cliBin = (name) => resolve(tempRoot, "node_modules", ".bin", `${name}${process.platform === "win32" ? ".cmd" : ""}`);
   if (process.platform !== "win32") {
@@ -86,7 +86,7 @@ try {
   const fixture = resolve(tempRoot, "fixture");
   run("git", ["init", "-q", fixture], tempRoot);
   run("git", ["config", "user.name", "ScopeLock release smoke"], fixture);
-  run("git", ["config", "user.email", "release-smoke@scopelock.local"], fixture);
+  run("git", ["config", "user.email", "release-smoke@mindthediff.local"], fixture);
   await writeFile(resolve(fixture, "README.md"), "# Release smoke\n");
   run("git", ["add", "README.md"], fixture);
   run("git", ["commit", "-qm", "test: initialize release smoke"], fixture);
@@ -103,9 +103,9 @@ try {
   await writeFile(receipt, '{"schemaVersion":3,"planId":"release-smoke","waves":[],"taskRuns":[]}\n');
   run(process.execPath, [cli, "report", receipt, "--out", report], fixture);
   await access(report);
-  const mcp = resolve(tempRoot, "node_modules/@scopelock/mcp/dist/index.js");
+  const mcp = resolve(tempRoot, "node_modules/@mindthediff/mcp/dist/index.js");
   await probeMcp(mcp, fixture);
-  const mcpPackage = JSON.parse(await readFile(resolve(tempRoot, "node_modules/@scopelock/mcp/package.json"), "utf8"));
+  const mcpPackage = JSON.parse(await readFile(resolve(tempRoot, "node_modules/@mindthediff/mcp/package.json"), "utf8"));
   assert.deepEqual(Object.keys(mcpPackage.bin).sort(), ["mindthediff-mcp", "scopelock-mcp"]);
 
   const globalPrefix = resolve(tempRoot, "global");
@@ -115,7 +115,7 @@ try {
   run(globalInstall.command, globalInstall.args, tempRoot);
   const globalModules =
     process.platform === "win32" ? resolve(globalPrefix, "node_modules") : join(globalPrefix, "lib", "node_modules");
-  const globalCli = resolve(globalModules, "@scopelock/cli/dist/index.js");
+  const globalCli = resolve(globalModules, "@mindthediff/cli/dist/index.js");
   assertIncludes(run(process.execPath, [globalCli, "--help"], tempRoot), "Local flight control");
   const npmVersion = npmInvocation(["--version"]);
   const packageNames = manifest.packages.map((pkg) => pkg.name);
