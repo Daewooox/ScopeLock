@@ -11,7 +11,7 @@ import {
   isRepoRelativeSafe,
   resolveRepoPath,
   toPosix,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 
 // `spawnProcessTree` lives in the CLI package; importing it locally avoids
 // changing core just for an opt-in validation command.

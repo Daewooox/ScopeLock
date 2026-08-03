@@ -8,7 +8,7 @@ import {
   saveContract,
   scopelockPaths,
   writeApprovalSeal,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 

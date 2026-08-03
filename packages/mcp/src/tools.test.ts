@@ -11,7 +11,7 @@ import {
   setActiveContractId,
   writeApprovalSeal,
   type ApprovedContract,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { checkDriftTool, planParallelTool, scopesConflictTool } from "./tools.js";
 
 function git(cwd: string, args: string[]): string {

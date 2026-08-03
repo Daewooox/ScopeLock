@@ -15,7 +15,7 @@ import {
   type PlanValidation,
   type SchedulePlan,
   type ScopeConflict,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections, renderStatusTable, type StatusRow } from "../ui.js";
 import { createNoopReporter } from "../progress/noop-reporter.js";

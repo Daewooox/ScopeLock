@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { headSha } from "@scopelock/core";
+import { headSha } from "@mindthediff/core";
 import {
   parseSensitiveSemgrepOutput,
   runSensitiveAccessScan,

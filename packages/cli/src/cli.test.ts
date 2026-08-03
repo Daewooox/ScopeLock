@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { copyFile, mkdtemp, rm, mkdir, readFile, realpath, symlink, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
-import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@scopelock/core";
+import { approvedContractSchema, scopelockPaths, writeApprovalSeal } from "@mindthediff/core";
 import { findAgentExecutable, setupCommand } from "./commands/setup.js";
 import { packageManagerRunCommand } from "./commands/plan-prepare.js";
 import { runPlanCommand } from "./commands/run-plan.js";

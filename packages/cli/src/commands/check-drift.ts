@@ -12,7 +12,7 @@ import {
   writeJsonAtomic,
   verifyApprovalSeal,
   type ApprovedContract,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CliError, type CommandResult } from "../run.js";

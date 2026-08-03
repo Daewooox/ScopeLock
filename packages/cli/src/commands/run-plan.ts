@@ -42,7 +42,7 @@ import {
   type NormalizedPlanValidation,
   type PreparedPatch,
   WorktreeError,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { checkDriftCommand } from "./check-drift.js";
 import { decisionFor } from "../decision-envelope.js";
 import { CliError, type CommandResult, type ExitCode } from "../run.js";

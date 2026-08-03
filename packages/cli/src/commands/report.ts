@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { platform } from "node:os";
 import { pathToFileURL } from "node:url";
-import { driftReportSchema, type DriftReport } from "@scopelock/core";
+import { driftReportSchema, type DriftReport } from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 import {

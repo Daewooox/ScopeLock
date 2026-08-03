@@ -10,7 +10,7 @@ import {
   probeHookConfig,
   type AgentId,
   type EnforcementMode,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections, renderTable } from "../ui.js";
 import { initCommand } from "./init.js";

@@ -1,10 +1,10 @@
-# @scopelock/core
+# @mindthediff/core
 
 Deterministic contracts, drift checks, scheduling, hook policy, worktree
 isolation, and release-evidence schemas for
 [MindTheDiff](https://github.com/Daewooox/MindTheDiff), a local flight-control
 tool for AI coding agents. This package is the reusable library surface;
-most users should install [`@scopelock/cli`](https://www.npmjs.com/package/@scopelock/cli)
+most users should install [`@mindthediff/cli`](https://www.npmjs.com/package/@mindthediff/cli)
 instead and use `core` only when embedding MindTheDiff's rules in another tool.
 
 ## What's in here
@@ -27,7 +27,7 @@ instead and use `core` only when embedding MindTheDiff's rules in another tool.
 ## Usage
 
 ```ts
-import { approvedContractSchema, buildDriftReport } from "@scopelock/core";
+import { approvedContractSchema, buildDriftReport } from "@mindthediff/core";
 
 const contract = approvedContractSchema.parse(contractJson);
 const report = buildDriftReport({ contract, changedPaths, repoRoot });

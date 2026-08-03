@@ -13,8 +13,10 @@ execution, drift checks, and local evidence. It is not an OS sandbox.
 
 ## Install
 
+For a published beta release:
+
 ```bash
-npm install --global @scopelock/cli@beta
+npm install --global @mindthediff/cli@beta
 mindthediff --help
 ```
 
@@ -25,9 +27,9 @@ installing from the registry, install them directly:
 
 ```bash
 npm install --global --ignore-scripts --no-audit --no-fund \
-  ./scopelock-core-0.1.0-beta.4.tgz \
-  ./scopelock-cli-0.1.0-beta.4.tgz \
-  ./scopelock-mcp-0.1.0-beta.4.tgz
+  ./mindthediff-core-0.1.0-beta.5.tgz \
+  ./mindthediff-cli-0.1.0-beta.5.tgz \
+  ./mindthediff-mcp-0.1.0-beta.5.tgz
 
 mindthediff --help
 ```
@@ -38,7 +40,7 @@ must match the manifest supplied with the bundle.
 To remove the beta:
 
 ```bash
-npm uninstall --global @scopelock/core @scopelock/cli @scopelock/mcp
+npm uninstall --global @mindthediff/core @mindthediff/cli @mindthediff/mcp
 ```
 
 ### Source fallback
@@ -49,7 +51,7 @@ cd MindTheDiff
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build
-pnpm --filter @scopelock/cli link --global
+pnpm --filter @mindthediff/cli link --global
 ```
 
 If `corepack` is unavailable, install `pnpm@10` globally with npm.

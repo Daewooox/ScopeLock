@@ -132,9 +132,9 @@
   also requires `main`, an exact version confirmation, an explicit repository
   enable flag, and `npm-production` environment approval. It stages packages
   for a separate npm 2FA review instead of making them public immediately.
-  The first publication used a separate manual bootstrap; subsequent beta
-  publication can use the protected OIDC workflow. The `@scopelock` package
-  scope is intentionally retained during the MindTheDiff beta migration.
+  The first `@mindthediff/*` publication uses a separate manual bootstrap;
+  subsequent beta publication can use the protected OIDC workflow. The old
+  `@scopelock/*` packages remain available but receive no parallel releases.
 
 ## Current Release Decision
 

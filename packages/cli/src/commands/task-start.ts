@@ -9,7 +9,7 @@ import {
   scopelockPaths,
   writeJsonAtomic,
   type AgentId,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections, renderStatusTable, type StatusRow } from "../ui.js";
 import { approveCommand } from "./approve.js";

@@ -9,9 +9,9 @@ const validEvidence = {
   generatedAt: "2026-07-13T00:00:00.000Z",
   packages: [
     {
-      name: "@scopelock/core",
+      name: "@mindthediff/core",
       version: "0.1.0-beta.1",
-      filename: "scopelock-core-0.1.0-beta.1.tgz",
+      filename: "mindthediff-core-0.1.0-beta.1.tgz",
       sha256: "b".repeat(64),
       sizeBytes: 100,
       fileCount: 10,

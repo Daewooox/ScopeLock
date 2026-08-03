@@ -1,4 +1,4 @@
-import { buildRepoManifest } from "@scopelock/core";
+import { buildRepoManifest } from "@mindthediff/core";
 import type { CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 

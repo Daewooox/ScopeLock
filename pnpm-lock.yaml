@@ -20,7 +20,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@scopelock/core':
+      '@mindthediff/core':
         specifier: workspace:^
         version: link:../core
       commander:
@@ -46,12 +46,12 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@mindthediff/core':
+        specifier: workspace:^
+        version: link:../core
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.4.3)
-      '@scopelock/core':
-        specifier: workspace:^
-        version: link:../core
       zod:
         specifier: ^4.4.3
         version: 4.4.3

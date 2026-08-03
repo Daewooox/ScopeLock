@@ -1,11 +1,9 @@
 # npm beta release runbook
 
-`@scopelock/core`, `@scopelock/cli`, and `@scopelock/mcp` are published to npm
-under the `beta` dist-tag. The current beta is `0.1.0-beta.4`; the first
-bootstrap publication was `0.1.0-beta.1` on 2026-07-22 under npm account
-`daewooox`. This runbook now governs the *next* publication (`beta.5` or
-later); the "First-publication checklist" below is kept as a historical record
-of the completed bootstrap, not a pending task.
+`@mindthediff/core`, `@mindthediff/cli`, and `@mindthediff/mcp` are the
+canonical npm packages. Version `0.1.0-beta.5` is their first release
+candidate. The old `@scopelock/*` packages remain installable during the
+migration but do not receive parallel releases.
 
 ## Current release boundary
 
@@ -18,11 +16,10 @@ separate task explicitly authorizes the release. This boundary applied to
 `beta.1` (completed 2026-07-22) and applies again, unchanged, to every future
 version.
 
-Bootstrap publication (the very first version of each package) could not use
-npm staged publishing, since each package had to already exist before a
-trusted publisher could be configured - that is why it was a manual,
-command-by-command gate. `publish-npm.yml`'s trusted-publisher flow now
-governs every subsequent release.
+Bootstrap publication cannot use npm staged publishing, since each new package
+must exist before a trusted publisher can be configured. Publish the three
+reviewed tarballs manually, one at a time; `publish-npm.yml` governs later
+releases after Trusted Publisher is configured.
 
 ## Maintainer readiness
 
@@ -31,13 +28,12 @@ codes here.
 
 - npm username and verified email confirmed;
 - publishing/settings 2FA enabled and recovery codes stored offline;
-- `@scopelock` ownership and package-creation rights confirmed;
+- `@mindthediff` ownership and package-creation rights confirmed;
 - second owner or documented account-recovery path available;
 - dedicated npm CLI profile selected so work credentials are not overwritten.
 
-Confirmed for the `beta.1` bootstrap (2026-07-22). Reconfirm before any
-future publish if the npm account, 2FA, or scope ownership changes. Any
-missing item is a release blocker.
+Reconfirm before bootstrap and any future publish if the npm account, 2FA, or
+scope ownership changes. Any missing item is a release blocker.
 
 ## Candidate rehearsal
 
@@ -73,13 +69,10 @@ Download its artifacts, compare SHA-256 values independently, and require green
 Linux, macOS, and Windows smoke jobs plus CodeQL and gitleaks. A PR merge ref or
 a different SHA is not valid release evidence.
 
-## First-publication checklist (completed 2026-07-22)
+## First-publication checklist
 
-Kept as a historical record of the `beta.1` bootstrap. For any future
-package that also needs a from-scratch bootstrap (unlikely for `core`/
-`cli`/`mcp`, now that all three exist), the same command-by-command
-discipline applies: run each command separately and read back the result
-before continuing, never as a batch.
+Run each command separately and read back the result before continuing, never
+as a batch.
 
 1. Reconfirm the package names are still available and scope ownership is
    correct.
@@ -87,7 +80,7 @@ before continuing, never as a batch.
    identity:
 
    ```bash
-   export NPM_CONFIG_USERCONFIG="$HOME/.npmrc-scopelock"
+   export NPM_CONFIG_USERCONFIG="$HOME/.npmrc-mindthediff"
    npm login
    npm whoami
    ```
@@ -97,7 +90,7 @@ before continuing, never as a batch.
    tag, then verify its registry metadata and clean install.
 5. Publish the already verified CLI and MCP tarballs one at a time, verifying
    each before continuing.
-6. Confirm the `beta` dist-tag points to `0.1.0-beta.1`; do not rely on
+6. Confirm the `beta` dist-tag points to `0.1.0-beta.5`; do not rely on
    `latest` during beta.
 
 Do not use loops, rebuilt tarballs, a long-lived automation token, or a

@@ -3,7 +3,7 @@ import {
   CONTRACT_SCHEMA_VERSION,
   approvedContractSchema,
   writeJsonAtomic,
-} from "@scopelock/core";
+} from "@mindthediff/core";
 import { CliError, type CommandResult } from "../run.js";
 import { renderSections } from "../ui.js";
 

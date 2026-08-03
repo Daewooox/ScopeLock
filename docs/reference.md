@@ -48,7 +48,8 @@ and reports that Standard or Automation commands can consume directly.
 The canonical public command is `mindthediff`. `scopelock` remains an alias for
 existing scripts and is tested as a compatibility path. The repository is
 hosted as `Daewooox/MindTheDiff`, while `.scopelock`, `SCOPELOCK_*`, and the
-`@scopelock/*` npm package scope remain unchanged during the beta migration.
+legacy executable aliases remain unchanged during the beta migration. New npm
+releases use the canonical `@mindthediff/*` package scope.
 
 ## Guided setup
 
@@ -547,7 +548,7 @@ MindTheDiff includes a narrow stdio MCP server with three tools:
 Run it from source:
 
 ```bash
-pnpm --filter @scopelock/mcp build
+pnpm --filter @mindthediff/mcp build
 node packages/mcp/dist/index.js
 ```
 
@@ -630,8 +631,6 @@ following are true:
 The workflow uses `npm stage publish`, not direct publication. A maintainer
 must review and approve each staged package with npm 2FA before it becomes
 public. npm does not allow staged or trusted publishing for a brand-new
-package, so the first bootstrap publication was a separate manual gate,
-completed 2026-07-22. The `@scopelock` npm scope is created and owned by the
-maintainer (npm account `daewooox`); all three packages are published under
-the `beta` dist-tag at version `0.1.0-beta.4`. This staged-publish workflow
-governs subsequent releases.
+package, so the first `@mindthediff/*` publication uses a separate manual
+bootstrap gate. After that bootstrap, this staged-publish workflow governs
+subsequent releases.

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "mindthediff-npm-scope-beta5",
+  "task": "Migrate canonical npm packages to @mindthediff scope and prepare beta.5",
+  "createdAt": "2026-08-03T09:35:00.000Z",
+  "baseline": {
+    "headSha": "81920c9db3d3cf2e5072c8d402ae910303772dd9",
+    "branch": "release/mindthediff-npm-scope",
+    "capturedAt": "2026-08-03T07:53:59.191Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "packages/*/package.json",
+      "packages/cli/src/**",
+      "packages/mcp/src/**",
+      "packages/core/src/release-evidence.test.ts",
+      "packages/*/README.md",
+      "scripts/release/**",
+      ".github/workflows/test.yml",
+      ".github/workflows/release-readiness.yml",
+      ".github/workflows/publish-npm.yml",
+      "README.md",
+      "CHANGELOG.md",
+      "docs/beta-quickstart.md",
+      "docs/reference.md",
+      "docs/release.md",
+      "release-evidence/README.md",
+      ".scopelock/contracts/mindthediff-npm-scope-beta5.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/schemas/**",
+      "packages/core/src/storage/paths.ts",
+      "packages/core/src/hook/**",
+      "packages/core/src/git/**",
+      ".github/workflows/codeql.yml",
+      ".github/workflows/secret-scan.yml"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [
+    {
+      "level": "medium",
+      "reason": "The new npm scope requires first-publication bootstrap before trusted publisher setup.",
+      "mitigation": "Publish reviewed tarballs sequentially, verify each package, then configure OIDC for later releases."
+    },
+    {
+      "level": "medium",
+      "reason": "Internal imports and packed install paths must move atomically.",
+      "mitigation": "Require workspace tests, release rehearsal, and clean packed-install smoke before merge."
+    }
+  ],
+  "tests": [
+    {
+      "type": "integration",
+      "command": "pnpm release:rehearse",
+      "required": true
+    }
+  ],
+  "assumptions": [
+    "npm organization mindthediff exists and is owned by the maintainer"
+  ],
+  "openQuestions": []
+}

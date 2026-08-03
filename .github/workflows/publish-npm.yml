@@ -83,6 +83,6 @@ jobs:
           path: .release-artifacts
       - name: Stage packages through npm Trusted Publishing
         run: |
-          npm stage publish .release-artifacts/scopelock-core-${{ inputs.version }}.tgz --access public --tag beta
-          npm stage publish .release-artifacts/scopelock-cli-${{ inputs.version }}.tgz --access public --tag beta
-          npm stage publish .release-artifacts/scopelock-mcp-${{ inputs.version }}.tgz --access public --tag beta
+          npm stage publish .release-artifacts/mindthediff-core-${{ inputs.version }}.tgz --access public --tag beta
+          npm stage publish .release-artifacts/mindthediff-cli-${{ inputs.version }}.tgz --access public --tag beta
+          npm stage publish .release-artifacts/mindthediff-mcp-${{ inputs.version }}.tgz --access public --tag beta

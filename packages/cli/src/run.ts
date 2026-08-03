@@ -25,7 +25,7 @@ export type CommandResult = {
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatZodError, type Decision } from "@scopelock/core";
+import { formatZodError, type Decision } from "@mindthediff/core";
 import { renderDecision } from "./decision-envelope.js";
 import { confirmPrompt, type PromptOptions } from "./prompts.js";
 

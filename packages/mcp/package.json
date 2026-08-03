@@ -1,6 +1,6 @@
 {
-  "name": "@scopelock/mcp",
-  "version": "0.1.0-beta.4",
+  "name": "@mindthediff/mcp",
+  "version": "0.1.0-beta.5",
   "description": "MCP stdio server for MindTheDiff's narrow planning and drift-verification tools.",
   "license": "MIT",
   "type": "module",
@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@scopelock/core": "workspace:^",
+    "@mindthediff/core": "workspace:^",
     "zod": "^4.4.3"
   }
 }
