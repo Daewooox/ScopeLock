@@ -103,6 +103,8 @@ pnpm@10` directly.
 
 ## Install
 
+Published beta releases install with:
+
 ```bash
 npm install --global @mindthediff/cli@beta
 ```
@@ -185,7 +187,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Canonical packages: `@mindthediff/core`, `@mindthediff/cli`, `@mindthediff/mcp` on the `beta` dist-tag |
+| npm distribution | Prepared canonical packages: `@mindthediff/core`, `@mindthediff/cli`, `@mindthediff/mcp`; registry availability follows the beta.5 bootstrap |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for

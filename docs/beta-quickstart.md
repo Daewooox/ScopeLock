@@ -13,6 +13,8 @@ execution, drift checks, and local evidence. It is not an OS sandbox.
 
 ## Install
 
+For a published beta release:
+
 ```bash
 npm install --global @mindthediff/cli@beta
 mindthediff --help

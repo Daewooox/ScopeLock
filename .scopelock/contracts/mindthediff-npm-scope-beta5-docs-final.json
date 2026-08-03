@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "mindthediff-npm-scope-beta5-docs-final",
+  "task": "Finalize truthful npm scope migration documentation",
+  "createdAt": "2026-08-03T11:23:00.000Z",
+  "baseline": {
+    "headSha": "5867de8d19b005408b6b1cb0a7a7070b30f516b6",
+    "branch": "release/mindthediff-npm-scope",
+    "capturedAt": "2026-08-03T08:22:56.799Z"
+  },
+  "targetAgents": [
+    "codex"
+  ],
+  "scope": {
+    "plannedPathPatterns": [
+      "README.md",
+      "packages/cli/README.md",
+      "packages/mcp/README.md",
+      "docs/beta-quickstart.md",
+      "THREAT-MODEL.md",
+      ".scopelock/contracts/mindthediff-npm-scope-beta5-review-fixes.json",
+      ".scopelock/contracts/mindthediff-npm-scope-beta5-docs-final.json"
+    ],
+    "forbiddenPathPatterns": [
+      "packages/core/src/**",
+      "packages/cli/src/**",
+      "packages/mcp/src/**",
+      ".github/workflows/**",
+      "scripts/**"
+    ],
+    "allowAllPaths": false,
+    "readPathPatterns": []
+  },
+  "nodes": [],
+  "risks": [
+    {
+      "level": "low",
+      "reason": "Documentation must not claim unpublished packages are already available.",
+      "mitigation": "Use wording that remains true before and after bootstrap publication."
+    }
+  ],
+  "tests": [],
+  "assumptions": [],
+  "openQuestions": []
+}

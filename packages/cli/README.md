@@ -5,6 +5,8 @@ The command-line interface for
 coding agents: define what an agent may change, coordinate overlapping
 tasks, block scope drift, and keep a verifiable receipt of the result.
 
+Published beta releases install with:
+
 ```bash
 npm install --global @mindthediff/cli@beta
 ```

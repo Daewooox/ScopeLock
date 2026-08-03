@@ -6,6 +6,8 @@ coding agents. It exposes deterministic scope-conflict, scheduling, and
 drift-verification tools so an agent can call MindTheDiff directly instead of
 shelling out to the CLI.
 
+Published beta releases run with:
+
 ```bash
 npx --yes @mindthediff/mcp@beta
 ```
