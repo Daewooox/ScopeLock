@@ -41,7 +41,8 @@ an LLM or cloud service.
 
 The public command is now `mindthediff`. The legacy `scopelock` command remains
 as a compatibility alias during the beta migration. The `.scopelock` state
-directory and `@scopelock/*` npm package scope are intentionally unchanged.
+directory and `SCOPELOCK_*` environment variables are intentionally unchanged.
+The canonical npm packages now use the `@mindthediff/*` scope.
 
 The Guided interface creates the same contracts and reports as the advanced
 commands, but keeps the normal path to three top-level commands:
@@ -103,7 +104,7 @@ pnpm@10` directly.
 ## Install
 
 ```bash
-npm install --global @scopelock/cli@beta
+npm install --global @mindthediff/cli@beta
 ```
 
 See the [beta quick start](docs/beta-quickstart.md) for uninstall and
@@ -117,7 +118,7 @@ cd MindTheDiff
 corepack enable
 pnpm install
 pnpm build
-pnpm --filter @scopelock/cli link --global
+pnpm --filter @mindthediff/cli link --global
 ```
 
 You can now run `mindthediff --help`. To avoid a global link, replace
@@ -184,7 +185,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Published: `@scopelock/core`, `@scopelock/cli`, `@scopelock/mcp` @ 0.1.0-beta.4 on the `beta` dist-tag |
+| npm distribution | Canonical packages: `@mindthediff/core`, `@mindthediff/cli`, `@mindthediff/mcp` on the `beta` dist-tag |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for

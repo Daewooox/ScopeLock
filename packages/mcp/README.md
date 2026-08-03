@@ -1,4 +1,4 @@
-# @scopelock/mcp
+# @mindthediff/mcp
 
 The narrow stdio MCP server for
 [MindTheDiff](https://github.com/Daewooox/MindTheDiff), local flight control for AI
@@ -7,7 +7,7 @@ drift-verification tools so an agent can call MindTheDiff directly instead of
 shelling out to the CLI.
 
 ```bash
-npx --yes @scopelock/mcp@beta
+npx --yes @mindthediff/mcp@beta
 ```
 
 ## Tools
@@ -27,7 +27,7 @@ Claude Code / Cursor-style:
   "mcpServers": {
     "mindthediff": {
       "command": "npx",
-      "args": ["--yes", "@scopelock/mcp@beta"]
+      "args": ["--yes", "@mindthediff/mcp@beta"]
     }
   }
 }
@@ -38,7 +38,7 @@ Codex:
 ```toml
 [mcp_servers.mindthediff]
 command = "npx"
-args = ["--yes", "@scopelock/mcp@beta"]
+args = ["--yes", "@mindthediff/mcp@beta"]
 ```
 
 The server is pinned to the repository where it starts and does not provide

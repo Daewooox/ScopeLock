@@ -1,4 +1,4 @@
-# @scopelock/cli
+# @mindthediff/cli
 
 The command-line interface for
 [MindTheDiff](https://github.com/Daewooox/MindTheDiff), local flight control for AI
@@ -6,7 +6,7 @@ coding agents: define what an agent may change, coordinate overlapping
 tasks, block scope drift, and keep a verifiable receipt of the result.
 
 ```bash
-npm install --global @scopelock/cli@beta
+npm install --global @mindthediff/cli@beta
 ```
 
 ## Quick start

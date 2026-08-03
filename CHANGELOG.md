@@ -2,6 +2,16 @@
 
 All notable changes to MindTheDiff will be documented here.
 
+## 0.1.0-beta.5 - 2026-08-03
+
+- Moved the canonical npm packages to `@mindthediff/core`,
+  `@mindthediff/cli`, and `@mindthediff/mcp`.
+- Kept the legacy `scopelock` and `scopelock-mcp` executable aliases,
+  `.scopelock` state directory, and `SCOPELOCK_*` environment variables for
+  compatibility.
+- Existing `@scopelock/*` packages remain available but are superseded by the
+  new scope.
+
 ## 0.1.0-beta.4 - 2026-08-03
 
 - Renamed the public repository and refreshed package and documentation links
