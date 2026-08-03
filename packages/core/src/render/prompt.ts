@@ -37,9 +37,9 @@ function finalInstruction(context: AgentPromptContext): string {
       + "unapproved files.";
   }
   return "Stay inside the approved scope, write or update the regression tests this change requires, and run them "
-    + "if your harness can execute commands; otherwise give the user the exact command to run. If the ScopeLock "
+    + "if your harness can execute commands; otherwise give the user the exact command to run. If the MindTheDiff "
     + "MCP `check_drift` tool is available, call it before finishing and resolve any violations; otherwise tell "
-    + "the user to run `scopelock check-drift`, and stop to ask when the change appears to require forbidden or "
+    + "the user to run `mindthediff check-drift`, and stop to ask when the change appears to require forbidden or "
     + "unapproved files.";
 }
 
