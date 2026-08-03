@@ -235,7 +235,7 @@ async function streamPatch(input: {
   await mkdir(input.patchDir, { recursive: true, mode: 0o700 });
   const path = resolve(input.patchDir, `${input.worktree.kind}-${input.worktree.id}.patch`);
   if (!isInside(input.patchDir, path)) {
-    throw new WorktreeError("UNSAFE_PATH", "patch path escapes its ScopeLock directory");
+    throw new WorktreeError("UNSAFE_PATH", "patch path escapes its managed directory");
   }
   const handle = await open(path, "wx", 0o600);
   const child = spawn(
@@ -463,7 +463,7 @@ export async function removeIsolatedWorktree(input: {
     !isInside(input.worktree.tempRoot, path) ||
     !basename(input.worktree.tempRoot).startsWith("scopelock-isolate-")
   ) {
-    throw new WorktreeError("UNSAFE_PATH", "refusing to remove a non-ScopeLock worktree path");
+    throw new WorktreeError("UNSAFE_PATH", "refusing to remove an unmanaged worktree path");
   }
   const registered = await registeredWorktreePaths(input.repoRoot, input.timeoutMs);
   if (!registered.has(await canonicalIfPresent(path))) {

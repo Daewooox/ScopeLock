@@ -63,10 +63,11 @@ describe("prompt rendering", () => {
     // agent must hand exact commands to the user when execution is not.
     assert.match(prompt, /if (your harness (can|provides)|available)/i);
     assert.match(prompt, /give the user the exact command/i);
-    // check_drift is only called if the ScopeLock MCP tool is present; the
+    // check_drift is only called if the MindTheDiff MCP tool is present; the
     // CLI fallback must be named explicitly for when it isn't.
     assert.match(prompt, /check_drift/);
-    assert.match(prompt, /scopelock check-drift/i);
+    assert.match(prompt, /MindTheDiff MCP/);
+    assert.match(prompt, /mindthediff check-drift/i);
     assert.match(prompt, /stop to ask/);
   });
 

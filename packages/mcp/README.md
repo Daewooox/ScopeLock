@@ -25,7 +25,7 @@ Claude Code / Cursor-style:
 ```json
 {
   "mcpServers": {
-    "scopelock": {
+    "mindthediff": {
       "command": "npx",
       "args": ["--yes", "@scopelock/mcp@beta"]
     }
@@ -36,7 +36,7 @@ Claude Code / Cursor-style:
 Codex:
 
 ```toml
-[mcp_servers.scopelock]
+[mcp_servers.mindthediff]
 command = "npx"
 args = ["--yes", "@scopelock/mcp@beta"]
 ```

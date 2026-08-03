@@ -664,7 +664,7 @@ describe("guided task start", () => {
       assert.match(finished.human ?? "", /Tests executed  no/);
       const data = finished.data as { htmlPath: string; summary: { allowed: number } };
       assert.equal(data.summary.allowed, 2);
-      assert.match(await readFile(data.htmlPath, "utf8"), /ScopeLock Drift Report/);
+      assert.match(await readFile(data.htmlPath, "utf8"), /MindTheDiff Drift Report/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -5875,7 +5875,7 @@ describe("run", () => {
       assert.equal(result.status, 0, result.stdout || result.stderr);
       assert.equal(JSON.parse(result.stdout).data.sourceType, "drift");
       const html = await readFile(reportPath, "utf8");
-      assert.match(html, /ScopeLock Drift Report/);
+      assert.match(html, /MindTheDiff Drift Report/);
       assert.match(html, /task&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
       assert.match(html, /src\/&lt;unsafe&gt;\.ts/);
       assert.doesNotMatch(html, /Execution Sequence|Passed tasks|<script>alert/);
@@ -5904,7 +5904,7 @@ describe("run", () => {
       assert.equal(result.status, 0, result.stdout || result.stderr);
       const html = await readFile(reportPath, "utf8");
       assert.match(html, /writer, reader/);
-      assert.doesNotMatch(html, /<title>ScopeLock Drift Report - writer<\/title>/);
+      assert.doesNotMatch(html, /<title>MindTheDiff Drift Report - writer<\/title>/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

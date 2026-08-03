@@ -64,7 +64,7 @@ export function buildDriftReport(input: {
       type: "repo_mode",
       path: null,
       message:
-        "repository has too many changed files; ScopeLock used degraded checks",
+        "repository has too many changed files; MindTheDiff used degraded checks",
     });
   }
 
@@ -142,7 +142,7 @@ export function buildMultiContractDriftReport(input: {
       type: "repo_mode",
       path: null,
       message:
-        "repository has too many changed files; ScopeLock used degraded checks",
+        "repository has too many changed files; MindTheDiff used degraded checks",
     });
   }
 

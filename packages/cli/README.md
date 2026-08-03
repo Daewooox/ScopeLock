@@ -12,11 +12,11 @@ npm install --global @scopelock/cli@beta
 ## Quick start
 
 ```bash
-scopelock setup
-scopelock task start "Add a dark mode toggle" --agent claude
+mindthediff setup
+mindthediff task start "Add a dark mode toggle" --agent claude
 
 # Let the agent work, then verify the repository evidence
-scopelock task finish --open
+mindthediff task finish --open
 ```
 
 `task start` reviews and approves the change boundary but never starts an
@@ -25,8 +25,8 @@ decisions. `task finish` checks drift against the approved boundary and
 renders a local HTML Flight Report; it does not run the tests named in the
 contract.
 
-For coordinating several agents on non-overlapping tasks, see `scopelock plan
-prepare` and `scopelock run` in the
+For coordinating several agents on non-overlapping tasks, see `mindthediff plan
+prepare` and `mindthediff run` in the
 [CLI reference](https://github.com/Daewooox/MindTheDiff/blob/main/docs/reference.md).
 
 This tool is a guardrail, not an OS sandbox: it protects against accidental

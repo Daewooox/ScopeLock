@@ -188,7 +188,7 @@ export async function doctorCommand(cwd: string = process.cwd()): Promise<Comman
                   `${target}-hooks`,
                   "error",
                   `cannot read hook config: ${error instanceof Error ? error.message : String(error)}`,
-                  "fix hook JSON before installing ScopeLock hooks",
+                  "fix hook JSON before installing MindTheDiff hooks",
                 ),
           );
         }

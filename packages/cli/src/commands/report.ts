@@ -96,7 +96,7 @@ function renderDriftHtml(report: DriftReport, reportPath: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ScopeLock Drift Report - ${escapeHtml(contractLabel)}</title>
+<title>MindTheDiff Drift Report - ${escapeHtml(contractLabel)}</title>
 <style>
 :root { color-scheme: light; --ink:#18202a; --muted:#637083; --line:#d9e1ea; --good:#127a52; --warn:#a86200; --bad:#b42318; --panel:#f7f9fb; }
 * { box-sizing: border-box; }
@@ -122,7 +122,7 @@ summary { cursor:pointer; font-weight:700; }
 </head>
 <body><main>
   <header>
-    <div class="eyebrow">ScopeLock Drift Report</div>
+    <div class="eyebrow">MindTheDiff Drift Report</div>
     <h1>${escapeHtml(contractLabel)}: <span class="${clean ? "good" : "warn"}">${clean ? "Cleared" : "Attention"}</span></h1>
     <div class="meta">${escapeHtml(report.checkedAt)} · ${escapeHtml(reportPath)}</div>
   </header>
