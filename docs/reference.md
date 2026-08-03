@@ -630,7 +630,8 @@ following are true:
 
 The workflow uses `npm stage publish`, not direct publication. A maintainer
 must review and approve each staged package with npm 2FA before it becomes
-public. npm does not allow staged or trusted publishing for a brand-new
-package, so the first `@mindthediff/*` publication uses a separate manual
-bootstrap gate. After that bootstrap, this staged-publish workflow governs
-subsequent releases.
+public. The first `@mindthediff/*` publication used a separate manual
+bootstrap gate; subsequent releases use this protected OIDC staged-publishing
+workflow. New users should install `@mindthediff/cli@beta`. The `scopelock`
+and `scopelock-mcp` commands remain legacy aliases, while `.scopelock` and
+`SCOPELOCK_*` remain compatibility identifiers.

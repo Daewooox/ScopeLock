@@ -187,7 +187,7 @@ current configuration.
 | Cursor hook | Audit-only |
 | Isolated multi-agent execution | Pilot: Claude, Codex, and Cursor probes passed |
 | Receipts and local Flight Report | Pilot |
-| npm distribution | Prepared canonical packages: `@mindthediff/core`, `@mindthediff/cli`, `@mindthediff/mcp`; registry availability follows the beta.5 bootstrap |
+| npm distribution | Published beta: `@mindthediff/core`, `@mindthediff/cli`, and `@mindthediff/mcp` at `0.1.0-beta.5` |
 
 `pilot` means implemented and exercised, not a production stability promise.
 See the [release-readiness reference](docs/reference.md#release-readiness) for
